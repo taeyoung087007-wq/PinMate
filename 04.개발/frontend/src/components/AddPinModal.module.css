@@ -1,0 +1,228 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 100;
+  padding: 0 16px 16px;
+}
+
+@media (min-width: 600px) {
+  .overlay {
+    align-items: center;
+    padding: 24px;
+  }
+}
+
+.modal {
+  width: 100%;
+  max-width: 480px;
+  overflow: hidden;
+  border-radius: var(--radius-xl) !important;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 0;
+  flex-shrink: 0;
+}
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Search step */
+.searchField {
+  position: relative;
+  padding: 16px 20px 12px;
+  flex-shrink: 0;
+}
+.searchIcon {
+  position: absolute;
+  left: 32px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+.searchInput {
+  width: 100%;
+  padding: 11px 14px 11px 36px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: var(--font-base);
+  outline: none;
+  transition: border-color var(--transition);
+}
+.searchInput:focus { border-color: var(--primary); }
+.searchInput::placeholder { color: var(--text-muted); }
+
+.customAddBanner {
+  margin: 0 20px 12px;
+  padding: 12px 16px;
+  background: rgba(108, 99, 255, 0.1);
+  border: 1px dashed var(--primary);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all var(--transition);
+  color: var(--text-primary);
+  text-align: left;
+}
+.customAddBanner:hover {
+  background: rgba(108, 99, 255, 0.2);
+  transform: translateY(-1px);
+}
+.customAddText {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.customAddText strong {
+  color: var(--primary-light);
+}
+
+.emptyNotice {
+  padding: 32px 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+
+.resultList {
+  overflow-y: auto;
+  padding: 4px 0 20px;
+}
+.resultItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition);
+  font-family: var(--font-base);
+}
+.resultItem:hover { background: var(--bg-hover); }
+.resultEmoji { font-size: 22px; flex-shrink: 0; }
+.resultInfo { flex: 1; min-width: 0; text-align: left; }
+.resultName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.resultAddress {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Detail step */
+.detailForm {
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.selectedPlace {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  background: var(--bg-elevated);
+  border: 1px solid rgba(108,99,255,0.25);
+  border-radius: var(--radius-md);
+}
+.selectedName {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.selectedAddr {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.catGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.catOption {
+  padding: 8px 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-base);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.catOption:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.catOptionActive {
+  background: var(--primary-glow);
+  border-color: rgba(108,99,255,0.4);
+  color: var(--primary-light);
+}
+
+.textarea {
+  resize: none;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
