@@ -1,21 +1,34 @@
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Node
-node_modules/
+# Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-dist/
+pnpm-debug.log*
 
-# IDE
+# Node dependencies
+node_modules/
+dist/
+dist-ssr/
+build/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE & OS
+.DS_Store
+.AppleDouble
+.LSOverride
 .vscode/
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
+*.suo
 
-# Environment
-.env
-.env.local
+# Temporary files
+*.local
+.cache/
+.oxlint-cache

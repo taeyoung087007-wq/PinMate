@@ -1,4 +1,4 @@
-# 📍 PinMate (핀메이트) 개발 가이드
+# 📍 PinMate (핀메이트)
 
 > **"친구들과 모임을 만들고, 각자 추천하는 장소를 하나의 지도에 모아보는 실시간 장소 공유 웹 서비스"**
 
@@ -27,23 +27,20 @@
 
 ```text
 PinMate/
-├── 01.기획/                  # 기획 개요 및 기능 정의서 (F-35 ~ F-65)
-├── 02.설계/                  # 시스템 아키텍처, ERD, API 설계
-├── 03.디자인/                # 화면 설계 및 UI 에셋
-└── 04.개발/                  # 실제 구현 소스 코드
-    ├── README.md             # [본 문서] 개발 종합 가이드
-    ├── frontend/             # 프론트엔드 (React + Vite + Vanilla CSS)
-    │   ├── src/
-    │   │   ├── components/   # UI 컴포넌트 (지도 캔버스, 핀 상세, 축하 모달 등)
-    │   │   ├── pages/        # 페이지 (AuthPage, TeamsPage, MapPage)
-    │   │   ├── services/     # 데이터 저장소(storage.js) & API 통신(api.js)
-    │   │   └── data/         # Mock 데이터 및 카테고리 메타데이터
-    │   └── README.md         # 프론트엔드 상세 가이드
-    └── backend/              # 백엔드 (REST API 스켈레톤 & PostgreSQL DDL)
-        ├── server.js         # 즉시 실행 가능한 Mock REST API 서버
-        ├── schema.sql        # PostgreSQL 테이블 정의서
-        ├── package.json      # 백엔드 실행 스크립트
-        └── README.md         # 백엔드 API 명세 및 DB 가이드
+├── frontend/             # 프론트엔드 웹 애플리케이션 (React 19 + Vite + Vanilla CSS)
+│   ├── src/
+│   │   ├── components/   # UI 컴포넌트 (지도 캔버스, 핀 상세, 축하 모달 등)
+│   │   ├── pages/        # 페이지 (AuthPage, TeamsPage, MapPage)
+│   │   ├── services/     # 데이터 저장소(storage.js) & API 통신(api.js)
+│   │   └── data/         # Mock 데이터 및 카테고리 메타데이터
+│   └── README.md         # 프론트엔드 상세 가이드
+├── backend/              # 백엔드 (REST API 스켈레톤 & PostgreSQL DDL)
+│   ├── server.js         # 즉시 실행 가능한 Mock REST API 서버
+│   ├── schema.sql        # PostgreSQL 테이블 정의서
+│   ├── package.json      # 백엔드 실행 스크립트
+│   └── README.md         # 백엔드 API 명세 및 DB 가이드
+├── .gitignore            # Git 형상관리 제외 설정
+└── README.md             # [본 문서] 프로젝트 종합 가이드
 ```
 
 ---
@@ -52,7 +49,7 @@ PinMate/
 
 | 영역 | 선정 기술 | 비고 |
 | :--- | :--- | :--- |
-| **프론트엔드** | React 18, Vite | 고성능 SPA, HMR 지원 |
+| **프론트엔드** | React 19, Vite | 고성능 SPA, HMR 지원 |
 | **스타일링** | Vanilla CSS (CSS Modules) | 프리미엄 다크 글래스모피즘 디자인 시스템 |
 | **아이콘** | Lucide React | 모던 벡터 아이콘 셋 |
 | **지도 엔진** | HTML5 Canvas 2D | 네이버 지도 API 연동 전 자체 가상 지도 렌더러 |
@@ -65,14 +62,14 @@ PinMate/
 
 ### 프론트엔드 실행
 ```bash
-cd PinMate/04.개발/frontend
-npm install   # (최초 1회, 이미 설치되어 있음)
+cd frontend
+npm install   # 의존성 패키지 설치
 npm run dev   # 개발 서버 실행 (기본 포트: http://localhost:5173)
 ```
 
 ### 백엔드 Mock API 서버 실행 (선택 사항)
 ```bash
-cd PinMate/04.개발/backend
+cd backend
 npm start     # 별도 설치 없이 node server.js로 실행 (포트: 4000)
 ```
 > **안내**: 백엔드 서버를 켜지 않아도 프론트엔드의 `LocalStorage` 기반 데이터 영속성 엔진이 자동으로 동작하여 장소 추가, 추천, 팀 생성 등이 모두 브라우저에 실시간 유지됩니다.
