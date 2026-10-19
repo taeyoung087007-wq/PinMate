@@ -198,7 +198,8 @@
 /* Stats overlay */
 .statsOverlay {
   position: absolute;
-  bottom: 16px;
+  /* 좌하단은 네이버 지도 로고 자리라 그 위로 올린다 */
+  bottom: 60px;
   left: 16px;
   display: flex;
   align-items: center;
