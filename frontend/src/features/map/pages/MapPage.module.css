@@ -1,0 +1,225 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg-base);
+  overflow: hidden;
+}
+
+/* Top bar */
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  z-index: 10;
+  flex-shrink: 0;
+}
+.backBtn {
+  flex-shrink: 0;
+  font-size: 13px;
+  gap: 6px;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+}
+.topCenter {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.teamName {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.memberPills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.memberPill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-base);
+}
+.memberPill:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+.memberPillActive {
+  background: rgba(0,0,0,0.15);
+}
+.memberDot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.approvedActive {
+  border-color: rgba(255,186,8,0.5) !important;
+  background: rgba(255,186,8,0.1) !important;
+}
+
+/* Category bar */
+.categoryBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  z-index: 9;
+}
+.categoryScroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  flex: 1;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.categoryScroll::-webkit-scrollbar { display: none; }
+
+.catBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition);
+  font-family: var(--font-base);
+}
+.catBtn:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+.catBtnActive {
+  background: var(--primary-glow);
+  border-color: rgba(108,99,255,0.4);
+  color: var(--primary-light);
+}
+.catCount {
+  background: var(--bg-hover);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Map search */
+.mapSearch {
+  position: relative;
+  flex-shrink: 0;
+}
+.mapSearchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+.mapSearchInput {
+  padding: 7px 10px 7px 30px;
+  width: 180px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-base);
+  outline: none;
+  transition: border-color var(--transition), width var(--transition);
+}
+.mapSearchInput:focus {
+  border-color: var(--primary);
+  width: 220px;
+}
+.mapSearchInput::placeholder { color: var(--text-muted); }
+.mapSearchClear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+/* Map area */
+.errorBanner {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--danger);
+  background: rgba(18, 19, 31, 0.85);
+}
+
+.mapArea {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Stats overlay */
+.statsOverlay {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: rgba(18, 19, 31, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  z-index: 5;
+}
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.statDivider {
+  width: 1px;
+  height: 12px;
+  background: var(--border);
+}

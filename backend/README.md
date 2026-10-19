@@ -1,68 +1,84 @@
 # ⚙️ PinMate 백엔드 (Backend)
 
-PinMate 서비스의 데이터 모델링(PostgreSQL DDL) 및 REST API 서버 아키텍처 가이드입니다.
+Spring Boot 4.1 (Spring MVC) + MyBatis + PostgreSQL + Flyway 기반 REST API 서버의 기본 골격입니다.
+현재 API는 헬스체크(`GET /api/health`)뿐입니다.
 
 ---
 
 ## 📁 디렉토리 구조
 
+[Spring Boot 공식 문서의 권장 구조](https://docs.spring.io/spring-boot/reference/using/structuring-your-code.html)처럼 메인 클래스를 루트 패키지에 두고, 그 아래를 **기능(도메인)별 패키지**로 나눕니다.
+
 ```text
 backend/
-├── schema.sql        # PostgreSQL 테이블 DDL 스크립트 (ERD 설계 반영)
-├── server.js         # Zero-Dependency 초경량 Mock API 서버 (포트: 4000)
-├── package.json      # 백엔드 스크립트 정의
-└── README.md         # [본 문서] 백엔드 개발 및 API 명세 가이드
+├── pom.xml                         # Maven 설정 (mvnw로 실행, Maven 별도 설치 불필요)
+└── src/main/
+    ├── java/com/pinmate/
+    │   ├── PinmateApplication.java # 메인 클래스 (루트 패키지 = 컴포넌트 스캔 범위)
+    │   └── common/                 # 공통 응답 형식(ApiResponse), 예외 처리, 헬스체크
+    └── resources/
+        ├── application.yml         # 공통 설정 (DB 접속 정보는 환경변수)
+        ├── application-local.yml   # 로컬 개발 설정 (기본 프로파일)
+        ├── mapper/                 # MyBatis SQL XML
+        └── db/
+            ├── migration/          # Flyway 스키마 마이그레이션 (모든 환경)
+            └── seed/               # 개발용 시드 데이터 (local 프로파일에서만 적용)
 ```
+
+### 기능 추가 방법 (예: 팀)
+
+```text
+java/com/pinmate/team/
+├── TeamController.java    # @RestController, 요청/응답만 담당
+├── TeamService.java       # 비즈니스 로직, @Transactional
+├── TeamMapper.java        # @Mapper 인터페이스
+└── Team.java              # 조회 결과 / 요청 DTO
+resources/mapper/TeamMapper.xml   # namespace="com.pinmate.team.TeamMapper"
+resources/db/migration/V1__create_team.sql
+```
+
+- 한 기능의 코드는 한 패키지에 모읍니다. 세 명이 기능을 나눠 맡으면 같은 파일을 동시에 고칠 일이 줄어듭니다.
+- 응답은 `ApiResponse.ok(data)`로 감쌉니다. 실패는 `ResponseStatusException`을 던지면 `ApiExceptionHandler`가 `{"success": false, "message"}`로 바꿉니다.
 
 ---
 
-## 🚀 빠른 실행
-
-별도의 npm 패키지 설치 없이 Node.js 표준 라이브러리만으로 즉시 구동됩니다:
+## 🚀 로컬 실행
 
 ```bash
-# 서버 실행 (포트 4000)
-npm start
+# 1. 프로젝트 루트에서 PostgreSQL 실행 (Docker 필요, 호스트 포트 5433)
+docker compose up -d
 
-# 코드 변경 감지 모드 (Node 18+)
-npm run dev
+# 2. backend 폴더에서 서버 실행 (포트 8080, local 프로파일)
+./mvnw spring-boot:run        # Windows CMD/PowerShell: mvnw.cmd spring-boot:run
+
+# 3. 확인
+curl http://localhost:8080/api/health
 ```
 
-서버가 실행되면 다음 엔드포인트로 즉시 통신할 수 있습니다:
-- **헬스 체크**: `http://localhost:4000/api/health`
-- **팀 목록**: `http://localhost:4000/api/teams`
-- **핀 목록**: `http://localhost:4000/api/pins?teamId=team-1`
+- 서버가 시작될 때 Flyway가 아직 적용되지 않은 마이그레이션을 자동 실행합니다.
+- DB를 처음 상태로 되돌리려면: `docker compose down -v` 후 다시 `up -d`
 
 ---
 
-## 📡 REST API 엔드포인트 명세서
+## 🗄️ 스키마 변경 규칙 (Flyway)
 
-### 1. 팀 관련 API
-| 메서드 | 엔드포인트 | 설명 | 요청 본문 (JSON) | 응답 예시 |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/teams` | 사용자가 소속된 팀 목록 조회 | 없음 | `{"success": true, "data": [...]}` |
-| `POST` | `/api/teams` | 새 팀 생성 | `{"name": "성수 카페 투어"}` | `{"success": true, "data": { "id": "team-...", ... }}` |
+1. 파일 이름: `V<번호>__<설명>.sql` (예: `V1__create_users.sql`, 밑줄 2개)
+2. **이미 커밋된 `V*.sql` 파일은 절대 수정하지 않습니다.** 수정하면 다른 팀원의 DB에서 체크섬 오류가 납니다. 변경은 새 번호의 파일로 추가합니다.
+3. 버전 번호가 겹치지 않도록 새 마이그레이션을 만들기 전에 최신 main을 받습니다.
+4. 시드 데이터는 `db/seed/R__dev_seed.sql`처럼 Repeatable(`R__`)로 만들고 `ON CONFLICT DO NOTHING`을 붙입니다. 파일이 바뀌면 다시 실행되기 때문입니다.
 
-### 2. 핀(장소) 관련 API
-| 메서드 | 엔드포인트 | 설명 | 요청 본문 (JSON) | 응답 예시 |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/pins?teamId={id}` | 특정 팀의 장소 목록 조회 | 쿼리스트링 `teamId` | `{"success": true, "data": [...]}` |
-| `POST` | `/api/pins` | 팀 지도에 새 장소 등록 | `{"teamId": "...", "name": "...", "lat": 37.56, "lng": 126.97, "category": "food", "memo": "..."}` | `{"success": true, "data": { "id": "pin-...", ... }}` |
-| `POST` | `/api/pins/:id/recommend` | 장소 추천 / 추천 취소 토글 | `{"userId": "user-1"}` | `{"success": true, "data": { "id": "...", "isAllApproved": true, ... }}` |
+> 참고: 이전 프로토타입의 테이블 설계(`schema.sql`)는 git 이력(커밋 `cc392cd`)에 남아 있습니다.
 
 ---
 
-## 🗄️ PostgreSQL 데이터베이스 모델 (schema.sql)
+## 🌐 배포 환경 설정
 
-백엔드 개발자들을 위해 표준 3정규화된 테이블 구조가 `schema.sql`에 정의되어 있습니다:
+`local` 이외의 환경은 환경변수로 설정합니다. 비밀값을 Git에 커밋하지 않습니다.
 
-1. **`users`**: 사용자 계정 (이메일, 닉네임, 아바타 색상)
-2. **`teams`**: 모임 정보 (팀명, 고유 초대 코드, 소유자 ID, 모두인정 기준)
-3. **`team_members`**: 팀-사용자 N:M 매핑 테이블 (역할: OWNER/ADMIN/MEMBER, 팀 내 고유 색상)
-4. **`places`**: 등록된 장소 핀 (팀ID, 장소명, 주소, 카테고리, 위경도 좌표, 최초등록자, 모두인정 여부)
-5. **`place_recommendations`**: 1인 1회 추천 기록 (장소ID, 사용자ID, 한줄코멘트)
-6. **`place_visits`**: 멤버별 실제 방문 확인 기록 (장소ID, 사용자ID, 방문일시)
+| 환경변수 | 예시 |
+| :--- | :--- |
+| `SPRING_PROFILES_ACTIVE` | `prod` |
+| `DB_URL` | `jdbc:postgresql://<host>:5432/pinmate` |
+| `DB_USERNAME` / `DB_PASSWORD` | 운영 DB 계정 |
 
-### Spring Boot JPA 엔티티 구성 시 팁
-- `Place` 엔티티와 `PlaceRecommendation` 엔티티는 `@OneToMany` 관계로 매핑할 수 있습니다.
-- 장소에 추천이 추가될 때, 해당 팀의 활성 멤버 수와 추천인 수를 비교하여 `isAllApproved` 플래그를 업데이트하는 도메인 로직을 `PlaceService`에 작성하면 됩니다.
+운영 프로파일에서는 `db/seed`가 로드되지 않으므로 시드 데이터가 운영 DB에 들어가지 않습니다.
