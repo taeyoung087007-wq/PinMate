@@ -52,7 +52,7 @@ PinMate/
 | **프론트엔드** | React 19, Vite | 고성능 SPA, HMR 지원 |
 | **스타일링** | Vanilla CSS (CSS Modules) | 프리미엄 다크 글래스모피즘 디자인 시스템 |
 | **아이콘** | Lucide React | 모던 벡터 아이콘 셋 |
-| **지도 엔진** | HTML5 Canvas 2D | 네이버 지도 API 연동 전 자체 가상 지도 렌더러 |
+| **지도** | NAVER Maps JavaScript API v3 | `MapCanvas`가 SDK를 감싸고 핀(마커)만 직접 그린다 |
 | **백엔드** | Spring Boot 4.1 (Spring MVC), Java 17 | Maven Wrapper(`mvnw`)로 빌드·실행 |
 | **DB 접근** | MyBatis | SQL은 `resources/mapper/*.xml` |
 | **데이터베이스** | PostgreSQL 16 | 로컬은 Docker, 스키마는 Flyway 마이그레이션으로 관리 |
@@ -61,7 +61,16 @@ PinMate/
 
 ## 4. 빠른 실행 방법
 
-사전 준비: JDK 17+, Node.js, Docker
+사전 준비: JDK 17+, Node.js, Docker, NAVER 지도 Client ID
+
+### 0) 지도 키 설정 (최초 1회, 프론트)
+```bash
+cd frontend
+cp .env.example .env      # Windows: copy .env.example .env
+# .env 파일에 VITE_NAVER_MAP_KEY=<NCP Maps Client ID> 입력
+```
+> Client ID는 브라우저에 노출되는 값이라 프론트 환경변수로 두는 것이 정상입니다. 방어선은 NCP 콘솔에 등록한 도메인 제한입니다. **Client Secret은 프론트에 넣지 마세요** (서버에서 호출하는 Geocoding/Directions용).
+> 키가 없으면 지도 자리에 발급 안내가 표시되고, 나머지 화면은 그대로 동작합니다.
 
 ### 1) 데이터베이스 실행 (프로젝트 루트)
 ```bash

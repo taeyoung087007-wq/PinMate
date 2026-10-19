@@ -1,342 +1,429 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { Plus, Minus, RotateCcw, Compass } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Plus, Minus, RotateCcw, LocateFixed } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
+import { loadNaverMaps, onNaverMapAuthFailure } from '../../../lib/naverMaps'
 import styles from './MapCanvas.module.css'
 
-// 기본 서울 중심 좌표 및 줌 스케일
+// 핀이 하나도 없을 때 보여줄 기본 위치 (서울시청)
 const SEOUL_CENTER = { lat: 37.5665, lng: 126.9780 }
-const ZOOM_BASE_SCALE = 280 // 기본 줌 배율 (화면상 1도당 픽셀)
+const DEFAULT_ZOOM = 14
+const SINGLE_PIN_ZOOM = 16
+const MAX_FIT_ZOOM = 16
+const MY_LOCATION_ZOOM = 16
+
+// 마커 아이콘 기준점: 원형 마커의 중심이 좌표에 오도록
+const PIN_ANCHOR = { x: 17, y: 17 }
 
 /**
- * 위도/경도를 캔버스 2D 픽셀 좌표(x, y)로 투영
+ * 핀 하나를 나타내는 DOM 요소를 만든다.
+ * - HTML 문자열 대신 DOM을 쓰는 이유: 장소명이 사용자 입력이라 문자열 조립 시 이스케이프가 필요해진다
+ * - 마커는 React 트리 밖에 붙으므로 CSS Module 클래스명을 직접 넘긴다
  */
-function latLngToXY(lat, lng, centerLat, centerLng, scale, width, height) {
-  const x = (lng - centerLng) * scale + width / 2
-  const y = -(lat - centerLat) * scale + height / 2
-  return { x, y }
+function createPinElement({ pin, meta, memberColor, isSelected }) {
+  const isGold = Boolean(pin.isAllApproved)
+
+  const wrap = document.createElement('div')
+  wrap.className = [styles.pinWrap, isGold && styles.pinWrapGold, isSelected && styles.pinWrapSelected]
+    .filter(Boolean)
+    .join(' ')
+  wrap.title = pin.name
+
+  const body = document.createElement('div')
+  body.className = styles.pinBody
+  body.style.background = isGold ? '#FFBA08' : meta.color
+  body.textContent = meta.icon
+
+  const label = document.createElement('span')
+  label.className = styles.pinLabel
+  label.textContent = pin.name
+
+  wrap.append(body, label)
+
+  // 추천 수 뱃지 (2명 이상 추천했을 때만)
+  const recommendCount = pin.recommenders?.length ?? 0
+  if (recommendCount > 1) {
+    const badge = document.createElement('span')
+    badge.className = styles.pinBadge
+    badge.style.background = isGold ? '#FFBA08' : memberColor
+    badge.textContent = String(recommendCount)
+    wrap.appendChild(badge)
+  }
+
+  return wrap
+}
+
+// 위치 조회에 걸리는 최대 시간
+const LOCATION_TIMEOUT = 4000
+// 지도 첫 표시를 이만큼까지 기다린다 (권한 응답이 없으면 서울로 먼저 띄우고 나중에 이동)
+const FIRST_PAINT_WAIT = 5000
+
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+/**
+ * 현재 위치를 구한다. 실패(거부·시간초과·미지원)해도 reject하지 않고 null을 준다.
+ * - 첫 진입에는 highAccuracy를 끈다. 켜면 GPS 탐색 때문에 수 초가 걸려 첫 화면이 늦어진다.
+ * - 도시 단위 정확도면 지도 중심을 잡기에 충분하다.
+ * @returns {Promise<{lat: number, lng: number} | null>}
+ */
+function getMyLocation(highAccuracy = false) {
+  return new Promise(resolve => {
+    if (!navigator.geolocation) return resolve(null)
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => resolve({ lat: coords.latitude, lng: coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: highAccuracy, timeout: LOCATION_TIMEOUT, maximumAge: 60000 }
+    )
+  })
+}
+
+/** 현재 위치를 나타내는 파란 점 마커를 만든다 */
+function createMyLocationMarker(maps, map, position) {
+  const dot = document.createElement('div')
+  dot.className = styles.myLocationDot
+  return new maps.Marker({
+    position,
+    map,
+    icon: { content: dot, anchor: new maps.Point(9, 9) },
+    zIndex: 200,
+  })
 }
 
 /**
- * 캔버스 기반 인터랙티브 지도 컴포넌트
- * - 네이버 지도 API 연동 전 가상 지도 엔진 역할
- * - 지도 패닝(드래그), 줌(휠/버튼), 핀 시각화(카테고리/모두인정 골드 마커)
+ * 네이버 지도 기반 지도 컴포넌트
+ * - 지도 생성·이동·줌은 SDK에 맡기고, 이 컴포넌트는 핀(마커)만 그린다
+ * - props: pins(필터링된 핀), members(멤버 색상 조회용), onSelectPin, selectedPin
  */
 export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
-  const canvasRef = useRef(null)
   const containerRef = useRef(null)
-  const [center, setCenter] = useState(SEOUL_CENTER)
-  const [scale, setScale] = useState(ZOOM_BASE_SCALE)
-  const [size, setSize] = useState({ width: 800, height: 600 })
-  const [dragging, setDragging] = useState(false)
-  const dragStart = useRef(null)
-  const [hoveredPin, setHoveredPin] = useState(null)
+  const mapRef = useRef(null)
+  const markersRef = useRef(new Map()) // pinId -> { marker, pin, meta, memberColor }
+  const onSelectRef = useRef(onSelectPin)
+  const hasFitRef = useRef(false) // 최초 1회만 전체 보기
+  const myLocationRef = useRef(null) // 현재 위치 좌표
+  const myLocationMarkerRef = useRef(null) // 현재 위치 마커
+  const pinsRef = useRef(pins) // 위치가 늦게 도착했을 때 핀을 덮지 않도록 확인용
+  const [status, setStatus] = useState('loading') // loading | ready | nokey | error
+  const [errorMessage, setErrorMessage] = useState('')
+  const [locateError, setLocateError] = useState('')
+  const [locating, setLocating] = useState(false) // 위치 조회 중 표시
 
-  // 반응형 리사이즈 감지
+  // 지도 이벤트는 한 번만 등록되므로 최신 콜백을 ref로 참조한다
   useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const ro = new ResizeObserver(entries => {
-      const { width, height } = entries[0].contentRect
-      if (width > 0 && height > 0) {
-        setSize({ width, height })
-      }
-    })
-    ro.observe(el)
-    return () => ro.disconnect()
+    onSelectRef.current = onSelectPin
+  }, [onSelectPin])
+
+  // 인증 실패는 지도가 뜬 뒤에 통지될 수 있다 (도메인 미등록 등)
+  useEffect(
+    () =>
+      onNaverMapAuthFailure(error => {
+        setStatus('error')
+        setErrorMessage(error.message)
+      }),
+    []
+  )
+
+  // 1) 지도 생성 (마운트 시 1회)
+  useEffect(() => {
+    let cancelled = false
+    let resizeObserver = null
+
+    // 위치 조회와 SDK 로드를 동시에 시작한다 (순서대로 하면 체감 대기가 두 배가 된다)
+    const locationPromise = getMyLocation()
+
+    Promise.all([loadNaverMaps(), Promise.race([locationPromise, wait(FIRST_PAINT_WAIT).then(() => null)])])
+      .then(([maps, firstLocation]) => {
+        if (cancelled || !containerRef.current || mapRef.current) return
+
+        const el = containerRef.current
+        el.style.width = '100%'
+        el.style.height = '100%'
+
+        // 위치를 이미 알고 있으면 처음부터 그 자리에서 지도를 만든다 (서울로 떴다가 튀는 현상 방지)
+        const center = firstLocation ?? SEOUL_CENTER
+
+        const map = new maps.Map(el, {
+          center: new maps.LatLng(center.lat, center.lng),
+          zoom: firstLocation ? MY_LOCATION_ZOOM : DEFAULT_ZOOM,
+          minZoom: 6,
+          maxZoom: 21,
+          size: new maps.Size(el.clientWidth, el.clientHeight),
+          zoomControl: false, // 컨트롤은 아래에서 직접 그린다
+          mapTypeControl: false,
+          scaleControl: false,
+          // 지도 로고(좌하단)와 데이터 출처(우하단)는 약관상 유지해야 하므로 기본값 그대로 둔다
+          logoControl: true,
+          mapDataControl: true,
+        })
+
+        mapRef.current = map
+        maps.Event.addListener(map, 'click', () => onSelectRef.current(null))
+        setStatus('ready')
+
+        // 컨테이너 크기가 바뀌면(패널 열림 등) 지도를 다시 그린다
+        resizeObserver = new ResizeObserver(() => {
+          const e = containerRef.current
+          if (!e) return
+          const width = e.clientWidth
+          const height = e.clientHeight
+          if (width > 0 && height > 0) {
+            map.setSize(new maps.Size(width, height))
+          }
+        })
+        resizeObserver.observe(el)
+
+        // 이미 위치를 알고 있으면 파란 점만 찍는다 (중심은 위에서 이미 잡았다)
+        if (firstLocation) {
+          const here = new maps.LatLng(firstLocation.lat, firstLocation.lng)
+          myLocationRef.current = here
+          myLocationMarkerRef.current = createMyLocationMarker(maps, map, here)
+          return
+        }
+
+        // 권한 응답이 늦게 오면 그때 부드럽게 이동한다 (팀 핀이 있으면 핀 우선)
+        locationPromise.then(position => {
+          if (cancelled || !position || pinsRef.current.length > 0) return
+          const here = new maps.LatLng(position.lat, position.lng)
+          myLocationRef.current = here
+          map.morph(here, MY_LOCATION_ZOOM)
+          if (myLocationMarkerRef.current) {
+            myLocationMarkerRef.current.setPosition(here)
+          } else {
+            myLocationMarkerRef.current = createMyLocationMarker(maps, map, here)
+          }
+        })
+      })
+      .catch(error => {
+        if (cancelled) return
+        setStatus(error.code === 'NO_KEY' ? 'nokey' : 'error')
+        setErrorMessage(error.message)
+      })
+
+    return () => {
+      cancelled = true
+      resizeObserver?.disconnect()
+      markersRef.current.clear()
+      mapRef.current?.destroy?.()
+      mapRef.current = null
+      // SDK가 남긴 DOM 정리 (StrictMode 재마운트 대비)
+      if (containerRef.current) containerRef.current.innerHTML = ''
+    }
   }, [])
 
-  // 지도 프레임 렌더링
+  // 2) 핀 목록이 바뀌면 마커를 다시 만든다
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    const { width, height } = size
-    canvas.width = width
-    canvas.height = height
+    const maps = window.naver?.maps
+    const map = mapRef.current
+    if (!maps || !map || status !== 'ready') return
 
-    // 지도 어두운 테마 배경
-    ctx.fillStyle = '#141524'
-    ctx.fillRect(0, 0, width, height)
+    markersRef.current.forEach(({ marker }) => marker.setMap(null))
+    markersRef.current.clear()
 
-    // 도로망 / 한강 등 지형 그래픽 그리기
-    drawMapBackground(ctx, center, scale, width, height)
-
-    // 핀 렌더링 (일반 핀 먼저 -> 선택/호버된 핀 나중에 그려서 위로 올림)
-    const sortedPins = [...pins].sort((a, b) => {
-      const aFocus = (selectedPin?.id === a.id || hoveredPin?.id === a.id) ? 1 : 0
-      const bFocus = (selectedPin?.id === b.id || hoveredPin?.id === b.id) ? 1 : 0
-      return aFocus - bFocus
-    })
-
-    sortedPins.forEach(pin => {
-      const { x, y } = latLngToXY(pin.lat, pin.lng, center.lat, center.lng, scale, width, height)
-      if (x < -50 || x > width + 50 || y < -50 || y > height + 50) return
-
-      const isSelected = selectedPin?.id === pin.id
-      const isHovered = hoveredPin?.id === pin.id
+    pins.forEach(pin => {
       const meta = CATEGORY_META[pin.category] || CATEGORY_META.etc
       const memberColor = members.find(m => m.id === pin.addedBy)?.avatarColor ?? meta.color
 
-      drawPin(ctx, x, y, pin, meta, memberColor, isSelected || isHovered, pin.isAllApproved)
+      const marker = new maps.Marker({
+        position: new maps.LatLng(pin.lat, pin.lng),
+        map,
+        title: pin.name,
+        zIndex: pin.isAllApproved ? 50 : 10,
+        icon: {
+          content: createPinElement({ pin, meta, memberColor, isSelected: false }),
+          anchor: new maps.Point(PIN_ANCHOR.x, PIN_ANCHOR.y),
+        },
+      })
+
+      maps.Event.addListener(marker, 'click', () => onSelectRef.current(pin))
+      markersRef.current.set(pin.id, { marker, pin, meta, memberColor })
     })
-  }, [pins, center, scale, size, selectedPin, hoveredPin, members])
+  }, [pins, members, status])
 
-  // 지도 배경 그리드 및 랜드마크 라인
-  function drawMapBackground(ctx, center, scale, width, height) {
-    // 서브 도로 격자선
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)'
-    ctx.lineWidth = 1
+  // 3) 선택된 핀의 강조 표시만 갱신한다 (마커를 다시 만들지 않음)
+  useEffect(() => {
+    const maps = window.naver?.maps
+    if (!maps) return
 
-    const gridGap = 40
-    for (let x = (center.lng * scale) % gridGap; x < width; x += gridGap) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, height)
-      ctx.stroke()
-    }
-    for (let y = (center.lat * scale) % gridGap; y < height; y += gridGap) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(width, y)
-      ctx.stroke()
-    }
+    markersRef.current.forEach((entry, pinId) => {
+      const isSelected = selectedPin?.id === pinId
+      entry.marker.setIcon({
+        content: createPinElement({ ...entry, isSelected }),
+        anchor: new maps.Point(PIN_ANCHOR.x, PIN_ANCHOR.y),
+      })
+      entry.marker.setZIndex(isSelected ? 100 : entry.pin.isAllApproved ? 50 : 10)
+    })
+  }, [selectedPin, pins, members])
 
-    // 주요 간선도로
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)'
-    ctx.lineWidth = 2
-    for (let i = 0; i < 4; i++) {
-      const y = (i / 4) * height
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(width, y)
-      ctx.stroke()
+  // 4) 핀이 처음 들어왔을 때 전체가 보이도록 한 번만 맞춘다
+  useEffect(() => {
+    const maps = window.naver?.maps
+    const map = mapRef.current
+    if (!maps || !map || status !== 'ready' || hasFitRef.current || pins.length === 0) return
 
-      const x = (i / 4) * width
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, height)
-      ctx.stroke()
+    hasFitRef.current = true
+    if (pins.length === 1) {
+      map.morph(new maps.LatLng(pins[0].lat, pins[0].lng), SINGLE_PIN_ZOOM)
+      return
     }
 
-    // 서울의 상징 한강 라인 (부드러운 곡선)
-    ctx.strokeStyle = 'rgba(76, 201, 240, 0.16)'
-    ctx.lineWidth = Math.max(14, scale * 0.06)
-    ctx.lineCap = 'round'
-    const riverY = latLngToXY(37.528, 126.978, center.lat, center.lng, scale, width, height).y
-    ctx.beginPath()
-    ctx.moveTo(0, riverY + 15)
-    ctx.bezierCurveTo(width * 0.28, riverY - 30, width * 0.65, riverY + 35, width, riverY - 15)
-    ctx.stroke()
-    ctx.lineWidth = 1
+    const bounds = new maps.LatLngBounds()
+    pins.forEach(pin => bounds.extend(new maps.LatLng(pin.lat, pin.lng)))
+    map.fitBounds(bounds)
+    if (map.getZoom() > MAX_FIT_ZOOM) map.setZoom(MAX_FIT_ZOOM)
+  }, [pins, status])
 
-    // 한강 텍스트 라벨
-    ctx.fillStyle = 'rgba(76, 201, 240, 0.28)'
-    ctx.font = '600 12px Pretendard, sans-serif'
-    ctx.fillText('HAN RIVER · 한강', width * 0.45, riverY + 5)
+  // 5) 목록 패널 등에서 고른 핀이 화면 밖이면 그쪽으로 이동
+  useEffect(() => {
+    const maps = window.naver?.maps
+    const map = mapRef.current
+    if (!maps || !map || !selectedPin) return
+
+    const position = new maps.LatLng(selectedPin.lat, selectedPin.lng)
+    if (!map.getBounds().hasLatLng(position)) map.panTo(position)
+  }, [selectedPin])
+    const moveToMyLocation = useCallback((zoom = MY_LOCATION_ZOOM) => {
+    const maps = window.naver?.maps
+    const map = mapRef.current
+    if (!maps || !map) return
+
+    if (!navigator.geolocation) {
+      setLocateError('이 브라우저에서는 위치 기능을 사용할 수 없습니다.')
+      return
+    }
+
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setLocating(false)
+        setLocateError('')
+        const here = new maps.LatLng(coords.latitude, coords.longitude)
+        myLocationRef.current = here
+        map.morph(here, zoom)
+
+        // 현재 위치 표시 (파란 점)
+        if (myLocationMarkerRef.current) {
+          myLocationMarkerRef.current.setPosition(here)
+          return
+        }
+        const dot = document.createElement('div')
+        dot.className = styles.myLocationDot
+        myLocationMarkerRef.current = new maps.Marker({
+          position: here,
+          map,
+          icon: { content: dot, anchor: new maps.Point(9, 9) },
+          zIndex: 200,
+        })
+      },
+      error => {
+        setLocating(false)
+        setLocateError(
+          error.code === error.PERMISSION_DENIED
+            ? '위치 권한이 거부되었습니다. 주소창의 자물쇠 아이콘에서 허용으로 바꿔주세요.'
+            : '현재 위치를 확인하지 못했습니다.'
+        )
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
+    )
+  }, [])
+
+  // 핀 목록을 ref에도 반영 (위치가 늦게 도착했을 때 핀을 덮지 않기 위한 판단용)
+  useEffect(() => {
+    pinsRef.current = pins
+  }, [pins])
+
+  const changeZoom = delta => {
+    const map = mapRef.current
+    if (map) map.setZoom(map.getZoom() + delta)
   }
 
-  // 핀 그리기 함수
-  function drawPin(ctx, x, y, pin, meta, memberColor, highlight, isAllApproved) {
-    const R = highlight ? 22 : 18
-
-    // 골드 마커 / 하이라이트 발광 효과 (Glow)
-    if (highlight || isAllApproved) {
-      const glow = ctx.createRadialGradient(x, y - R, 0, x, y - R, R * 2.2)
-      const glowColor = isAllApproved ? 'rgba(255, 186, 8,' : 'rgba(108, 99, 255,'
-      glow.addColorStop(0, glowColor + '0.45)')
-      glow.addColorStop(1, glowColor + '0)')
-      ctx.fillStyle = glow
-      ctx.beginPath()
-      ctx.arc(x, y - R, R * 2.2, 0, Math.PI * 2)
-      ctx.fill()
-    }
-
-    // 핀 본체 원형 (모두 인정 시 황금빛 골드, 아니면 카테고리 컬러)
-    ctx.fillStyle = isAllApproved ? '#FFBA08' : meta.color
-    ctx.beginPath()
-    ctx.arc(x, y - R, R, 0, Math.PI * 2)
-    ctx.fill()
-
-    // 핀 꼬리 (아래쪽 뾰족한 부분)
-    ctx.beginPath()
-    ctx.moveTo(x - R * 0.35, y - R * 0.2)
-    ctx.quadraticCurveTo(x, y + R * 0.6, x, y + R * 1.1)
-    ctx.quadraticCurveTo(x, y + R * 0.6, x + R * 0.35, y - R * 0.2)
-    ctx.closePath()
-    ctx.fill()
-
-    // 테두리 외곽선
-    ctx.strokeStyle = isAllApproved ? '#FFF0B3' : (highlight ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)')
-    ctx.lineWidth = highlight ? 2.5 : 1.5
-    ctx.beginPath()
-    ctx.arc(x, y - R, R, 0, Math.PI * 2)
-    ctx.stroke()
-
-    // 카테고리 아이콘 / 이모지
-    ctx.font = `${R * 0.9}px sans-serif`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(meta.icon, x, y - R)
-
-    // 추천 수 뱃지 (2명 이상 추천했을 때)
-    if (pin.recommenders.length > 1) {
-      const bx = x + R * 0.75, by = y - R * 1.75
-      ctx.fillStyle = isAllApproved ? '#FFBA08' : memberColor
-      ctx.beginPath()
-      ctx.arc(bx, by, 9.5, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.strokeStyle = '#FFFFFF'
-      ctx.lineWidth = 1.5
-      ctx.stroke()
-
-      ctx.fillStyle = '#FFFFFF'
-      ctx.font = 'bold 9px sans-serif'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(pin.recommenders.length, bx, by)
-    }
-
-    // 마우스 호버 또는 선택 시 말풍선 라벨
-    if (highlight) {
-      const label = pin.name.length > 15 ? pin.name.slice(0, 14) + '…' : pin.name
-      ctx.font = '600 12px Pretendard, sans-serif'
-      const lw = ctx.measureText(label).width + 20
-      const lx = x - lw / 2
-      const ly = y - R * 2 - 32
-
-      // 말풍선 배경
-      ctx.fillStyle = 'rgba(16, 17, 30, 0.92)'
-      ctx.beginPath()
-      roundRect(ctx, lx, ly, lw, 24, 6)
-      ctx.fill()
-
-      ctx.strokeStyle = isAllApproved ? '#FFBA08' : 'rgba(108, 99, 255, 0.6)'
-      ctx.lineWidth = 1
-      ctx.stroke()
-
-      ctx.fillStyle = '#FFFFFF'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(label, x, ly + 12)
-    }
-  }
-
-  function roundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath()
-    ctx.moveTo(x + r, y)
-    ctx.lineTo(x + w - r, y)
-    ctx.arcTo(x + w, y, x + w, y + r, r)
-    ctx.lineTo(x + w, y + h - r)
-    ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
-    ctx.lineTo(x + r, y + h)
-    ctx.arcTo(x, y + h, x, y + h - r, r)
-    ctx.lineTo(x, y + r)
-    ctx.arcTo(x, y, x + r, y, r)
-    ctx.closePath()
-  }
-
-  // 좌표로 핀 찾기 (히트 테스트)
-  function getPinAtXY(clientX, clientY) {
-    const canvas = canvasRef.current
-    if (!canvas) return null
-    const rect = canvas.getBoundingClientRect()
-    const mx = clientX - rect.left
-    const my = clientY - rect.top
-    const { width, height } = size
-
-    for (let i = pins.length - 1; i >= 0; i--) {
-      const pin = pins[i]
-      const { x, y } = latLngToXY(pin.lat, pin.lng, center.lat, center.lng, scale, width, height)
-      const R = 22
-      const dx = mx - x, dy = my - (y - 18)
-      if (dx * dx + dy * dy <= R * R * 1.5) return pin
-    }
-    return null
-  }
-
-  // 마우스 이동 이벤트
-  const onMouseMove = useCallback((e) => {
-    if (dragging && dragStart.current) {
-      const dx = e.clientX - dragStart.current.x
-      const dy = e.clientY - dragStart.current.y
-      setCenter(prev => ({
-        lat: prev.lat + dy / scale,
-        lng: prev.lng - dx / scale,
-      }))
-      dragStart.current = { x: e.clientX, y: e.clientY }
-    } else {
-      const pin = getPinAtXY(e.clientX, e.clientY)
-      setHoveredPin(pin || null)
-      if (canvasRef.current) {
-        canvasRef.current.style.cursor = pin ? 'pointer' : 'grab'
-      }
-    }
-  }, [dragging, scale, pins, center, size])
-
-  const onMouseDown = (e) => {
-    setDragging(true)
-    dragStart.current = { x: e.clientX, y: e.clientY }
-    if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing'
-  }
-
-  const onMouseUp = (e) => {
-    if (!dragging) return
-    setDragging(false)
-    if (canvasRef.current) canvasRef.current.style.cursor = 'grab'
-    const dx = Math.abs(e.clientX - (dragStart.current?.x ?? e.clientX))
-    const dy = Math.abs(e.clientY - (dragStart.current?.y ?? e.clientY))
-    if (dx < 5 && dy < 5) {
-      const pin = getPinAtXY(e.clientX, e.clientY)
-      onSelectPin(pin || null)
-    }
-    dragStart.current = null
-  }
-
-  // 휠 스크롤 줌
-  const onWheel = (e) => {
-    e.preventDefault()
-    const factor = e.deltaY < 0 ? 1.15 : 0.88
-    setScale(prev => Math.max(80, Math.min(2200, prev * factor)))
-  }
-
-  // 줌 컨트롤 버튼 핸들러
-  const zoomIn = () => setScale(prev => Math.min(2200, prev * 1.3))
-  const zoomOut = () => setScale(prev => Math.max(80, prev * 0.77))
   const resetView = () => {
-    setCenter(SEOUL_CENTER)
-    setScale(ZOOM_BASE_SCALE)
+    const maps = window.naver?.maps
+    const map = mapRef.current
+    if (!maps || !map) return
+
+    if (pins.length === 0) {
+      map.morph(new maps.LatLng(SEOUL_CENTER.lat, SEOUL_CENTER.lng), DEFAULT_ZOOM)
+      return
+    }
+
+    const bounds = new maps.LatLngBounds()
+    pins.forEach(pin => bounds.extend(new maps.LatLng(pin.lat, pin.lng)))
+    map.fitBounds(bounds)
+    if (map.getZoom() > MAX_FIT_ZOOM) map.setZoom(MAX_FIT_ZOOM)
   }
 
   return (
-    <div ref={containerRef} className={styles.canvasContainer}>
-      <canvas
-        ref={canvasRef}
-        className={styles.canvas}
-        onMouseMove={onMouseMove}
-        onMouseDown={onMouseDown}
-        onMouseUp={onMouseUp}
-        onMouseLeave={() => { setDragging(false); setHoveredPin(null) }}
-        onWheel={onWheel}
-      />
+    <div className={styles.mapRoot}>
+      <div ref={containerRef} className={styles.mapContainer} />
 
-      {/* 줌 및 리셋 플로팅 컨트롤 */}
-      <div className={styles.controls}>
-        <button className={styles.controlBtn} onClick={zoomIn} title="확대">
-          <Plus size={16} />
-        </button>
-        <button className={styles.controlBtn} onClick={zoomOut} title="축소">
-          <Minus size={16} />
-        </button>
-        <div className={styles.controlDivider} />
-        <button className={styles.controlBtn} onClick={resetView} title="서울 전체 보기">
-          <RotateCcw size={14} />
-        </button>
-      </div>
+      {status === 'loading' && (
+        <div className={styles.overlay}>
+          <p className={styles.overlayText}>지도를 불러오는 중…</p>
+        </div>
+      )}
 
-      {/* 지도 안내 힌트 */}
-      <div className={styles.guideHint}>
-        <span>드래그로 지도 이동 · 스크롤로 줌</span>
-      </div>
+      {(status === 'nokey' || status === 'error') && (
+        <div className={styles.overlay}>
+          <div className={styles.notice}>
+            <strong className={styles.noticeTitle}>
+              {status === 'nokey' ? '네이버 지도 키가 없습니다' : '지도를 표시하지 못했습니다'}
+            </strong>
+            <p className={styles.noticeText}>{errorMessage}</p>
+            <p className={styles.noticeMeta}>현재 접속 주소: {window.location.origin}</p>
+            {status === 'nokey' && (
+              <ol className={styles.noticeList}>
+                <li>NCP 콘솔에서 Maps(Web Dynamic Map) 활성화 후 Client ID 발급</li>
+                <li>
+                  <code>frontend/.env</code>에 <code>VITE_NAVER_MAP_KEY=발급받은키</code> 추가
+                </li>
+                <li>
+                  콘솔에 <code>http://localhost:5173</code> 도메인 등록
+                </li>
+                <li>개발 서버 재시작</li>
+              </ol>
+            )}
+          </div>
+        </div>
+      )}
+
+      {status === 'ready' && (
+        <>
+          <div className={styles.controlStack}>
+            {/* 네이버 지도처럼 지도 위에 떠 있는 원형 내 위치 버튼 */}
+            <button
+              className={styles.locateBtn}
+              onClick={() => moveToMyLocation()}
+              title="내 위치로 이동"
+              aria-label="내 위치로 이동"
+              disabled={locating}
+            >
+              <LocateFixed size={18} />
+            </button>
+
+            <div className={styles.controls}>
+              <button className={styles.controlBtn} onClick={() => changeZoom(1)} title="확대">
+                <Plus size={16} />
+              </button>
+              <button className={styles.controlBtn} onClick={() => changeZoom(-1)} title="축소">
+                <Minus size={16} />
+              </button>
+              <div className={styles.controlDivider} />
+              <button className={styles.controlBtn} onClick={resetView} title="핀 전체 보기">
+                <RotateCcw size={14} />
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.guideHint}>
+            <span>드래그로 이동 · 스크롤로 확대/축소</span>
+          </div>
+
+          {pins.length === 0 && (
+            <div className={styles.emptyHint}>아직 등록된 장소가 없습니다 · 우측 상단에서 장소를 추가해 보세요</div>
+          )}
+
+          {locateError && <div className={styles.locateError}>{locateError}</div>}
+        </>
+      )}
     </div>
   )
 }
