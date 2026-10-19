@@ -1,0 +1,133 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+
+.modal {
+  width: 100%;
+  max-width: 420px;
+  border-radius: var(--radius-xl) !important;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 0;
+  margin-bottom: 20px;
+}
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Create step */
+.form {
+  padding: 0 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.helpText {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.errorText {
+  font-size: 12px;
+  color: var(--danger);
+  font-weight: 500;
+}
+
+
+/* Invite step */
+.inviteContent {
+  padding: 0 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.teamCreated {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.createdIcon { font-size: 36px; }
+.createdText {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.createdSub {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.linkBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+}
+.linkText {
+  flex: 1;
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--primary-light);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copiedMsg {
+  font-size: 13px;
+  color: var(--success);
+  font-weight: 600;
+  animation: fadeIn 0.3s ease;
+}
+
+.qrPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  background: var(--bg-elevated);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  width: 100%;
+}
+.qrText {
+  font-size: 12px;
+  color: var(--text-muted);
+}

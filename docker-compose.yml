@@ -1,0 +1,16 @@
+# 로컬 개발용 PostgreSQL. 실행: docker compose up -d / 초기화: docker compose down -v
+# 호스트 5432는 로컬에 설치된 PostgreSQL과 겹칠 수 있어 5433을 사용
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: pinmate
+      POSTGRES_USER: pinmate
+      POSTGRES_PASSWORD: pinmate
+    ports:
+      - "5433:5432"
+    volumes:
+      - pinmate-db:/var/lib/postgresql/data
+
+volumes:
+  pinmate-db:

@@ -29,16 +29,16 @@
 PinMate/
 ├── frontend/             # 프론트엔드 웹 애플리케이션 (React 19 + Vite + Vanilla CSS)
 │   ├── src/
-│   │   ├── components/   # UI 컴포넌트 (지도 캔버스, 핀 상세, 축하 모달 등)
-│   │   ├── pages/        # 페이지 (AuthPage, TeamsPage, MapPage)
-│   │   ├── services/     # 데이터 저장소(storage.js) & API 통신(api.js)
-│   │   └── data/         # Mock 데이터 및 카테고리 메타데이터
-│   └── README.md         # 프론트엔드 상세 가이드
-├── backend/              # 백엔드 (REST API 스켈레톤 & PostgreSQL DDL)
-│   ├── server.js         # 즉시 실행 가능한 Mock REST API 서버
-│   ├── schema.sql        # PostgreSQL 테이블 정의서
-│   ├── package.json      # 백엔드 실행 스크립트
-│   └── README.md         # 백엔드 API 명세 및 DB 가이드
+│   │   ├── app/          # 라우팅
+│   │   ├── features/     # 기능별 모듈 (auth, teams, map)
+│   │   ├── components/   # 공용 UI
+│   │   └── lib/          # API 클라이언트 등 공용 유틸
+│   └── README.md         # 프론트엔드 구조 규칙
+├── backend/              # Spring Boot (Spring MVC) + MyBatis + Flyway
+│   ├── src/main/java/    # com.pinmate 아래 기능별 패키지 (현재 common만 존재)
+│   ├── src/main/resources/  # 설정, MyBatis XML, Flyway 마이그레이션·시드
+│   └── README.md         # 백엔드 구조 규칙 및 DB 가이드
+├── docker-compose.yml    # 로컬 개발용 PostgreSQL
 ├── .gitignore            # Git 형상관리 제외 설정
 └── README.md             # [본 문서] 프로젝트 종합 가이드
 ```
@@ -53,26 +53,37 @@ PinMate/
 | **스타일링** | Vanilla CSS (CSS Modules) | 프리미엄 다크 글래스모피즘 디자인 시스템 |
 | **아이콘** | Lucide React | 모던 벡터 아이콘 셋 |
 | **지도 엔진** | HTML5 Canvas 2D | 네이버 지도 API 연동 전 자체 가상 지도 렌더러 |
-| **백엔드** | Node.js (Express 호환) / Spring Boot | 현재 무설치 경량 API 서버 제공, Spring Boot 호환 |
-| **데이터베이스** | PostgreSQL | 관계형 데이터 모델 및 지리정보 확장(PostGIS 준비) |
+| **백엔드** | Spring Boot 4.1 (Spring MVC), Java 17 | Maven Wrapper(`mvnw`)로 빌드·실행 |
+| **DB 접근** | MyBatis | SQL은 `resources/mapper/*.xml` |
+| **데이터베이스** | PostgreSQL 16 | 로컬은 Docker, 스키마는 Flyway 마이그레이션으로 관리 |
 
 ---
 
 ## 4. 빠른 실행 방법
 
-### 프론트엔드 실행
+사전 준비: JDK 17+, Node.js, Docker
+
+### 1) 데이터베이스 실행 (프로젝트 루트)
+```bash
+docker compose up -d   # PostgreSQL (localhost:5433)
+```
+
+### 2) 백엔드 실행
+```bash
+cd backend
+./mvnw spring-boot:run   # http://localhost:8080 (Windows: mvnw.cmd spring-boot:run)
+```
+> 서버 시작 시 Flyway가 마이그레이션과 개발용 시드 데이터를 자동으로 적용합니다. 확인: `curl http://localhost:8080/api/health`
+
+### 3) 프론트엔드 실행
 ```bash
 cd frontend
 npm install   # 의존성 패키지 설치
-npm run dev   # 개발 서버 실행 (기본 포트: http://localhost:5173)
+npm run dev   # http://localhost:5173 (/api 요청은 8080으로 프록시)
 ```
 
-### 백엔드 Mock API 서버 실행 (선택 사항)
-```bash
-cd backend
-npm start     # 별도 설치 없이 node server.js로 실행 (포트: 4000)
-```
-> **안내**: 백엔드 서버를 켜지 않아도 프론트엔드의 `LocalStorage` 기반 데이터 영속성 엔진이 자동으로 동작하여 장소 추가, 추천, 팀 생성 등이 모두 브라우저에 실시간 유지됩니다.
+> **안내**: 데이터는 각자의 로컬 DB에 저장되고, 스키마는 Git의 마이그레이션 파일로 공유합니다.
+> 현재 백엔드는 헬스체크만 있는 골격이라서, 팀·핀 API를 구현하기 전까지 프로토타입 화면에는 "API 요청 실패 (404)"가 표시됩니다.
 
 ---
 
@@ -86,8 +97,8 @@ npm start     # 별도 설치 없이 node server.js로 실행 (포트: 4000)
 - 모바일 반응형 뷰포트 및 터치 인터랙션 최적화
 
 ### 👤 개발자 B (백엔드 API & 데이터베이스 리드)
-- PostgreSQL 데이터베이스 구축 (`schema.sql` 기반 테이블 생성)
-- Spring Boot 또는 Express 기반 CRUD REST API 개발
+- PostgreSQL 스키마를 Flyway 마이그레이션으로 작성 (`backend/src/main/resources/db/migration`)
+- Spring Boot + MyBatis 기반 CRUD REST API 개발
 - 인증/인가 (JWT 토큰 기반 로그인 및 사용자 세션 처리)
 
 ### 👤 개발자 C (실시간 통신 & 장소 검색/외부 API 연동)
@@ -99,6 +110,8 @@ npm start     # 별도 설치 없이 node server.js로 실행 (포트: 4000)
 ---
 
 ## 6. 핵심 기능 및 기획서 매핑
+
+> 구현 현황은 **프론트엔드 UI 프로토타입** 기준입니다. 백엔드 API는 아직 구현되지 않았습니다.
 
 | 기획 번호 | 기능명 | 구현 현황 | 관련 파일 |
 | :--- | :--- | :---: | :--- |

@@ -1,0 +1,8 @@
+# 로컬 개발: 루트의 docker-compose.yml로 띄운 PostgreSQL
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/pinmate
+    username: pinmate
+    password: pinmate
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed
