@@ -27,6 +27,12 @@
 @REM   MVNW_VERBOSE - true: enable verbose log; others: silence the output
 @REM ----------------------------------------------------------------------------
 
+@REM Load local backend environment variables (.env) for Windows runs.
+@SETLOCAL DisableDelayedExpansion
+@IF EXIST "%~dp0.env" (
+  FOR /F "usebackq eol=# delims=" %%A IN ("%~dp0.env") DO @SET "%%A"
+)
+
 @IF "%__MVNW_ARG0_NAME__%"=="" (SET __MVNW_ARG0_NAME__=%~nx0)
 @SET __MVNW_CMD__=
 @SET __MVNW_ERROR__=
