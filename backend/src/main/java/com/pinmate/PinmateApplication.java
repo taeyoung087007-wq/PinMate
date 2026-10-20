@@ -5,7 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-@MapperScan("com.pinmate")
+@MapperScan("com.pinmate.dao")
 public class PinmateApplication {
 
 	public static void main(String[] args) {

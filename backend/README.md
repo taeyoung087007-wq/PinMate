@@ -7,7 +7,7 @@ Spring Boot 4.1 (Spring MVC) + MyBatis + PostgreSQL + Flyway 기반 REST API 서
 
 ## 📁 디렉토리 구조
 
-[Spring Boot 공식 문서의 권장 구조](https://docs.spring.io/spring-boot/reference/using/structuring-your-code.html)처럼 메인 클래스를 루트 패키지에 두고, 그 아래를 **기능(도메인)별 패키지**로 나눕니다.
+[Spring Boot 공식 문서의 권장 구조](https://docs.spring.io/spring-boot/reference/using/structuring-your-code.html)처럼 메인 클래스를 루트 패키지에 두고, 그 아래를 **계층(Layer)별 패키지**로 나눕니다.
 
 ```text
 backend/
@@ -15,11 +15,18 @@ backend/
 └── src/main/
     ├── java/com/pinmate/
     │   ├── PinmateApplication.java # 메인 클래스 (루트 패키지 = 컴포넌트 스캔 범위)
-    │   └── common/                 # 공통 응답 형식(ApiResponse), 예외 처리, 헬스체크
+    │   ├── controller/             # @RestController — 요청/응답만 담당
+    │   ├── service/                # 서비스 인터페이스 (기능 명세)
+    │   │   └── impl/               # 서비스 구현체 (@Service, @Transactional, 비즈니스 로직)
+    │   ├── dao/                    # MyBatis @Mapper 인터페이스 (@MapperScan 대상)
+    │   ├── domain/                 # DB 조회 결과 객체 (User, Team, Pin ...)
+    │   ├── dto/{auth,pin,team}/    # 요청/응답 DTO
+    │   ├── util/                   # 유틸리티 (PasswordUtil)
+    │   └── common/                 # 공통 응답 형식(ApiResponse), 예외 처리
     └── resources/
         ├── application.yml         # 공통 설정 (DB 접속 정보는 환경변수)
         ├── application-local.yml   # 로컬 개발 설정 (기본 프로파일)
-        ├── mapper/                 # MyBatis SQL XML
+        ├── mapper/                 # MyBatis SQL XML (XxxDao.xml)
         └── db/
             ├── migration/          # Flyway 스키마 마이그레이션 (모든 환경)
             └── seed/               # 개발용 시드 데이터 (local 프로파일에서만 적용)
@@ -28,16 +35,18 @@ backend/
 ### 기능 추가 방법 (예: 팀)
 
 ```text
-java/com/pinmate/team/
-├── TeamController.java    # @RestController, 요청/응답만 담당
-├── TeamService.java       # 비즈니스 로직, @Transactional
-├── TeamMapper.java        # @Mapper 인터페이스
-└── Team.java              # 조회 결과 / 요청 DTO
-resources/mapper/TeamMapper.xml   # namespace="com.pinmate.team.TeamMapper"
+java/com/pinmate/
+├── controller/TeamController.java      # @RestController, TeamService(인터페이스)를 주입
+├── service/TeamService.java            # 인터페이스 — 메서드 시그니처만
+├── service/impl/TeamServiceImpl.java   # implements TeamService, 비즈니스 로직
+├── dao/TeamDao.java                    # @Mapper 인터페이스
+├── domain/Team.java                    # 조회 결과
+└── dto/team/TeamResponse.java          # 요청/응답 DTO
+resources/mapper/TeamDao.xml            # namespace="com.pinmate.dao.TeamDao"
 resources/db/migration/V1__create_team.sql
 ```
 
-- 한 기능의 코드는 한 패키지에 모읍니다. 세 명이 기능을 나눠 맡으면 같은 파일을 동시에 고칠 일이 줄어듭니다.
+- `@MapperScan`은 `com.pinmate.dao`만 스캔합니다. Mapper 인터페이스는 반드시 `dao/`에 두세요 (그 외 패키지의 인터페이스가 Mapper로 오인되는 것을 방지).
 - 응답은 `ApiResponse.ok(data)`로 감쌉니다. 실패는 `ResponseStatusException`을 던지면 `ApiExceptionHandler`가 `{"success": false, "message"}`로 바꿉니다.
 
 ---
