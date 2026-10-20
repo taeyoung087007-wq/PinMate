@@ -59,7 +59,13 @@ function LoginRoute() {
 function MapRoute() {
   const { teamId } = useParams()
   const navigate = useNavigate()
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await post('/auth/logout', {})
+    } catch (error) {
+      window.alert(`로그아웃에 실패했습니다: ${error.message}`)
+      return
+    }
     localStorage.removeItem(LOGIN_KEY)
     setCurrentUserStorage(null)
     navigate('/login', { replace: true })

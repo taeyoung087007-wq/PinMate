@@ -142,8 +142,8 @@ public class AuthServiceImpl implements AuthService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "아이디 또는 비밀번호가 일치하지 않습니다.");
         }
 
-        // 비밀번호 확인 (단, 비밀번호 해시가 비어있는 초기 시드 유저는 테스트 편의상 통과 허용)
-        if (user.getPasswordHash() != null && !PasswordUtil.matches(req.password(), user.getPasswordHash())) {
+        // 비밀번호가 설정되지 않은 계정도 인증된 세션을 얻을 수 없게 한다.
+        if (!PasswordUtil.matches(req.password(), user.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "아이디 또는 비밀번호가 일치하지 않습니다.");
         }
 
