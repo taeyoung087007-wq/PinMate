@@ -191,18 +191,9 @@ export default function AuthPage({ onLogin }) {
     }
   }
 
-  // 데모 계정 원클릭 체험
+  // 브라우저 상태만 바꿔서는 서버의 모임 조회 권한을 얻을 수 없다.
   const handleDemoLogin = () => {
-    const demoUser = {
-      id: 'user-1',
-      loginId: 'user-1',
-      nickname: '김태영',
-      email: 'taeyoung@pinmate.io',
-      avatarColor: '#6C63FF',
-      initials: '김',
-    }
-    setCurrentUserStorage(demoUser)
-    onLogin(demoUser)
+    setError('모임을 조회하려면 회원가입하거나 등록된 계정으로 로그인해주세요.')
   }
 
   return (

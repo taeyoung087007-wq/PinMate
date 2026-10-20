@@ -12,6 +12,12 @@ export async function request(path, options = {}) {
     headers: { 'Content-Type': 'application/json', ...options.headers },
   })
   const json = await res.json().catch(() => null)
+  if (res.status === 401) {
+    localStorage.removeItem('pinmate_logged_in')
+    localStorage.removeItem('pinmate_user')
+    const query = window.location.pathname === '/login' ? window.location.search : ''
+    window.location.replace(`/login${query}`)
+  }
   if (!res.ok || !json?.success) {
     throw new Error(json?.message || `API 요청 실패 (${res.status})`)
   }

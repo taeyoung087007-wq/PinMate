@@ -3,6 +3,7 @@ package com.pinmate.auth.service.impl;
 import com.pinmate.team.dao.TeamDao;
 import com.pinmate.auth.dao.UserDao;
 import com.pinmate.team.domain.Team;
+import com.pinmate.team.domain.TeamColors;
 import com.pinmate.team.domain.TeamInvite;
 import com.pinmate.team.domain.TeamMember;
 import com.pinmate.auth.domain.User;
@@ -17,19 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
-
-    private static final List<String> COLOR_PALETTE = List.of(
-        "#6C63FF", "#FF6B6B", "#4CC9F0", "#06D6A0", "#FFD166",
-        "#F72585", "#7209B7", "#3A0CA3", "#4361EE", "#4895EF"
-    );
 
     private final UserDao userDao;
     private final TeamDao teamDao;
@@ -112,7 +106,7 @@ public class AuthServiceImpl implements AuthService {
             teamDao.insertTeam(newTeam);
             targetTeamId = newTeam.getTeamId();
             targetTeamName = newTeam.getName();
-            assignedColor = COLOR_PALETTE.get(0);
+            assignedColor = TeamColors.PALETTE.get(0);
             teamDao.insertTeamMember(targetTeamId, userId, "owner", assignedColor);
 
             // 해당 팀의 초대코드도 자동 생성
@@ -148,14 +142,14 @@ public class AuthServiceImpl implements AuthService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "아이디 또는 비밀번호가 일치하지 않습니다.");
         }
 
-        // 비밀번호 확인 (단, 비밀번호 해시가 비어있는 초기 시드 유저는 테스트 편의상 통과 허용)
-        if (user.getPasswordHash() != null && !PasswordUtil.matches(req.password(), user.getPasswordHash())) {
+        // 비밀번호가 설정되지 않은 계정도 인증된 세션을 얻을 수 없게 한다.
+        if (!PasswordUtil.matches(req.password(), user.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "아이디 또는 비밀번호가 일치하지 않습니다.");
         }
 
         // 사용자의 팀 목록 조회
         List<Team> teams = teamDao.findTeamsByUserId(user.getUserId());
-        String avatarColor = COLOR_PALETTE.get(0);
+        String avatarColor = TeamColors.PALETTE.get(0);
         AuthResponse.JoinedTeamDto defaultTeam = null;
 
         if (!teams.isEmpty()) {
@@ -189,16 +183,6 @@ public class AuthServiceImpl implements AuthService {
      * 팀 내에서 아직 사용되지 않은 색상을 할당
      */
     private String allocateColorForTeam(Long teamId) {
-        List<TeamMember> members = teamDao.findTeamMembersByTeamId(teamId);
-        Set<String> used = members.stream()
-            .map(TeamMember::getColor)
-            .collect(Collectors.toSet());
-
-        for (String c : COLOR_PALETTE) {
-            if (!used.contains(c)) {
-                return c;
-            }
-        }
-        return String.format("#%06X", (int) (Math.random() * 0xFFFFFF));
+        return TeamColors.pickUnused(teamDao.findTeamMembersByTeamId(teamId));
     }
 }

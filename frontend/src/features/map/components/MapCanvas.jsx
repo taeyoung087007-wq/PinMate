@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, Minus, RotateCcw, LocateFixed } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
+import { describeLocation } from '../geocode'
 import { loadNaverMaps, onNaverMapAuthFailure } from '../../../lib/naverMaps'
 import styles from './MapCanvas.module.css'
 
@@ -49,6 +50,76 @@ function createPinElement({ pin, meta, memberColor, isSelected }) {
   }
 
   return wrap
+}
+
+// 지도에서 고른 위치 마커: 물방울 끝이 좌표에 오도록 (SVG 32x42)
+const PICK_ANCHOR = { x: 16, y: 42 }
+// 말풍선 윗변이 지도 위쪽에서 이만큼은 떨어지게 한다 (상단 검색바·필터 칩·안내 문구에 가리지 않게)
+const PICK_SAFE_TOP = 170
+// 이 픽셀 반경 안의 상가를 "누른 상가"로 본다 (네이버 지도처럼 라벨 근처를 눌러도 잡히게)
+const TAP_RADIUS_PX = 40
+// 정적인 SVG라 문자열로 넣는다 (사용자 입력이 섞이지 않음)
+const PICK_PIN_SVG = `<svg width="32" height="42" viewBox="0 0 32 42" aria-hidden="true">
+  <path d="M16 1C7.7 1 1 7.6 1 15.8 1 26.9 16 41 16 41s15-14.1 15-25.2C31 7.6 24.3 1 16 1z" fill="#6C63FF" stroke="#fff" stroke-width="2"/>
+  <circle cx="16" cy="15.5" r="5.5" fill="#fff"/>
+</svg>`
+
+/**
+ * 지도에서 고른 위치 마커 + 말풍선(상호명, 분류, 주소, 장소 추가 버튼)
+ * - 상호명은 describeLocation 이 찾아 주면 채운다 (못 찾으면 주소만)
+ */
+function createPickedElement({ onAdd, onClose }) {
+  const wrap = document.createElement('div')
+  wrap.className = styles.pickWrap
+
+  const card = document.createElement('div')
+  card.className = styles.pickCard
+  // 말풍선 안에서 누르거나 끌어도 지도 클릭으로 이어져 마커가 옮겨지지 않게 막는다
+  for (const type of ['mousedown', 'pointerdown', 'touchstart', 'click', 'dblclick']) {
+    card.addEventListener(type, e => e.stopPropagation())
+  }
+
+  const close = document.createElement('button')
+  close.type = 'button'
+  close.className = styles.pickClose
+  close.setAttribute('aria-label', '선택 해제')
+  close.textContent = '×'
+  close.addEventListener('click', onClose)
+
+  const title = document.createElement('strong')
+  title.className = styles.pickTitle
+  title.hidden = true
+
+  const category = document.createElement('span')
+  category.className = styles.pickCategory
+  category.hidden = true
+
+  const address = document.createElement('p')
+  address.className = styles.pickAddress
+  address.textContent = '장소 확인 중…'
+
+  const add = document.createElement('button')
+  add.type = 'button'
+  add.className = styles.pickAdd
+  add.textContent = '이 위치에 장소 추가'
+  add.addEventListener('click', onAdd)
+
+  card.append(close, title, category, address, add)
+
+  const pin = document.createElement('div')
+  pin.className = styles.pickPin
+  pin.innerHTML = PICK_PIN_SVG
+
+  wrap.append(card, pin)
+  const setInfo = ({ name, category: categoryText, address: addressText }) => {
+    title.textContent = name || ''
+    title.hidden = !name
+    // "음식점>카페,디저트" 처럼 오므로 마지막 단계만 보여준다
+    category.textContent = categoryText ? categoryText.split('>').pop() : ''
+    category.hidden = !categoryText
+    address.textContent = addressText || '주소를 확인하지 못했습니다'
+  }
+  return { el: wrap, card, setInfo }
 }
 
 // 위치 조회에 걸리는 최대 시간 (권한 팝업에 응답할 시간을 넉넉히 준다)
@@ -100,15 +171,19 @@ function createMyLocationMarker(maps, map, position) {
 /**
  * 네이버 지도 기반 지도 컴포넌트
  * - 지도 생성·이동·줌은 SDK에 맡기고, 이 컴포넌트는 핀(마커)만 그린다
- * - props: pins(필터링된 핀), members(멤버 색상 조회용), onSelectPin, selectedPin
+ * - props: pins(필터링된 핀), members(멤버 색상 조회용), onSelectPin, selectedPin,
+ *          onAddAtLocation(지도에서 고른 위치로 장소 추가: { name, address, lat, lng })
  */
-export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
+export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onAddAtLocation }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef(new Map()) // pinId -> { marker, pin, meta, memberColor }
   const onSelectRef = useRef(onSelectPin)
   const myLocationRef = useRef(null) // 현재 위치 좌표
   const myLocationMarkerRef = useRef(null) // 현재 위치 마커
+  const pickedMarkerRef = useRef(null) // 지도에서 고른 위치 마커
+  const selectedPinRef = useRef(selectedPin)
+  const onAddAtLocationRef = useRef(onAddAtLocation)
   const [status, setStatus] = useState('loading') // loading | ready | nokey | error
   const [errorMessage, setErrorMessage] = useState('')
   const [locateError, setLocateError] = useState('')
@@ -117,7 +192,57 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
   // 지도 이벤트는 한 번만 등록되므로 최신 콜백을 ref로 참조한다
   useEffect(() => {
     onSelectRef.current = onSelectPin
-  }, [onSelectPin])
+    selectedPinRef.current = selectedPin
+    onAddAtLocationRef.current = onAddAtLocation
+  }, [onSelectPin, selectedPin, onAddAtLocation])
+
+  const clearPick = useCallback(() => {
+    pickedMarkerRef.current?.setMap(null)
+    pickedMarkerRef.current = null
+  }, [])
+
+  // 지도 빈 곳(또는 바탕 지도의 상가)을 누르면 그 자리에 우리 마커를 찍고 주소를 붙인다
+  const pickLocation = useCallback((maps, map, coord) => {
+    clearPick()
+    let place = { name: '', address: '', lat: coord.lat(), lng: coord.lng() }
+    const { el, card, setInfo } = createPickedElement({
+      onAdd: () => {
+        onAddAtLocationRef.current?.({ ...place, name: place.name || place.address })
+        clearPick()
+      },
+      onClose: clearPick,
+    })
+    const marker = new maps.Marker({
+      position: coord,
+      map,
+      icon: { content: el, anchor: new maps.Point(PICK_ANCHOR.x, PICK_ANCHOR.y) },
+      zIndex: 300,
+    })
+    pickedMarkerRef.current = marker
+
+    const isCurrent = () => pickedMarkerRef.current === marker // 그 사이 다른 곳을 골랐으면 무시
+    // 손가락 범위를 지금 줌의 미터로 바꾼다 (확대하면 좁게, 축소하면 넓게)
+    const bounds = map.getBounds()
+    const metersPerPx = ((bounds.getNE().lat() - bounds.getSW().lat()) * 111_320) / map.getSize().height
+    const tapMeters = Math.min(80, Math.max(10, TAP_RADIUS_PX * metersPerPx))
+
+    describeLocation(place.lat, place.lng, { tapMeters })
+      .then(info => {
+        if (!isCurrent()) return
+        place = { name: info.name || '', address: info.address || '', lat: info.lat, lng: info.lng }
+        setInfo(info)
+        // 상가를 찾았으면 마커를 그 상가 좌표로 옮긴다 (못 찾았으면 같은 자리)
+        marker.setPosition(new maps.LatLng(info.lat, info.lng))
+        // 내용이 채워져 높이가 정해진 뒤 실제 화면 위치를 재서, 위쪽 UI에 가리면 그만큼 지도를 내린다
+        requestAnimationFrame(() => {
+          const top = card.getBoundingClientRect().top - map.getElement().getBoundingClientRect().top
+          if (top < PICK_SAFE_TOP) map.panBy(new maps.Point(0, top - PICK_SAFE_TOP))
+        })
+      })
+      .catch(() => {
+        if (isCurrent()) setInfo({ name: null, category: '', address: null })
+      })
+  }, [clearPick])
 
   // 인증 실패는 지도가 뜬 뒤에 통지될 수 있다 (도메인 미등록 등)
   useEffect(
@@ -164,7 +289,14 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
         })
 
         mapRef.current = map
-        maps.Event.addListener(map, 'click', () => onSelectRef.current(null))
+        maps.Event.addListener(map, 'click', e => {
+          // 핀 상세가 열려 있으면 첫 클릭은 닫기만 한다
+          if (selectedPinRef.current) {
+            onSelectRef.current(null)
+            return
+          }
+          pickLocation(maps, map, e.coord)
+        })
         setStatus('ready')
 
         // 컨테이너 크기가 바뀌면(패널 열림 등) 지도를 다시 그린다
@@ -222,12 +354,13 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
       cancelled = true
       resizeObserver?.disconnect()
       markersRef.current.clear()
+      pickedMarkerRef.current = null
       mapRef.current?.destroy?.()
       mapRef.current = null
       // SDK가 남긴 DOM 정리 (StrictMode 재마운트 대비)
       if (containerRef.current) containerRef.current.innerHTML = ''
     }
-  }, [])
+  }, [pickLocation])
 
   // 2) 핀 목록이 바뀌면 마커를 다시 만든다
   useEffect(() => {
@@ -282,9 +415,10 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
     const map = mapRef.current
     if (!maps || !map || !selectedPin) return
 
+    clearPick() // 핀을 고르면 지도에서 고른 위치 표시는 지운다
     const position = new maps.LatLng(selectedPin.lat, selectedPin.lng)
     if (!map.getBounds().hasLatLng(position)) map.panTo(position)
-  }, [selectedPin])
+  }, [selectedPin, clearPick])
 
   const moveToMyLocation = useCallback(async (zoom = MY_LOCATION_ZOOM) => {
     const maps = window.naver?.maps

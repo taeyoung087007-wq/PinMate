@@ -12,7 +12,7 @@ import {
   toggleRecommendationApi,
   toggleVisitApi
 } from '../api'
-import { fetchTeams, createTeamApi } from '../../teams/api'
+import { fetchTeams, createTeamApi, joinTeamApi } from '../../teams/api'
 import MapCanvas from '../components/MapCanvas'
 import PinDetailPanel from '../components/PinDetailPanel'
 import AddPinModal from '../components/AddPinModal'
@@ -54,6 +54,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
   const [showTeamDrawer, setShowTeamDrawer] = useState(false)
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false)
   const [showAddPinModal, setShowAddPinModal] = useState(false)
+  const [pickedPlace, setPickedPlace] = useState(null) // 메인 지도에서 고른 위치로 장소 추가할 때
   const [showListPanel, setShowListPanel] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [celebrationPin, setCelebrationPin] = useState(null)
@@ -121,6 +122,15 @@ export default function MapPage({ initialTeamId, onLogout }) {
     return newTeam
   }
 
+  // 초대 코드로 모임 참여 (이미 멤버여도 같은 팀이 돌아온다)
+  const handleJoinTeam = async (code) => {
+    const team = await joinTeamApi(code, currentUser.id)
+    setTeams(prev => [team, ...prev.filter(t => String(t.id) !== String(team.id))])
+    setSelectedTeamId(team.id)
+    setActiveTab('map')
+    return team
+  }
+
   // 핀 추가 핸들러
   const handleAddPin = async (newPinData) => {
     try {
@@ -184,6 +194,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
           members={members}
           onSelectPin={setSelectedPin}
           selectedPin={selectedPin}
+          onAddAtLocation={place => { setPickedPlace(place); setShowAddPinModal(true) }}
         />
       </div>
 
@@ -296,7 +307,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
 
         <button
           className={styles.addFab}
-          onClick={() => setShowAddPinModal(true)}
+          onClick={() => { setPickedPlace(null); setShowAddPinModal(true) }}
           title="새 장소 추가"
         >
           <Plus size={20} strokeWidth={2.6} />
@@ -332,6 +343,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
         activeTeamId={selectedTeamId}
         onSelectTeam={(tId) => { setSelectedTeamId(tId); setActiveTab('map'); }}
         onOpenCreate={() => { setShowTeamDrawer(false); setShowCreateTeamModal(true); }}
+        onJoinTeam={handleJoinTeam}
         onClose={() => { setShowTeamDrawer(false); setActiveTab('map'); }}
       />
 
@@ -347,6 +359,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
       {showAddPinModal && (
         <AddPinModal
           teamId={selectedTeamId}
+          initialPlace={pickedPlace}
           onClose={() => setShowAddPinModal(false)}
           onAdd={handleAddPin}
         />

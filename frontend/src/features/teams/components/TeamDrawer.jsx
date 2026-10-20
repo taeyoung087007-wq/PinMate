@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { X, Plus, Users, MapPin, Star, Link2, Check, ChevronRight } from 'lucide-react'
+import TeamDetailView from './TeamDetailView'
+import { parseInviteCode } from '../api'
 import styles from './TeamDrawer.module.css'
 
 /**
@@ -10,43 +12,64 @@ export default function TeamDrawer({
   activeTeamId,
   onSelectTeam,
   onOpenCreate,
+  onJoinTeam,
   onClose,
   isOpen,
 }) {
   const [joinCode, setJoinCode] = useState('')
   const [joinError, setJoinError] = useState('')
   const [showJoinInput, setShowJoinInput] = useState(false)
+  const [joining, setJoining] = useState(false)
+  const [detailTeamId, setDetailTeamId] = useState(null) // 값이 있으면 모임 상세 화면
 
   if (!isOpen) return null
 
-  const handleJoinSubmit = (e) => {
+  // 다음에 열 때는 목록부터 보이도록 상세 상태를 초기화하고 닫는다
+  const handleClose = () => {
+    setDetailTeamId(null)
+    onClose()
+  }
+
+  const handleJoinSubmit = async (e) => {
     e.preventDefault()
     if (!joinCode.trim()) {
       setJoinError('초대 코드를 입력해주세요.')
       return
     }
-    // 예: 첫 번째 팀 또는 검색
-    const found = teams.find(t => t.id === joinCode.trim() || t.name.includes(joinCode.trim()))
-    if (found) {
-      onSelectTeam(found.id)
-      onClose()
-    } else {
-      setJoinError('유효하지 않은 초대 코드입니다.')
+    if (joining) return
+    setJoining(true)
+    try {
+      await onJoinTeam(parseInviteCode(joinCode))
+      setJoinCode('')
+      setShowJoinInput(false)
+      handleClose()
+    } catch (err) {
+      setJoinError(err.message)
+    } finally {
+      setJoining(false)
     }
   }
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
+    <div className={styles.overlay} onClick={handleClose}>
       <div className={`${styles.drawer} glass-card animate-slide-up`} onClick={e => e.stopPropagation()}>
         {/* 드래그 핸들 (모바일) */}
         <div className={styles.dragHandle} />
+
+        {detailTeamId ? (
+          <TeamDetailView
+            teamId={detailTeamId}
+            onBack={() => setDetailTeamId(null)}
+            onEnter={(id) => { onSelectTeam(id); handleClose() }}
+          />
+        ) : (<>
 
         <div className={styles.header}>
           <div>
             <h3 className={styles.title}>내 모임 목록</h3>
             <p className={styles.subtitle}>함께 장소를 공유할 모임을 선택하세요</p>
           </div>
-          <button className="btn btn-ghost btn-icon" onClick={onClose} title="닫기">
+          <button className="btn btn-ghost btn-icon" onClick={handleClose} title="닫기">
             <X size={18} />
           </button>
         </div>
@@ -77,8 +100,8 @@ export default function TeamDrawer({
               onChange={e => { setJoinCode(e.target.value); setJoinError('') }}
               autoFocus
             />
-            <button type="submit" className="btn btn-primary" style={{ padding: '0 14px' }}>
-              참여
+            <button type="submit" className="btn btn-primary" style={{ padding: '0 14px' }} disabled={joining}>
+              {joining ? '참여 중...' : '참여'}
             </button>
             {joinError && <div className={styles.errorText}>{joinError}</div>}
           </form>
@@ -96,7 +119,7 @@ export default function TeamDrawer({
               <div
                 key={team.id}
                 className={`${styles.teamCard} ${isSelected ? styles.teamCardActive : ''}`}
-                onClick={() => { onSelectTeam(team.id); onClose(); }}
+                onClick={() => setDetailTeamId(team.id)}
               >
                 <div className={styles.teamEmoji}>{emoji}</div>
                 <div className={styles.teamInfo}>
@@ -148,6 +171,7 @@ export default function TeamDrawer({
             </div>
           )}
         </div>
+        </>)}
       </div>
     </div>
   )

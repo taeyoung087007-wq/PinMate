@@ -4,6 +4,8 @@ import com.pinmate.auth.service.AuthService;
 
 import com.pinmate.auth.dto.*;
 import com.pinmate.common.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,8 +30,8 @@ public class AuthController {
      * POST /api/auth/signup
      */
     @PostMapping("/signup")
-    public ApiResponse<AuthResponse> signup(@RequestBody SignupRequest request) {
-        return ApiResponse.ok(authService.signup(request));
+    public ApiResponse<AuthResponse> signup(@RequestBody SignupRequest request, HttpServletRequest httpRequest) {
+        return ApiResponse.ok(startSession(authService.signup(request), httpRequest));
     }
 
     /**
@@ -37,7 +39,23 @@ public class AuthController {
      * POST /api/auth/login
      */
     @PostMapping("/login")
-    public ApiResponse<AuthResponse> login(@RequestBody LoginRequest request) {
-        return ApiResponse.ok(authService.login(request));
+    public ApiResponse<AuthResponse> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        return ApiResponse.ok(startSession(authService.login(request), httpRequest));
+    }
+
+    @PostMapping("/logout")
+    public ApiResponse<Void> logout(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+        return ApiResponse.ok(null);
+    }
+
+    private AuthResponse startSession(AuthResponse user, HttpServletRequest request) {
+        HttpSession session = request.getSession();
+        request.changeSessionId();
+        session.setAttribute("userId", Long.valueOf(user.id()));
+        return user;
     }
 }
