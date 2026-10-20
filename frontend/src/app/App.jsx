@@ -1,17 +1,15 @@
 import { Navigate, Outlet, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import AuthPage from '../features/auth/pages/AuthPage'
-import TeamsPage from '../features/teams/pages/TeamsPage'
 import MapPage from '../features/map/pages/MapPage'
 
 /**
  * 앱 라우팅
  * - /login           로그인
- * - /teams           팀 목록 (로그인 필요)
- * - /teams/:teamId   팀 지도 (로그인 필요)
- * 페이지는 라우터를 모르도록 props로만 이동을 전달받는다
+ * - /                메인 지도 화면 (기본 모임 바로 로딩)
+ * - /teams/:teamId   특정 모임 지도 화면
+ * - /teams           메인 지도 화면으로 리다이렉트 (지도 내 모임 서랍 활용)
  */
 
-// ponytail: 로그인 여부를 localStorage 플래그로만 판단. 인증 도입 시 토큰/세션 확인으로 교체
 const LOGIN_KEY = 'pinmate_logged_in'
 const isLoggedIn = () => localStorage.getItem(LOGIN_KEY) === 'true'
 
@@ -23,25 +21,19 @@ function LoginRoute() {
   const navigate = useNavigate()
   const handleLogin = () => {
     localStorage.setItem(LOGIN_KEY, 'true')
-    navigate('/teams', { replace: true })
+    navigate('/', { replace: true })
   }
-  return isLoggedIn() ? <Navigate to="/teams" replace /> : <AuthPage onLogin={handleLogin} />
-}
-
-function TeamsRoute() {
-  const navigate = useNavigate()
-  const handleLogout = () => {
-    localStorage.removeItem(LOGIN_KEY)
-    navigate('/login', { replace: true })
-  }
-  return <TeamsPage onSelectTeam={(teamId) => navigate(`/teams/${teamId}`)} onLogout={handleLogout} />
+  return isLoggedIn() ? <Navigate to="/" replace /> : <AuthPage onLogin={handleLogin} />
 }
 
 function MapRoute() {
   const { teamId } = useParams()
   const navigate = useNavigate()
-  // key: 다른 팀으로 이동하면 지도 상태(필터, 선택 핀)를 초기화
-  return <MapPage key={teamId} teamId={teamId} onBack={() => navigate('/teams')} />
+  const handleLogout = () => {
+    localStorage.removeItem(LOGIN_KEY)
+    navigate('/login', { replace: true })
+  }
+  return <MapPage key={teamId || 'default'} initialTeamId={teamId} onLogout={handleLogout} />
 }
 
 export default function App() {
@@ -49,10 +41,12 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginRoute />} />
       <Route element={<RequireLogin />}>
-        <Route path="/teams" element={<TeamsRoute />} />
+        <Route path="/" element={<MapRoute />} />
         <Route path="/teams/:teamId" element={<MapRoute />} />
+        <Route path="/teams" element={<Navigate to="/" replace />} />
       </Route>
-      <Route path="*" element={<Navigate to="/teams" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
+

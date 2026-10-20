@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import {
-  ArrowLeft, MapPin, List, Plus, Search,
-  Filter, Star, Navigation, Users, ChevronDown, X
+  MapPin, List, Plus, Search, Star, Users,
+  ChevronDown, X, Sparkles
 } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { CURRENT_USER } from '../../../lib/currentUser'
@@ -12,34 +12,50 @@ import {
   toggleRecommendationApi,
   toggleVisitApi
 } from '../api'
+import { fetchTeams, createTeamApi } from '../../teams/api'
 import MapCanvas from '../components/MapCanvas'
 import PinDetailPanel from '../components/PinDetailPanel'
 import AddPinModal from '../components/AddPinModal'
 import PlaceListPanel from '../components/PlaceListPanel'
 import CelebrationModal from '../components/CelebrationModal'
+import BottomNav from '../../../components/BottomNav/BottomNav'
+import TeamDrawer from '../../teams/components/TeamDrawer'
+import TeamCreateModal from '../../teams/components/TeamCreateModal'
+import ProfileModal from '../../auth/components/ProfileModal'
 import styles from './MapPage.module.css'
 
 /** 카테고리 필터 목록 */
 const CATEGORIES = ['all', 'food', 'cafe', 'drink', 'stay', 'sight', 'play', 'etc']
 
 /**
- * 팀 장소 공유 지도 메인 페이지
- * - 상단: 팀 정보, 멤버별 필터 칩, '모두 인정' 토글, 장소 추가, 목록 보기
- * - 카테고리 바: 맛집, 카페 등 카테고리 뱃지 및 검색바
- * - 중앙: 인터랙티브 캔버스 지도
- * - 하단/우측: 장소 상세 정보 패널, 장소 리스트 패널
- * - 팝업: '모두 인정' 달성 축하 팡파레 모달
+ * 네이버지도/카카오맵 스타일 메인 지도 앱 페이지
+ * - 전체 화면 캔버스 지도 메인
+ * - 상단 플로팅 바 (모임 전환 드롭다운 + 검색창 + 카테고리/팀원 칩)
+ * - 우측 플로팅 액션 버튼 (장소 추가 FAB, 모두 인정 토글, 목록 토글)
+ * - 하단 고정 내비게이션 바 (지도, 모임, 모두인정, 마이)
  */
-export default function MapPage({ teamId, onBack }) {
-  const [team, setTeam] = useState(null)
-  const members = team?.members ?? []
-  const [error, setError] = useState('')
+export default function MapPage({ initialTeamId, onLogout }) {
+  // 사용자 상태
+  const [currentUser, setCurrentUser] = useState(CURRENT_USER)
 
-  // 현재 팀의 핀 목록 상태
+  // 모임 목록 상태
+  const [teams, setTeams] = useState([])
+  const [selectedTeamId, setSelectedTeamId] = useState(initialTeamId || null)
+  const [teamDetail, setTeamDetail] = useState(null)
+  const members = teamDetail?.members ?? []
+
+  // 핀 상태
   const [pins, setPins] = useState([])
   const [selectedPin, setSelectedPin] = useState(null)
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [showList, setShowList] = useState(false)
+  const [error, setError] = useState('')
+
+  // UI 제어 상태
+  const [activeTab, setActiveTab] = useState('map')
+  const [showTeamDrawer, setShowTeamDrawer] = useState(false)
+  const [showCreateTeamModal, setShowCreateTeamModal] = useState(false)
+  const [showAddPinModal, setShowAddPinModal] = useState(false)
+  const [showListPanel, setShowListPanel] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
   const [celebrationPin, setCelebrationPin] = useState(null)
 
   // 필터 상태
@@ -48,227 +64,318 @@ export default function MapPage({ teamId, onBack }) {
   const [showOnlyApproved, setShowOnlyApproved] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // 서버에서 팀 정보와 핀 불러오기
+  // 1. 내 모임 목록 로드
   useEffect(() => {
-    Promise.all([fetchTeam(teamId), fetchPins(teamId)])
-      .then(([teamData, teamPins]) => {
-        setTeam(teamData)
-        setPins(teamPins)
+    fetchTeams(currentUser.id)
+      .then(fetchedTeams => {
+        setTeams(fetchedTeams)
+        if (fetchedTeams.length > 0) {
+          // 이미 선택된 ID가 유효하면 유지, 없으면 첫 번째 팀 선택
+          const hasValid = fetchedTeams.some(t => String(t.id) === String(selectedTeamId))
+          if (!hasValid) {
+            setSelectedTeamId(fetchedTeams[0].id)
+          }
+        }
       })
-      .catch(e => setError(`지도를 불러오지 못했습니다: ${e.message}`))
-  }, [teamId])
+      .catch(e => setError(`모임 목록을 불러오지 못했습니다: ${e.message}`))
+  }, [currentUser.id])
 
-  // 조건에 맞게 필터링된 핀 목록
+  // 2. 선택된 모임의 상세 정보 및 핀 목록 로드
+  useEffect(() => {
+    if (!selectedTeamId) return
+    Promise.all([fetchTeam(selectedTeamId), fetchPins(selectedTeamId)])
+      .then(([tData, pData]) => {
+        setTeamDetail(tData)
+        setPins(pData)
+        setSelectedPin(null) // 모임 변경 시 선택 핀 해제
+      })
+      .catch(e => setError(`지도 데이터를 불러오지 못했습니다: ${e.message}`))
+  }, [selectedTeamId])
+
+  // 필터링된 핀 목록
   const filteredPins = useMemo(() => {
     return pins.filter(pin => {
       if (activeCategory !== 'all' && pin.category !== activeCategory) return false
       if (activeMember !== 'all' && !pin.recommenders.includes(activeMember)) return false
       if (showOnlyApproved && !pin.isAllApproved) return false
       if (searchQuery) {
-        const query = searchQuery.toLowerCase()
-        const matchesName = pin.name?.toLowerCase().includes(query)
-        const matchesAddress = pin.address?.toLowerCase().includes(query)
-        if (!matchesName && !matchesAddress) return false
+        const q = searchQuery.toLowerCase()
+        const matchesName = pin.name?.toLowerCase().includes(q)
+        const matchesAddr = pin.address?.toLowerCase().includes(q)
+        if (!matchesName && !matchesAddr) return false
       }
       return true
     })
   }, [pins, activeCategory, activeMember, showOnlyApproved, searchQuery])
 
-  // 서버 응답으로 받은 핀을 목록과 상세 패널에 반영
-  const applyUpdatedPin = (updatedPin) => {
-    setPins(prev => prev.map(p => p.id === updatedPin.id ? updatedPin : p))
-    setSelectedPin(updatedPin)
+  // 현재 모임 정보
+  const currentTeam = teams.find(t => String(t.id) === String(selectedTeamId)) || teamDetail
+  const allApprovedCount = pins.filter(p => p.isAllApproved).length
+
+  // 새 모임 생성 완료 핸들러
+  const handleCreateTeam = async (name) => {
+    const newTeam = await createTeamApi(name, currentUser.id)
+    setTeams(prev => [newTeam, ...prev])
+    setSelectedTeamId(newTeam.id)
+    setShowTeamDrawer(false)
+    return newTeam
   }
 
-  // 서버 요청 실패를 화면에 표시
-  const runAction = async (action, failMessage) => {
-    setError('')
+  // 핀 추가 핸들러
+  const handleAddPin = async (newPinData) => {
     try {
-      await action()
+      const saved = await createPinApi(newPinData)
+      setPins(prev => [saved, ...prev])
+      setShowAddPinModal(false)
+      setSelectedPin(saved)
     } catch (e) {
-      setError(`${failMessage}: ${e.message}`)
+      setError(`장소 추가에 실패했습니다: ${e.message}`)
     }
   }
 
-  // 새 핀 추가 핸들러
-  const handleAddPin = (newPinData) => runAction(async () => {
-    const savedPin = await createPinApi(newPinData)
-    setPins(prev => [savedPin, ...prev])
-    setShowAddModal(false)
-    setSelectedPin(savedPin)
-  }, '장소 추가에 실패했습니다')
-
-  // 추천하기 / 추천 취소 핸들러 ('모두 인정' 달성 시 축하 팡파레)
-  const handleRecommend = (pinId) => runAction(async () => {
-    const { pin, reachedAllApproved } = await toggleRecommendationApi(pinId, CURRENT_USER.id)
-    applyUpdatedPin(pin)
-
-    // 팀원 전원 추천 달성 시 축하 모달 발동!
-    if (reachedAllApproved) {
-      setCelebrationPin(pin)
+  // 추천 토글 핸들러
+  const handleRecommend = async (pinId) => {
+    try {
+      const { pin, reachedAllApproved } = await toggleRecommendationApi(pinId, currentUser.id)
+      setPins(prev => prev.map(p => p.id === pin.id ? pin : p))
+      setSelectedPin(pin)
+      if (reachedAllApproved) {
+        setCelebrationPin(pin)
+      }
+    } catch (e) {
+      setError(`추천 처리에 실패했습니다: ${e.message}`)
     }
-  }, '추천 처리에 실패했습니다')
+  }
 
-  // 방문 여부 토글 핸들러
-  const handleToggleVisit = (pinId) => runAction(async () => {
-    applyUpdatedPin(await toggleVisitApi(pinId, CURRENT_USER.id))
-  }, '방문 처리에 실패했습니다')
+  // 방문 토글 핸들러
+  const handleToggleVisit = async (pinId) => {
+    try {
+      const updated = await toggleVisitApi(pinId, currentUser.id)
+      setPins(prev => prev.map(p => p.id === updated.id ? updated : p))
+      setSelectedPin(updated)
+    } catch (e) {
+      setError(`방문 처리에 실패했습니다: ${e.message}`)
+    }
+  }
+
+  // 하단 탭 변경 핸들러
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId)
+    if (tabId === 'map') {
+      setShowTeamDrawer(false)
+      setShowListPanel(false)
+      setShowProfileModal(false)
+    } else if (tabId === 'teams') {
+      setShowTeamDrawer(true)
+    } else if (tabId === 'approved') {
+      setShowOnlyApproved(true)
+      setShowListPanel(true)
+    } else if (tabId === 'profile') {
+      setShowProfileModal(true)
+    }
+  }
 
   return (
-    <div className={styles.container}>
-      {/* 상단 툴바 */}
-      <div className={styles.topBar}>
-        <button className={`btn btn-ghost ${styles.backBtn}`} onClick={onBack}>
-          <ArrowLeft size={16} />
-          팀 목록
-        </button>
-
-        {/* 팀명 및 팀원 필터 칩 */}
-        <div className={styles.topCenter}>
-          <span className={styles.teamName}>{team?.name}</span>
-          <div className={styles.memberPills}>
-            {members.map(m => (
-              <button
-                key={m.id}
-                className={`${styles.memberPill} ${activeMember === m.id ? styles.memberPillActive : ''}`}
-                style={activeMember === m.id ? { borderColor: m.avatarColor, color: m.avatarColor } : {}}
-                onClick={() => setActiveMember(prev => prev === m.id ? 'all' : m.id)}
-                title={`${m.nickname}님의 추천 장소만 보기`}
-              >
-                <span
-                  className={styles.memberDot}
-                  style={{ background: m.avatarColor }}
-                />
-                {m.nickname}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 우측 상단 주요 액션 버튼 */}
-        <div className={styles.topActions}>
-          <button
-            className={`btn btn-secondary ${showOnlyApproved ? styles.approvedActive : ''}`}
-            onClick={() => setShowOnlyApproved(p => !p)}
-            style={{ fontSize: '13px', padding: '8px 14px', gap: '6px' }}
-            title="팀원 전원이 인정한 맛집만 보기"
-          >
-            <Star size={14} fill={showOnlyApproved ? 'var(--warning)' : 'none'} color={showOnlyApproved ? 'var(--warning)' : undefined} />
-            모두 인정 ({pins.filter(p => p.isAllApproved).length})
-          </button>
-          <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-            <Plus size={16} />
-            장소 추가
-          </button>
-          <button
-            className={`btn btn-secondary btn-icon`}
-            onClick={() => setShowList(p => !p)}
-            title="장소 목록 열기"
-          >
-            <List size={16} />
-          </button>
-        </div>
-      </div>
-
-      {/* 카테고리 필터 바 & 검색바 */}
-      <div className={styles.categoryBar}>
-        <div className={styles.categoryScroll}>
-          {CATEGORIES.map(cat => {
-            const meta = cat === 'all' ? { label: '전체', icon: '🗺️' } : (CATEGORY_META[cat] || CATEGORY_META.etc)
-            const count = cat === 'all' ? pins.length : pins.filter(p => p.category === cat).length
-            return (
-              <button
-                key={cat}
-                className={`${styles.catBtn} ${activeCategory === cat ? styles.catBtnActive : ''}`}
-                onClick={() => setActiveCategory(cat)}
-              >
-                <span>{meta.icon}</span>
-                <span>{meta.label}</span>
-                <span className={styles.catCount}>{count}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* 인라인 검색창 */}
-        <div className={styles.mapSearch}>
-          <Search size={14} className={styles.mapSearchIcon} />
-          <input
-            className={styles.mapSearchInput}
-            placeholder="장소명, 주소 검색..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button className={styles.mapSearchClear} onClick={() => setSearchQuery('')}>
-              <X size={12} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {error && <div className={styles.errorBanner} role="alert">{error}</div>}
-
-      {/* 메인 지도 영역 */}
-      <div className={styles.mapArea}>
+    <div className={styles.appRoot}>
+      {/* 1. 전체 화면 메인 지도 */}
+      <div className={styles.mapCanvasWrap}>
         <MapCanvas
           pins={filteredPins}
           members={members}
           onSelectPin={setSelectedPin}
           selectedPin={selectedPin}
         />
+      </div>
 
-        {/* 장소 상세 슬라이드업 패널 */}
-        {selectedPin && (
-          <PinDetailPanel
-            pin={selectedPin}
-            members={members}
-            onClose={() => setSelectedPin(null)}
-            onRecommend={() => handleRecommend(selectedPin.id)}
-            onToggleVisit={() => handleToggleVisit(selectedPin.id)}
-          />
-        )}
+      {/* 2. 상단 플로팅 헤더 (팀 선택 + 검색 + 카테고리 바) */}
+      <div className={styles.floatingTop}>
+        <div className={styles.topCard}>
+          {/* 모임 전환 버튼 */}
+          <button
+            className={styles.teamSwitchBtn}
+            onClick={() => setShowTeamDrawer(true)}
+            title="모임 변경"
+          >
+            <span className={styles.teamBadgeDot}>📍</span>
+            <span className={styles.teamTitle}>
+              {currentTeam?.name || '모임 선택'}
+            </span>
+            <ChevronDown size={14} className={styles.teamArrow} />
+          </button>
 
-        {/* 사이드 장소 목록 패널 */}
-        {showList && (
-          <PlaceListPanel
-            pins={filteredPins}
-            members={members}
-            onSelectPin={(pin) => { setSelectedPin(pin); setShowList(false) }}
-            onClose={() => setShowList(false)}
-          />
-        )}
-
-        {/* 지도 좌측 하단 통계 오버레이 */}
-        <div className={styles.statsOverlay}>
-          <div className={styles.statItem} title="현재 표시된 핀 개수">
-            <MapPin size={12} color="var(--primary-light)" />
-            <span>총 {filteredPins.length}곳</span>
+          {/* 인라인 검색창 */}
+          <div className={styles.searchBox}>
+            <Search size={14} className={styles.searchIcon} />
+            <input
+              className={styles.searchInput}
+              placeholder="장소명, 주소 검색..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button className={styles.searchClear} onClick={() => setSearchQuery('')}>
+                <X size={12} />
+              </button>
+            )}
           </div>
-          <div className={styles.statDivider} />
-          <div className={styles.statItem} title="모두가 인정한 핀 개수">
-            <Star size={12} color="var(--warning)" fill="var(--warning)" />
-            <span>인정 {filteredPins.filter(p => p.isAllApproved).length}곳</span>
-          </div>
+        </div>
+
+        {/* 가로 스크롤 카테고리 & 멤버 칩 */}
+        <div className={styles.chipsScroll}>
+          {/* 모두 인정 빠른 필터 */}
+          <button
+            className={`${styles.chip} ${showOnlyApproved ? styles.chipApprovedActive : ''}`}
+            onClick={() => setShowOnlyApproved(p => !p)}
+          >
+            <Star size={12} fill={showOnlyApproved ? 'var(--warning)' : 'none'} color="var(--warning)" />
+            <span>모두인정</span>
+            <span className={styles.chipCount}>{allApprovedCount}</span>
+          </button>
+
+          <div className={styles.chipDivider} />
+
+          {/* 카테고리 칩들 */}
+          {CATEGORIES.map(cat => {
+            const meta = cat === 'all' ? { label: '전체', icon: '🗺️' } : (CATEGORY_META[cat] || CATEGORY_META.etc)
+            const count = cat === 'all' ? pins.length : pins.filter(p => p.category === cat).length
+            const isCatActive = activeCategory === cat
+            return (
+              <button
+                key={cat}
+                className={`${styles.chip} ${isCatActive ? styles.chipActive : ''}`}
+                onClick={() => setActiveCategory(cat)}
+              >
+                <span>{meta.icon}</span>
+                <span>{meta.label}</span>
+                <span className={styles.chipCount}>{count}</span>
+              </button>
+            )
+          })}
+
+          {/* 팀원 필터 칩들 */}
+          {members.length > 0 && (
+            <>
+              <div className={styles.chipDivider} />
+              {members.map(m => {
+                const isMemberActive = activeMember === m.id
+                return (
+                  <button
+                    key={m.id}
+                    className={`${styles.chip} ${isMemberActive ? styles.chipActive : ''}`}
+                    style={isMemberActive ? { borderColor: m.avatarColor, color: m.avatarColor } : {}}
+                    onClick={() => setActiveMember(p => p === m.id ? 'all' : m.id)}
+                  >
+                    <span className={styles.memberDot} style={{ background: m.avatarColor }} />
+                    <span>{m.nickname}</span>
+                  </button>
+                )
+              })}
+            </>
+          )}
         </div>
       </div>
 
-      {/* 장소 추가 모달 */}
-      {showAddModal && (
+      {/* 에러 알림 배너 */}
+      {error && (
+        <div className={styles.errorFloat}>
+          <span>{error}</span>
+          <button onClick={() => setError('')} className={styles.errorClose}><X size={12} /></button>
+        </div>
+      )}
+
+      {/* 3. 우측 플로팅 액션 버튼 (FAB & 목록) */}
+      <div className={styles.floatingActions}>
+        <button
+          className={styles.listFab}
+          onClick={() => setShowListPanel(p => !p)}
+          title="장소 목록 보기"
+        >
+          <List size={18} />
+          <span>목록</span>
+        </button>
+
+        <button
+          className={styles.addFab}
+          onClick={() => setShowAddPinModal(true)}
+          title="새 장소 추가"
+        >
+          <Plus size={20} strokeWidth={2.6} />
+          <span>장소 추가</span>
+        </button>
+      </div>
+
+      {/* 4. 장소 상세 정보 패널 (하단 바텀시트) */}
+      {selectedPin && (
+        <PinDetailPanel
+          pin={selectedPin}
+          members={members}
+          onClose={() => setSelectedPin(null)}
+          onRecommend={() => handleRecommend(selectedPin.id)}
+          onToggleVisit={() => handleToggleVisit(selectedPin.id)}
+        />
+      )}
+
+      {/* 5. 장소 목록 패널 (사이드/바텀 드로어) */}
+      {showListPanel && (
+        <PlaceListPanel
+          pins={filteredPins}
+          members={members}
+          onSelectPin={(pin) => { setSelectedPin(pin); setShowListPanel(false); }}
+          onClose={() => setShowListPanel(false)}
+        />
+      )}
+
+      {/* 6. 모임 목록 바텀시트 */}
+      <TeamDrawer
+        isOpen={showTeamDrawer}
+        teams={teams}
+        activeTeamId={selectedTeamId}
+        onSelectTeam={(tId) => { setSelectedTeamId(tId); setActiveTab('map'); }}
+        onOpenCreate={() => { setShowTeamDrawer(false); setShowCreateTeamModal(true); }}
+        onClose={() => { setShowTeamDrawer(false); setActiveTab('map'); }}
+      />
+
+      {/* 7. 새 모임 생성 모달 */}
+      {showCreateTeamModal && (
+        <TeamCreateModal
+          onClose={() => setShowCreateTeamModal(false)}
+          onCreateTeam={handleCreateTeam}
+        />
+      )}
+
+      {/* 8. 새 장소 추가 모달 */}
+      {showAddPinModal && (
         <AddPinModal
-          teamId={teamId}
-          onClose={() => setShowAddModal(false)}
+          teamId={selectedTeamId}
+          onClose={() => setShowAddPinModal(false)}
           onAdd={handleAddPin}
         />
       )}
 
-      {/* 모두 인정 달성 축하 팡파레 모달 */}
+      {/* 9. '모두 인정' 팡파레 축하 모달 */}
       {celebrationPin && (
         <CelebrationModal
           pin={celebrationPin}
           onClose={() => setCelebrationPin(null)}
         />
       )}
+
+      {/* 10. 프로필 / 사용자 전환 모달 */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        currentUser={currentUser}
+        onChangeUser={(newUser) => { setCurrentUser(newUser); setShowProfileModal(false); }}
+        onLogout={onLogout}
+        onClose={() => { setShowProfileModal(false); setActiveTab('map'); }}
+      />
+
+      {/* 11. 하단 고정 내비게이션 바 */}
+      <BottomNav
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        approvedCount={allApprovedCount}
+        teamCount={teams.length}
+      />
     </div>
   )
 }
