@@ -2,9 +2,9 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
   "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.pinmate.dao.TeamDao">
+<mapper namespace="com.pinmate.team.dao.TeamDao">
 
-    <select id="findTeamsByUserId" resultType="com.pinmate.domain.Team">
+    <select id="findTeamsByUserId" resultType="com.pinmate.team.domain.Team">
         SELECT 
             t.team_id,
             t.name,
@@ -21,7 +21,7 @@
         ORDER BY t.created_at DESC
     </select>
 
-    <select id="findTeamById" resultType="com.pinmate.domain.Team">
+    <select id="findTeamById" resultType="com.pinmate.team.domain.Team">
         SELECT 
             t.team_id,
             t.name,
@@ -36,7 +36,7 @@
         WHERE t.team_id = #{teamId}
     </select>
 
-    <select id="findTeamMembersByTeamId" resultType="com.pinmate.domain.TeamMember">
+    <select id="findTeamMembersByTeamId" resultType="com.pinmate.team.domain.TeamMember">
         SELECT 
             tm.team_id,
             tm.user_id,
@@ -61,7 +61,7 @@
         ON CONFLICT (team_id, user_id) DO NOTHING
     </insert>
 
-    <select id="findInviteByCode" resultType="com.pinmate.domain.TeamInvite">
+    <select id="findInviteByCode" resultType="com.pinmate.team.domain.TeamInvite">
         SELECT 
             ti.invite_id,
             ti.team_id,

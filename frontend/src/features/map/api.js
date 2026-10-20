@@ -13,3 +13,10 @@ export const toggleRecommendationApi = (pinId, userId) =>
 
 export const toggleVisitApi = (pinId, userId) =>
   post(`/pins/${encodeURIComponent(pinId)}/visit`, { userId })
+
+/**
+ * 상호명으로 장소를 검색한다 (백엔드가 NAVER 검색 API를 대신 호출).
+ * 좌표는 포함되지 않으므로, 선택한 뒤 주소를 지오코딩해 얻는다.
+ * @returns {Promise<Array<{name: string, category: string, address: string}>>}
+ */
+export const searchPlaces = (query) => request(`/places/search?query=${encodeURIComponent(query)}`)

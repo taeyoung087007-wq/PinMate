@@ -7,7 +7,6 @@ import styles from './MapCanvas.module.css'
 // 핀이 하나도 없을 때 보여줄 기본 위치 (서울시청)
 const SEOUL_CENTER = { lat: 37.5665, lng: 126.9780 }
 const DEFAULT_ZOOM = 14
-const SINGLE_PIN_ZOOM = 16
 const MAX_FIT_ZOOM = 16
 const MY_LOCATION_ZOOM = 16
 
@@ -108,10 +107,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
   const mapRef = useRef(null)
   const markersRef = useRef(new Map()) // pinId -> { marker, pin, meta, memberColor }
   const onSelectRef = useRef(onSelectPin)
-  const hasFitRef = useRef(false) // 최초 1회만 전체 보기
   const myLocationRef = useRef(null) // 현재 위치 좌표
   const myLocationMarkerRef = useRef(null) // 현재 위치 마커
-  const pinsRef = useRef(pins) // 위치가 늦게 도착했을 때 핀을 덮지 않도록 확인용
   const [status, setStatus] = useState('loading') // loading | ready | nokey | error
   const [errorMessage, setErrorMessage] = useState('')
   const [locateError, setLocateError] = useState('')
@@ -197,9 +194,9 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
             : '위치 확인이 지연되어 서울에서 시작합니다. 우측 하단 버튼으로 다시 시도할 수 있어요.'
         )
 
-        // 권한 응답이 늦게 오면 그때 부드럽게 이동한다 (팀 핀이 있으면 핀 우선)
+        // 권한 응답이 늦게 오면 그때 부드럽게 내 위치로 이동한다
         locationPromise.then(result => {
-          if (cancelled || pinsRef.current.length > 0) return
+          if (cancelled) return
           if (!result?.ok) {
             setLocateError(locationErrorMessage(result?.code))
             return
@@ -276,23 +273,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
     })
   }, [selectedPin, pins, members])
 
-  // 4) 핀이 처음 들어왔을 때 전체가 보이도록 한 번만 맞춘다
-  useEffect(() => {
-    const maps = window.naver?.maps
-    const map = mapRef.current
-    if (!maps || !map || status !== 'ready' || hasFitRef.current || pins.length === 0) return
-
-    hasFitRef.current = true
-    if (pins.length === 1) {
-      map.morph(new maps.LatLng(pins[0].lat, pins[0].lng), SINGLE_PIN_ZOOM)
-      return
-    }
-
-    const bounds = new maps.LatLngBounds()
-    pins.forEach(pin => bounds.extend(new maps.LatLng(pin.lat, pin.lng)))
-    map.fitBounds(bounds)
-    if (map.getZoom() > MAX_FIT_ZOOM) map.setZoom(MAX_FIT_ZOOM)
-  }, [pins, status])
+  // 4) 핀 전체 보기는 우측 하단 버튼(resetView)으로만 한다.
+  //    첫 진입은 항상 내 위치(없으면 서울)로 열어야 해서 자동 fitBounds 는 하지 않는다.
 
   // 5) 목록 패널 등에서 고른 핀이 화면 밖이면 그쪽으로 이동
   useEffect(() => {
@@ -330,11 +312,6 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
     }
   }, [])
 
-  // 핀 목록을 ref에도 반영 (위치가 늦게 도착했을 때 핀을 덮지 않기 위한 판단용)
-  useEffect(() => {
-    pinsRef.current = pins
-  }, [pins])
-
   // 위치 안내 문구는 3초 뒤 자동으로 사라진다
   useEffect(() => {
     if (!locateError) return
@@ -353,7 +330,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
     if (!maps || !map) return
 
     if (pins.length === 0) {
-      map.morph(new maps.LatLng(SEOUL_CENTER.lat, SEOUL_CENTER.lng), DEFAULT_ZOOM)
+      // 보여줄 핀이 없으면 내 위치로 돌아간다
+      moveToMyLocation()
       return
     }
 
@@ -423,10 +401,6 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
                 <RotateCcw size={14} />
               </button>
             </div>
-          </div>
-
-          <div className={styles.guideHint}>
-            <span>드래그로 이동 · 스크롤로 확대/축소</span>
           </div>
 
           {pins.length === 0 && (
