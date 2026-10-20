@@ -1,89 +1,146 @@
-import { useState } from 'react'
-import { X, Search, MapPin, Tag, FileText, PlusCircle, ArrowLeft } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { X, Search, MapPin, Tag, FileText, ArrowLeft, Crosshair } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { CURRENT_USER } from '../../../lib/currentUser'
+import { loadNaverMaps } from '../../../lib/naverMaps'
+import { geocode, reverseGeocode } from '../geocode'
+import { searchPlaces } from '../api'
 import styles from './AddPinModal.module.css'
 
-/** 기본 장소 검색 제안 데이터 */
-const PLACE_SUGGESTIONS = [
-  { name: '홍대 자이가르트', address: '서울 마포구 어울마당로 35', lat: 37.5557, lng: 126.9238, category: 'food' },
-  { name: '익선동 낙원상가', address: '서울 종로구 낙원동 284', lat: 37.5752, lng: 126.9857, category: 'sight' },
-  { name: '뚝섬 한강공원', address: '서울 광진구 강변북로 139', lat: 37.5299, lng: 127.0667, category: 'play' },
-  { name: '성수동 대림창고', address: '서울 성동구 성수이로 78', lat: 37.5447, lng: 127.0568, category: 'cafe' },
-  { name: '노량진 수산시장', address: '서울 동작구 노들로 674', lat: 37.5131, lng: 126.9432, category: 'food' },
-  { name: '을지로 노가리골목', address: '서울 중구 을지로 11길 19', lat: 37.5661, lng: 126.9912, category: 'drink' },
-  { name: '북촌 한옥마을', address: '서울 종로구 계동길 37', lat: 37.5826, lng: 126.9848, category: 'sight' },
-]
+// 지도에서 직접 고를 때의 기본 중심 (서울시청)
+const PICKER_CENTER = { lat: 37.5665, lng: 126.9780 }
+const PICKER_ZOOM = 15
 
 /**
- * 장소 검색 및 지도 핀 추가 모달
- * - 장소 이름 검색
- * - 검색 결과 선택 또는 직접 장소명 입력 등록
- * - 카테고리 선택 및 한 줄 메모 작성
+ * 장소 추가 모달
+ * - 주소 검색(Geocoding) 또는 지도 클릭(Reverse Geocoding)으로 좌표를 얻는다
+ * - 좌표는 반드시 실제 주소에서 나온다 (임의 좌표 생성 없음)
  */
 export default function AddPinModal({ teamId, onClose, onAdd }) {
   const [step, setStep] = useState('search') // 'search' | 'detail'
+  const [mode, setMode] = useState('search') // 'search' | 'map'
   const [query, setQuery] = useState('')
-  const [selected, setSelected] = useState(null)
+  const [results, setResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const [selecting, setSelecting] = useState(false)
+  const [error, setError] = useState('')
+  const [selected, setSelected] = useState(null) // { name, address, lat, lng }
+  const [picked, setPicked] = useState(null) // 지도에서 찍은 { lat, lng, address, loading }
   const [category, setCategory] = useState('food')
+  const [name, setName] = useState('')
   const [memo, setMemo] = useState('')
 
-  // 검색어 필터링
-  const suggestions = PLACE_SUGGESTIONS.filter(p =>
-    !query || p.name.includes(query) || p.address.includes(query)
-  )
+  // 검색: 상호명(백엔드 프록시)과 주소(지도 SDK 지오코딩)를 동시에 조회해 합친다
+  const handleSearch = async e => {
+    e.preventDefault()
+    const keyword = query.trim()
+    if (!keyword) return
 
-  // 추천 검색 결과 선택
-  const handleSelect = (place) => {
-    setSelected(place)
-    setCategory(place.category || 'food')
-    setStep('detail')
-  }
+    setSearching(true)
+    setError('')
+    const [placeResult, addressResult] = await Promise.allSettled([searchPlaces(keyword), geocode(keyword)])
+    const places = placeResult.status === 'fulfilled' ? placeResult.value : []
+    const addresses = addressResult.status === 'fulfilled' ? addressResult.value : []
 
-  // 사용자가 직접 입력한 장소로 등록
-  const handleCustomPlace = () => {
-    if (!query.trim()) return
-    // 서울 중심지 기준 약간의 랜덤 오프셋 부여
-    const randomLat = 37.5665 + (Math.random() - 0.5) * 0.04
-    const randomLng = 126.9780 + (Math.random() - 0.5) * 0.06
-    setSelected({
-      name: query.trim(),
-      address: '서울 중심지 인근',
-      lat: randomLat,
-      lng: randomLng,
-      category: 'food',
+    // 같은 주소가 양쪽에서 나올 수 있으므로 주소 기준으로 중복 제거
+    const seen = new Set()
+    const merged = [
+      ...places.map(item => ({ ...item, kind: 'place' })),
+      ...addresses.map(item => ({ ...item, kind: 'address' })),
+    ].filter(item => {
+      const key = item.address || item.name
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
     })
-    setCategory('food')
+
+    setResults(merged)
+    // 백엔드가 아직 /api/places를 지원하지 않아도 주소 검색 결과는 보여준다
+    if (placeResult.status === 'rejected' && addressResult.status === 'rejected') {
+      setError('검색에 실패했습니다. 잠시 후 다시 시도해 주세요.')
+    }
+    setSearching(false)
+  }
+
+  // 결과 선택 — 상호명 결과는 좌표가 없어서 주소로 지오코딩한다
+  const handleSelectResult = async place => {
+    if (place.lat && place.lng) {
+      setSelected(place)
+      setName(place.name)
+      setStep('detail')
+      return
+    }
+
+    setSelecting(true)
+    setError('')
+    try {
+      const found = await geocode(place.address)
+      if (found.length === 0) {
+        setError('이 장소의 좌표를 찾지 못했습니다. 지도에서 직접 선택해 주세요.')
+        return
+      }
+      setSelected({ ...found[0], name: place.name })
+      setName(place.name)
+      setStep('detail')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSelecting(false)
+    }
+  }
+
+  // 지도 클릭 → 역지오코딩으로 주소 채우기
+  const handlePick = async ({ lat, lng }) => {
+    setPicked({ lat, lng, address: '', loading: true })
+    try {
+      const address = await reverseGeocode(lat, lng)
+      setPicked({ lat, lng, address: address || '주소를 확인하지 못했습니다', loading: false })
+    } catch {
+      setPicked({ lat, lng, address: '주소를 확인하지 못했습니다', loading: false })
+    }
+  }
+
+  // 지도에서 고른 위치로 확정
+  const handleUsePicked = () => {
+    if (!picked) return
+    const place = {
+      name: picked.address || '',
+      address: picked.address || '',
+      lat: picked.lat,
+      lng: picked.lng,
+    }
+    setSelected(place)
+    setName(place.name)
     setStep('detail')
   }
 
-  // 핀 저장 제출
   const handleAdd = () => {
-    if (!selected || !category) return
-    // id, 추천자, 등록 시각 등은 서버가 채운다
-    const newPin = {
+    if (!selected) return
+    onAdd({
       teamId,
-      name: selected.name,
+      name: name.trim() || selected.address,
       address: selected.address,
       category,
       lat: selected.lat,
       lng: selected.lng,
       addedBy: CURRENT_USER.id,
       memo: memo.trim(),
-    }
-    onAdd(newPin)
+    })
   }
 
   return (
     <div className={styles.overlay} onClick={e => e.target === e.currentTarget && onClose()}>
       <div className={`${styles.modal} glass-card animate-slide-up`}>
-        {/* 모달 상단 헤더 */}
         <div className={styles.header}>
           <div className={styles.headerTitle}>
             {step === 'search' ? (
-              <><Search size={16} color="var(--primary-light)" /> 장소 검색 및 추가</>
+              <>
+                <Search size={16} color="var(--primary-light)" /> 장소 추가
+              </>
             ) : (
-              <><MapPin size={16} color="var(--primary-light)" /> 장소 정보 입력</>
+              <>
+                <MapPin size={16} color="var(--primary-light)" /> 장소 정보 입력
+              </>
             )}
           </div>
           <button className="btn btn-ghost btn-icon" onClick={onClose} title="닫기">
@@ -93,65 +150,119 @@ export default function AddPinModal({ teamId, onClose, onAdd }) {
 
         {step === 'search' ? (
           <>
-            <div className={styles.searchField}>
-              <Search size={15} className={styles.searchIcon} />
-              <input
-                className={styles.searchInput}
-                placeholder="맛집, 카페, 명소 이름이나 주소를 입력..."
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                autoFocus
-              />
-            </div>
-
-            {/* 직접 등록 옵션 배너 */}
-            {query.trim().length > 0 && (
+            {/* 검색 / 지도 선택 탭 */}
+            <div className={styles.tabBar}>
               <button
                 type="button"
-                className={styles.customAddBanner}
-                onClick={handleCustomPlace}
+                className={`${styles.tabBtn} ${mode === 'search' ? styles.tabBtnActive : ''}`}
+                onClick={() => setMode('search')}
               >
-                <PlusCircle size={16} color="var(--primary-light)" />
-                <div className={styles.customAddText}>
-                  <span>"<strong>{query.trim()}</strong>"</span> (으)로 직접 핀 등록하기
-                </div>
+                <Search size={13} />
+                주소로 찾기
               </button>
-            )}
-
-            <div className={styles.resultList}>
-              {suggestions.map((place, i) => {
-                const meta = CATEGORY_META[place.category] || CATEGORY_META.etc
-                return (
-                  <button key={i} className={styles.resultItem} onClick={() => handleSelect(place)}>
-                    <span className={styles.resultEmoji}>{meta.icon}</span>
-                    <div className={styles.resultInfo}>
-                      <div className={styles.resultName}>{place.name}</div>
-                      <div className={styles.resultAddress}>{place.address}</div>
-                    </div>
-                    <span className={`badge ${meta.cls}`}>{meta.label}</span>
-                  </button>
-                )
-              })}
-
-              {suggestions.length === 0 && !query && (
-                <div className={styles.emptyNotice}>
-                  등록하고 싶은 장소 이름을 검색해보세요.
-                </div>
-              )}
+              <button
+                type="button"
+                className={`${styles.tabBtn} ${mode === 'map' ? styles.tabBtnActive : ''}`}
+                onClick={() => setMode('map')}
+              >
+                <Crosshair size={13} />
+                지도에서 선택
+              </button>
             </div>
+
+            {mode === 'search' ? (
+              <>
+                <form className={styles.searchField} onSubmit={handleSearch}>
+                  <Search size={15} className={styles.searchIcon} />
+                  <input
+                    className={styles.searchInput}
+                    placeholder="주소나 장소명을 입력하고 Enter (예: 성수동 대림창고)"
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    autoFocus
+                  />
+                  <button type="submit" className={styles.searchSubmit} disabled={searching}>
+                    {searching ? '검색 중…' : '검색'}
+                  </button>
+                </form>
+
+                {error && <div className={styles.errorText}>{error}</div>}
+
+                <div className={styles.resultList}>
+                  {results.map((place, i) => (
+                    <button
+                      key={`${place.name}-${i}`}
+                      className={styles.resultItem}
+                      onClick={() => handleSelectResult(place)}
+                      disabled={selecting}
+                    >
+                      <span className={styles.resultEmoji}>📍</span>
+                      <div className={styles.resultInfo}>
+                        <div className={styles.resultName}>{place.name}</div>
+                        <div className={styles.resultAddress}>{place.address}</div>
+                      </div>
+                      <span className={styles.resultType}>{place.kind === 'address' ? '주소' : '장소'}</span>
+                    </button>
+                  ))}
+
+                  {!searching && results.length === 0 && (
+                    <div className={styles.emptyNotice}>
+                      {query.trim()
+                        ? '검색 결과가 없습니다. 지도에서 직접 선택해 보세요.'
+                        : '주소나 장소명을 검색하거나, 지도에서 위치를 직접 선택하세요.'}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <MiniMapPicker onPick={handlePick} />
+
+                <div className={styles.pickedRow}>
+                  <MapPin size={14} color="var(--primary-light)" />
+                  <span className={styles.pickedAddress}>
+                    {!picked
+                      ? '지도를 클릭해 위치를 선택하세요'
+                      : picked.loading
+                        ? '주소를 확인하는 중…'
+                        : picked.address}
+                  </span>
+                </div>
+
+                <div className={`${styles.actions} ${styles.mapActions}`}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleUsePicked}
+                    disabled={!picked || picked.loading}
+                    style={{ flex: 1 }}
+                  >
+                    이 위치로 선택
+                  </button>
+                </div>
+              </>
+            )}
           </>
         ) : (
           <div className={styles.detailForm}>
-            {/* 선택된 장소 요약 */}
             <div className={styles.selectedPlace}>
               <MapPin size={18} color="var(--primary-light)" />
-              <div>
-                <div className={styles.selectedName}>{selected?.name}</div>
+              <div className={styles.selectedInfo}>
+                <div className={styles.selectedName}>{name || selected?.address}</div>
                 <div className={styles.selectedAddr}>{selected?.address}</div>
               </div>
             </div>
 
-            {/* 카테고리 선택 */}
+            <div className={styles.field}>
+              <label className={styles.label}>장소 이름</label>
+              <input
+                className="input"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="예: 성수동 대림창고"
+              />
+            </div>
+
             <div className={styles.field}>
               <label className={styles.label}>
                 <Tag size={13} />
@@ -172,7 +283,6 @@ export default function AddPinModal({ teamId, onClose, onAdd }) {
               </div>
             </div>
 
-            {/* 추천 한 줄 메모 */}
             <div className={styles.field}>
               <label className={styles.label}>
                 <FileText size={13} />
@@ -187,22 +297,12 @@ export default function AddPinModal({ teamId, onClose, onAdd }) {
               />
             </div>
 
-            {/* 액션 버튼 */}
             <div className={styles.actions}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setStep('search')}
-              >
+              <button type="button" className="btn btn-secondary" onClick={() => setStep('search')}>
                 <ArrowLeft size={14} />
-                다시 검색
+                다시 선택
               </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleAdd}
-                style={{ flex: 1 }}
-              >
+              <button type="button" className="btn btn-primary" onClick={handleAdd} style={{ flex: 1 }}>
                 <MapPin size={14} />
                 지도에 핀 꽂기
               </button>
@@ -210,6 +310,69 @@ export default function AddPinModal({ teamId, onClose, onAdd }) {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * 모달 안에서 위치를 고르는 작은 지도.
+ * 클릭한 좌표를 부모에게 넘기고, 마커는 이 컴포넌트가 직접 관리한다.
+ */
+function MiniMapPicker({ onPick }) {
+  const containerRef = useRef(null)
+  const mapRef = useRef(null)
+  const markerRef = useRef(null)
+  const onPickRef = useRef(onPick)
+
+  useEffect(() => {
+    onPickRef.current = onPick
+  }, [onPick])
+
+  useEffect(() => {
+    let cancelled = false
+
+    loadNaverMaps()
+      .then(maps => {
+        const el = containerRef.current
+        if (cancelled || !el || mapRef.current) return
+
+        const map = new maps.Map(el, {
+          center: new maps.LatLng(PICKER_CENTER.lat, PICKER_CENTER.lng),
+          zoom: PICKER_ZOOM,
+          minZoom: 6,
+          maxZoom: 21,
+          zoomControl: false,
+          mapTypeControl: false,
+          scaleControl: false,
+          size: new maps.Size(el.clientWidth, el.clientHeight),
+        })
+        mapRef.current = map
+
+        maps.Event.addListener(map, 'click', event => {
+          const position = event.coord
+          if (markerRef.current) {
+            markerRef.current.setPosition(position)
+          } else {
+            markerRef.current = new maps.Marker({ position, map })
+          }
+          onPickRef.current({ lat: position.lat(), lng: position.lng() })
+        })
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+      markerRef.current = null
+      mapRef.current?.destroy?.()
+      mapRef.current = null
+      if (containerRef.current) containerRef.current.innerHTML = ''
+    }
+  }, [])
+
+  return (
+    <div className={styles.pickerWrap}>
+      <div ref={containerRef} className={styles.pickerMap} />
+      <div className={styles.pickerHint}>지도를 클릭하면 그 위치의 주소를 가져옵니다</div>
     </div>
   )
 }

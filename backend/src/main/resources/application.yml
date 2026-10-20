@@ -3,7 +3,10 @@ spring:
     name: pinmate
   profiles:
     default: local
-  # 운영 등 local 외 환경은 환경변수로 주입 (비밀값을 Git에 남기지 않기 위함)
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:backend/.env[.properties]
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
@@ -13,3 +16,11 @@ mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:
     map-underscore-to-camel-case: true
+
+# 장소(상호명) 검색 API 키.
+naver:
+  search:
+    provider: ${NAVER_SEARCH_PROVIDER:ncp}
+    client-id: ${NAVER_SEARCH_CLIENT_ID:}
+    client-secret: ${NAVER_SEARCH_CLIENT_SECRET:}
+

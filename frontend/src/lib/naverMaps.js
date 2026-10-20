@@ -65,7 +65,9 @@ export function loadNaverMaps() {
     const script = document.createElement('script')
     script.id = SDK_ID
     script.async = true
-    script.src = `${SDK_URL}?ncpKeyId=${encodeURIComponent(keyId)}`
+    // geocoder 서브모듈을 함께 받아야 주소↔좌표 변환(Service.geocode)을 쓸 수 있다.
+    // 서브모듈도 Client ID만으로 동작하므로 Client Secret 없이 브라우저에서 호출할 수 있다.
+    script.src = `${SDK_URL}?ncpKeyId=${encodeURIComponent(keyId)}&submodules=geocoder`
     script.onload = () => {
       if (window.naver?.maps) resolve(window.naver.maps)
       else reject(sdkError('지도 스크립트는 로드됐지만 naver.maps를 찾을 수 없습니다.', 'LOAD'))
