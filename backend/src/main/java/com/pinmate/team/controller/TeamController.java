@@ -4,6 +4,7 @@ import com.pinmate.team.service.TeamService;
 
 import com.pinmate.common.ApiResponse;
 import com.pinmate.team.dto.CreateTeamRequest;
+import com.pinmate.team.dto.JoinTeamRequest;
 import com.pinmate.team.dto.TeamResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -30,5 +31,11 @@ public class TeamController {
     @PostMapping
     public ApiResponse<TeamResponse> createTeam(@RequestBody CreateTeamRequest request) {
         return ApiResponse.ok(teamService.createTeam(request));
+    }
+
+    /** 기존 회원의 초대 코드 참여. 예: POST /api/teams/join {"code": "team13_0c009f", "userId": "3"} */
+    @PostMapping("/join")
+    public ApiResponse<TeamResponse> joinTeam(@RequestBody JoinTeamRequest request) {
+        return ApiResponse.ok(teamService.joinTeam(request));
     }
 }

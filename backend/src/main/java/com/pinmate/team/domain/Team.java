@@ -16,4 +16,7 @@ public class Team {
     private int pinCount;
     private int allApprovedCount;
     private int memberCount;
+
+    // 현재 유효한 초대 코드 (없으면 null)
+    private String inviteCode;
 }

@@ -6,10 +6,11 @@ public record TeamMemberResponse(
     String color,
     String avatarColor,
     String initials,
-    String role
+    String role,
+    boolean online
 ) {
-    public static TeamMemberResponse of(String id, String nickname, String color, String role) {
+    public static TeamMemberResponse of(String id, String nickname, String color, String role, boolean online) {
         String initials = (nickname != null && !nickname.isBlank()) ? nickname.substring(0, 1) : "P";
-        return new TeamMemberResponse(id, nickname, color, color, initials, role);
+        return new TeamMemberResponse(id, nickname, color, color, initials, role, online);
     }
 }

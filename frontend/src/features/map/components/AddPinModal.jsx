@@ -15,19 +15,20 @@ const PICKER_ZOOM = 15
  * 장소 추가 모달
  * - 주소 검색(Geocoding) 또는 지도 클릭(Reverse Geocoding)으로 좌표를 얻는다
  * - 좌표는 반드시 실제 주소에서 나온다 (임의 좌표 생성 없음)
+ * - initialPlace: 메인 지도에서 이미 고른 위치 { name, address, lat, lng } 가 있으면 상세 입력부터 시작
  */
-export default function AddPinModal({ teamId, onClose, onAdd }) {
-  const [step, setStep] = useState('search') // 'search' | 'detail'
+export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = null }) {
+  const [step, setStep] = useState(initialPlace ? 'detail' : 'search') // 'search' | 'detail'
   const [mode, setMode] = useState('search') // 'search' | 'map'
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [selecting, setSelecting] = useState(false)
   const [error, setError] = useState('')
-  const [selected, setSelected] = useState(null) // { name, address, lat, lng }
+  const [selected, setSelected] = useState(initialPlace) // { name, address, lat, lng }
   const [picked, setPicked] = useState(null) // 지도에서 찍은 { lat, lng, address, loading }
   const [category, setCategory] = useState('food')
-  const [name, setName] = useState('')
+  const [name, setName] = useState(initialPlace?.name ?? '')
   const [memo, setMemo] = useState('')
 
   // 검색: 상호명(백엔드 프록시)과 주소(지도 SDK 지오코딩)를 동시에 조회해 합친다

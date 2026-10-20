@@ -302,3 +302,134 @@
   font-size: 12px;
   z-index: 15;
 }
+/* 지도에서 고른 위치 마커 (요소 크기 = 물방울 핀, 말풍선은 그 위에 띄운다) */
+.pickWrap {
+  position: relative;
+  width: 32px;
+  height: 42px;
+}
+
+.pickPin {
+  width: 32px;
+  height: 42px;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.35));
+  transform-origin: 50% 100%;
+  animation: pickDrop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pickPin svg {
+  display: block;
+}
+
+@keyframes pickDrop {
+  from {
+    transform: translateY(-10px) scale(0.85);
+    opacity: 0;
+  }
+}
+
+.pickCard {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 240px;
+  min-width: 180px;
+  padding: 10px 12px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-md);
+  cursor: default;
+}
+
+/* 말풍선 꼬리 */
+.pickCard::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--bg-surface);
+}
+
+.pickTitle {
+  display: block;
+  margin-right: 18px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  word-break: keep-all;
+}
+
+.pickCategory {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  color: var(--primary-light);
+}
+
+/* display: block 이 hidden 속성을 덮지 않도록 */
+.pickTitle[hidden],
+.pickCategory[hidden] {
+  display: none;
+}
+
+.pickAddress {
+  margin: 4px 18px 8px 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  word-break: keep-all;
+}
+
+.pickAdd {
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pickAdd:hover {
+  background: var(--primary-dark);
+}
+
+.pickClose {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pickClose:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.pickAdd:focus-visible,
+.pickClose:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pickPin {
+    animation: none;
+  }
+}

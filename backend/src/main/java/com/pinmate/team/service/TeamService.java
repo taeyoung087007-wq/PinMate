@@ -1,6 +1,7 @@
 package com.pinmate.team.service;
 
 import com.pinmate.team.dto.CreateTeamRequest;
+import com.pinmate.team.dto.JoinTeamRequest;
 import com.pinmate.team.dto.TeamResponse;
 
 import java.util.List;
@@ -18,4 +19,7 @@ public interface TeamService {
 
     /** 팀 생성 (생성자를 owner로 등록) */
     TeamResponse createTeam(CreateTeamRequest request);
+
+    /** 초대 코드로 기존 회원이 팀에 참여 (이미 멤버면 그대로 팀 정보를 돌려준다) */
+    TeamResponse joinTeam(JoinTeamRequest request);
 }
