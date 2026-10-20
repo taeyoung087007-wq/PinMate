@@ -52,25 +52,35 @@ function createPinElement({ pin, meta, memberColor, isSelected }) {
   return wrap
 }
 
-// 위치 조회에 걸리는 최대 시간
-const LOCATION_TIMEOUT = 4000
+// 위치 조회에 걸리는 최대 시간 (권한 팝업에 응답할 시간을 넉넉히 준다)
+const LOCATION_TIMEOUT = 10000
 // 지도 첫 표시를 이만큼까지 기다린다 (권한 응답이 없으면 서울로 먼저 띄우고 나중에 이동)
 const FIRST_PAINT_WAIT = 5000
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 
+// GeolocationPositionError.code → 사용자에게 보여줄 문구
+const LOCATION_ERROR_MESSAGE = {
+  1: '위치 권한이 거부되었습니다. 주소창의 자물쇠 아이콘에서 허용으로 바꿔주세요.',
+  2: '현재 위치를 확인할 수 없습니다. 윈도우 설정의 위치 서비스가 꺼져 있는지 확인해 주세요.',
+  3: '위치 확인이 지연되고 있습니다. 권한 팝업에서 허용을 눌렀는지 확인해 주세요.',
+}
+
+const locationErrorMessage = code =>
+  LOCATION_ERROR_MESSAGE[code] ?? '현재 위치를 확인하지 못했습니다.'
+
 /**
- * 현재 위치를 구한다. 실패(거부·시간초과·미지원)해도 reject하지 않고 null을 준다.
+ * 현재 위치를 구한다. 실패해도 reject하지 않고 결과를 담아 돌려준다.
  * - 첫 진입에는 highAccuracy를 끈다. 켜면 GPS 탐색 때문에 수 초가 걸려 첫 화면이 늦어진다.
  * - 도시 단위 정확도면 지도 중심을 잡기에 충분하다.
- * @returns {Promise<{lat: number, lng: number} | null>}
+ * @returns {Promise<{ok: true, lat: number, lng: number} | {ok: false, code: number|string}>}
  */
 function getMyLocation(highAccuracy = false) {
   return new Promise(resolve => {
-    if (!navigator.geolocation) return resolve(null)
+    if (!navigator.geolocation) return resolve({ ok: false, code: 'UNSUPPORTED' })
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => resolve({ lat: coords.latitude, lng: coords.longitude }),
-      () => resolve(null),
+      ({ coords }) => resolve({ ok: true, lat: coords.latitude, lng: coords.longitude }),
+      error => resolve({ ok: false, code: error.code }),
       { enableHighAccuracy: highAccuracy, timeout: LOCATION_TIMEOUT, maximumAge: 60000 }
     )
   })
@@ -131,7 +141,7 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
     const locationPromise = getMyLocation()
 
     Promise.all([loadNaverMaps(), Promise.race([locationPromise, wait(FIRST_PAINT_WAIT).then(() => null)])])
-      .then(([maps, firstLocation]) => {
+      .then(([maps, firstResult]) => {
         if (cancelled || !containerRef.current || mapRef.current) return
 
         const el = containerRef.current
@@ -139,6 +149,7 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
         el.style.height = '100%'
 
         // 위치를 이미 알고 있으면 처음부터 그 자리에서 지도를 만든다 (서울로 떴다가 튀는 현상 방지)
+        const firstLocation = firstResult?.ok ? firstResult : null
         const center = firstLocation ?? SEOUL_CENTER
 
         const map = new maps.Map(el, {
@@ -179,10 +190,21 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
           return
         }
 
+        // 위치를 못 받았으면 이유를 화면에 남긴다 (조용히 서울로 대체하지 않는다)
+        setLocateError(
+          firstResult
+            ? locationErrorMessage(firstResult.code)
+            : '위치 확인이 지연되어 서울에서 시작합니다. 우측 하단 버튼으로 다시 시도할 수 있어요.'
+        )
+
         // 권한 응답이 늦게 오면 그때 부드럽게 이동한다 (팀 핀이 있으면 핀 우선)
-        locationPromise.then(position => {
-          if (cancelled || !position || pinsRef.current.length > 0) return
-          const here = new maps.LatLng(position.lat, position.lng)
+        locationPromise.then(result => {
+          if (cancelled || pinsRef.current.length > 0) return
+          if (!result?.ok) {
+            setLocateError(locationErrorMessage(result?.code))
+            return
+          }
+          const here = new maps.LatLng(result.lat, result.lng)
           myLocationRef.current = here
           map.morph(here, MY_LOCATION_ZOOM)
           if (myLocationMarkerRef.current) {
@@ -190,6 +212,7 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
           } else {
             myLocationMarkerRef.current = createMyLocationMarker(maps, map, here)
           }
+          setLocateError('')
         })
       })
       .catch(error => {
@@ -280,55 +303,44 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin }) {
     const position = new maps.LatLng(selectedPin.lat, selectedPin.lng)
     if (!map.getBounds().hasLatLng(position)) map.panTo(position)
   }, [selectedPin])
-    const moveToMyLocation = useCallback((zoom = MY_LOCATION_ZOOM) => {
+
+  const moveToMyLocation = useCallback(async (zoom = MY_LOCATION_ZOOM) => {
     const maps = window.naver?.maps
     const map = mapRef.current
     if (!maps || !map) return
 
-    if (!navigator.geolocation) {
-      setLocateError('이 브라우저에서는 위치 기능을 사용할 수 없습니다.')
+    setLocating(true)
+    const result = await getMyLocation(true)
+    setLocating(false)
+
+    if (!result.ok) {
+      setLocateError(locationErrorMessage(result.code))
       return
     }
 
-    setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setLocating(false)
-        setLocateError('')
-        const here = new maps.LatLng(coords.latitude, coords.longitude)
-        myLocationRef.current = here
-        map.morph(here, zoom)
+    setLocateError('')
+    const here = new maps.LatLng(result.lat, result.lng)
+    myLocationRef.current = here
+    map.morph(here, zoom)
 
-        // 현재 위치 표시 (파란 점)
-        if (myLocationMarkerRef.current) {
-          myLocationMarkerRef.current.setPosition(here)
-          return
-        }
-        const dot = document.createElement('div')
-        dot.className = styles.myLocationDot
-        myLocationMarkerRef.current = new maps.Marker({
-          position: here,
-          map,
-          icon: { content: dot, anchor: new maps.Point(9, 9) },
-          zIndex: 200,
-        })
-      },
-      error => {
-        setLocating(false)
-        setLocateError(
-          error.code === error.PERMISSION_DENIED
-            ? '위치 권한이 거부되었습니다. 주소창의 자물쇠 아이콘에서 허용으로 바꿔주세요.'
-            : '현재 위치를 확인하지 못했습니다.'
-        )
-      },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
-    )
+    if (myLocationMarkerRef.current) {
+      myLocationMarkerRef.current.setPosition(here)
+    } else {
+      myLocationMarkerRef.current = createMyLocationMarker(maps, map, here)
+    }
   }, [])
 
   // 핀 목록을 ref에도 반영 (위치가 늦게 도착했을 때 핀을 덮지 않기 위한 판단용)
   useEffect(() => {
     pinsRef.current = pins
   }, [pins])
+
+  // 위치 안내 문구는 3초 뒤 자동으로 사라진다
+  useEffect(() => {
+    if (!locateError) return
+    const timer = setTimeout(() => setLocateError(''), 3000)
+    return () => clearTimeout(timer)
+  }, [locateError])
 
   const changeZoom = delta => {
     const map = mapRef.current
