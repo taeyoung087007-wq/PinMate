@@ -29,8 +29,20 @@
 #   MVNW_VERBOSE - true: enable verbose log; debug: trace the mvnw script; others: silence the output
 # ----------------------------------------------------------------------------
 
-set -euf
-[ "${MVNW_VERBOSE-}" != debug ] || set -x
+# Fallback to locally installed Temurin JDK 17 if JAVA_HOME is not set or lacks javac
+if [ -z "${JAVA_HOME-}" ] || [ ! -x "${JAVA_HOME}/bin/javac" ]; then
+  if [ -d "$HOME/.jdks/temurin-17" ]; then
+    export JAVA_HOME="$HOME/.jdks/temurin-17"
+    export PATH="$JAVA_HOME/bin:$PATH"
+  fi
+fi
+
+# Load local backend environment variables (.env) if present
+if [ -f "$(dirname "$0")/.env" ]; then
+  set -a
+  . "$(dirname "$0")/.env"
+  set +a
+fi
 
 # OS specific support.
 native_path() { printf %s\\n "$1"; }

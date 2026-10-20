@@ -1,8 +1,10 @@
-# 로컬 개발: 루트의 docker-compose.yml로 띄운 PostgreSQL
+# 로컬 개발: Supabase PostgreSQL (Session pooler IPv4)
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5433/pinmate
-    username: pinmate
-    password: pinmate
+    url: jdbc:postgresql://aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require
+    username: postgres.hpwlewthsyepdoccrgyj
+    password: ${DB_PASSWORD}
   flyway:
-    locations: classpath:db/migration,classpath:db/seed
+    baseline-on-migrate: true
+    baseline-version: 1
+    locations: classpath:db/migration

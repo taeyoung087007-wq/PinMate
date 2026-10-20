@@ -44,19 +44,21 @@ resources/db/migration/V1__create_team.sql
 
 ## 🚀 로컬 실행
 
-```bash
-# 1. 프로젝트 루트에서 PostgreSQL 실행 (Docker 필요, 호스트 포트 5433)
-docker compose up -d
+Supabase 클라우드 PostgreSQL을 사용하므로 별도의 로컬 Docker DB 실행이 필요 없습니다.
 
-# 2. backend 폴더에서 서버 실행 (포트 8080, local 프로파일)
-./mvnw spring-boot:run        # Windows CMD/PowerShell: mvnw.cmd spring-boot:run
+```bash
+# 1. backend 폴더로 이동 후 환경변수 복사 및 비밀번호 설정 (최초 1회)
+cd backend
+cp .env.example .env    # .env 파일에 DB_PASSWORD=<Supabase DB 비밀번호> 입력
+
+# 2. 서버 실행 (포트 8080, local 프로파일)
+./mvnw spring-boot:run  # Windows CMD/PowerShell: mvnw.cmd spring-boot:run
 
 # 3. 확인
 curl http://localhost:8080/api/health
 ```
 
-- 서버가 시작될 때 Flyway가 아직 적용되지 않은 마이그레이션을 자동 실행합니다.
-- DB를 처음 상태로 되돌리려면: `docker compose down -v` 후 다시 `up -d`
+- 서버가 시작될 때 Flyway가 Supabase의 마이그레이션 적용 상태를 자동 검증합니다.
 
 ---
 
