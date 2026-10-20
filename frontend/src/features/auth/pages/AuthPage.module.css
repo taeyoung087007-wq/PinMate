@@ -195,3 +195,110 @@
 .featureItem span:first-child {
   font-size: 16px;
 }
+
+/* Invite & Signup enhancements */
+.inviteCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.inviteRow {
+  display: flex;
+  gap: 8px;
+}
+.checkBtn {
+  padding: 0 14px;
+  font-size: 13px;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.inviteBadge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(6, 214, 160, 0.12);
+  border: 1px solid rgba(6, 214, 160, 0.3);
+  border-radius: var(--radius-sm);
+  color: #06D6A0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.inviteErrorText {
+  font-size: 12px;
+  color: var(--danger, #FF6B6B);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.toggleModeBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: right;
+  padding: 0;
+  text-decoration: underline;
+  transition: color var(--transition);
+}
+.toggleModeBtn:hover {
+  color: var(--primary-light);
+}
+
+.noCodeBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(108, 99, 255, 0.12);
+  border: 1px solid rgba(108, 99, 255, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--primary-light);
+  font-size: 12px;
+}
+
+.termsCheck {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-top: 4px;
+}
+.termsCheck input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--primary);
+  width: 14px;
+  height: 14px;
+}
+
+.errorBanner {
+  background: rgba(255, 107, 107, 0.15);
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  color: #FF6B6B;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.successBanner {
+  background: rgba(6, 214, 160, 0.15);
+  border: 1px solid rgba(6, 214, 160, 0.4);
+  color: #06D6A0;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+

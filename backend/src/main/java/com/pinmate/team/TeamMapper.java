@@ -21,4 +21,12 @@ public interface TeamMapper {
         @Param("role") String role,
         @Param("color") String color
     );
+
+    TeamInvite findInviteByCode(@Param("code") String code);
+
+    void insertTeamInvite(
+        @Param("teamId") Long teamId,
+        @Param("code") String code,
+        @Param("createdBy") Long createdBy
+    );
 }

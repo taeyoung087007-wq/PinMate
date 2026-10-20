@@ -61,4 +61,28 @@
         ON CONFLICT (team_id, user_id) DO NOTHING
     </insert>
 
+    <select id="findInviteByCode" resultType="com.pinmate.team.TeamInvite">
+        SELECT 
+            ti.invite_id,
+            ti.team_id,
+            t.name AS team_name,
+            ti.code,
+            ti.created_by,
+            ti.expires_at,
+            ti.revoked_at,
+            ti.created_at
+        FROM team_invites ti
+        JOIN teams t ON ti.team_id = t.team_id
+        WHERE ti.code = #{code}
+          AND ti.revoked_at IS NULL
+          AND (ti.expires_at IS NULL OR ti.expires_at > now())
+        LIMIT 1
+    </select>
+
+    <insert id="insertTeamInvite">
+        INSERT INTO team_invites (team_id, code, created_by, expires_at, created_at)
+        VALUES (#{teamId}, #{code}, #{createdBy}, now() + interval '30 days', now())
+        ON CONFLICT (code) DO NOTHING
+    </insert>
+
 </mapper>

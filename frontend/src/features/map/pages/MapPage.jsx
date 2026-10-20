@@ -4,7 +4,7 @@ import {
   ChevronDown, X, Sparkles
 } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
-import { CURRENT_USER } from '../../../lib/currentUser'
+import { CURRENT_USER, getCurrentUser, setCurrentUserStorage } from '../../../lib/currentUser'
 import {
   fetchTeam,
   fetchPins,
@@ -36,7 +36,7 @@ const CATEGORIES = ['all', 'food', 'cafe', 'drink', 'stay', 'sight', 'play', 'et
  */
 export default function MapPage({ initialTeamId, onLogout }) {
   // 사용자 상태
-  const [currentUser, setCurrentUser] = useState(CURRENT_USER)
+  const [currentUser, setCurrentUser] = useState(getCurrentUser)
 
   // 모임 목록 상태
   const [teams, setTeams] = useState([])
@@ -364,7 +364,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
       <ProfileModal
         isOpen={showProfileModal}
         currentUser={currentUser}
-        onChangeUser={(newUser) => { setCurrentUser(newUser); setShowProfileModal(false); }}
+        onChangeUser={(newUser) => { setCurrentUser(newUser); setCurrentUserStorage(newUser); setShowProfileModal(false); }}
         onLogout={onLogout}
         onClose={() => { setShowProfileModal(false); setActiveTab('map'); }}
       />

@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import AuthPage from '../features/auth/pages/AuthPage'
 import MapPage from '../features/map/pages/MapPage'
+import { setCurrentUserStorage } from '../lib/currentUser'
 
 /**
  * 앱 라우팅
@@ -19,8 +20,11 @@ function RequireLogin() {
 
 function LoginRoute() {
   const navigate = useNavigate()
-  const handleLogin = () => {
+  const handleLogin = (user) => {
     localStorage.setItem(LOGIN_KEY, 'true')
+    if (user) {
+      setCurrentUserStorage(user)
+    }
     navigate('/', { replace: true })
   }
   return isLoggedIn() ? <Navigate to="/" replace /> : <AuthPage onLogin={handleLogin} />
@@ -31,6 +35,7 @@ function MapRoute() {
   const navigate = useNavigate()
   const handleLogout = () => {
     localStorage.removeItem(LOGIN_KEY)
+    setCurrentUserStorage(null)
     navigate('/login', { replace: true })
   }
   return <MapPage key={teamId || 'default'} initialTeamId={teamId} onLogout={handleLogout} />
