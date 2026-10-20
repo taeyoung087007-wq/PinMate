@@ -77,11 +77,13 @@
 }
 
 /* 줌 및 리셋 플로팅 컨트롤 (지도 데이터 표시를 피해 위로 올린다) */
-/* 지도 위 플로팅 컨트롤 묶음 (내 위치 버튼 + 줌) */
+/* 지도 위 플로팅 컨트롤 묶음 (내 위치 버튼 + 줌)
+   우하단은 MapPage 의 FAB(장소 추가/목록) 자리라 좌측으로 옮기고,
+   하단 내비게이션 바(64px) 위로 띄운다 */
 .controlStack {
   position: absolute;
-  right: 20px;
-  bottom: 64px;
+  left: 16px;
+  bottom: 84px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -177,11 +179,11 @@
   z-index: 10;
 }
 
-/* 핀이 하나도 없을 때의 안내 */
+/* 핀이 하나도 없을 때의 안내 (상단 플로팅 헤더 아래에 둔다) */
 .emptyHint {
   position: absolute;
   left: 50%;
-  top: 16px;
+  top: 120px;
   transform: translateX(-50%);
   padding: 8px 16px;
   border-radius: var(--radius-full);
@@ -285,11 +287,11 @@
   box-shadow: 0 0 0 4px rgba(47, 128, 237, 0.25);
 }
 
-/* 위치 권한 안내 칩 */
+/* 위치 권한 안내 칩 (컨트롤·내비게이션 바와 겹치지 않게 위로) */
 .locateError {
   position: absolute;
   left: 50%;
-  bottom: 64px;
+  bottom: 140px;
   transform: translateX(-50%);
   max-width: 420px;
   padding: 8px 14px;
