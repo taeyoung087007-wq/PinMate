@@ -4,6 +4,17 @@ import { CURRENT_USER } from '../../../lib/currentUser'
 import styles from './PinDetailPanel.module.css'
 
 /**
+ * 등록일 표시용 포맷. 백엔드는 createdAt(ISO 문자열)으로 내려준다.
+ * 값이 없거나 형식이 깨졌으면 빈 문자열을 돌려줘 날짜 줄 자체를 숨긴다.
+ */
+function formatCreatedAt(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
+}
+
+/**
  * 장소 상세 정보 슬라이드업 패널
  * - 장소 이름, 주소, 카테고리
  * - 추천인 목록 및 추천 수
@@ -15,6 +26,7 @@ export default function PinDetailPanel({ pin, members, onClose, onRecommend, onT
   const addedByMember = members.find(m => m.id === pin.addedBy)
   const isMeRecommended = pin.recommenders.includes(CURRENT_USER.id)
   const isMeVisited = (pin.visitedBy || []).includes(CURRENT_USER.id)
+  const createdAtText = formatCreatedAt(pin.createdAt)
 
   // 네이버 지도 검색 새 탭 열기
   const handleOpenNaverMap = () => {
@@ -131,10 +143,12 @@ export default function PinDetailPanel({ pin, members, onClose, onRecommend, onT
           {addedByMember?.initials || '팀'}
         </div>
         <span>{addedByMember?.nickname || '팀원'}님이 처음 등록</span>
-        <span className={styles.addedByDate}>
-          <Clock size={11} />
-          {new Date(pin.addedAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
-        </span>
+        {createdAtText && (
+          <span className={styles.addedByDate}>
+            <Clock size={11} />
+            {createdAtText}
+          </span>
+        )}
       </div>
 
       {/* 액션 버튼들 */}
