@@ -1,5 +1,5 @@
 import { loadNaverMaps } from '../../lib/naverMaps'
-import { searchPlaces } from './api'
+import { searchNearby } from './api'
 
 /**
  * 주소·장소명으로 좌표를 찾는다 (Geocoding)
@@ -46,122 +46,48 @@ export async function reverseGeocode(lat, lng) {
   return formatAddress(await reverseGeocodeResult(lat, lng))
 }
 
-// 클릭한 곳과 이만큼 안에 있는 검색 결과만 "그 자리의 상가"로 본다 (같은 이름의 다른 지점 제외)
-const BUILDING_NEARBY_METERS = 100
-// 주소가 같아도 다른 지역의 같은 도로명일 수 있어 이 안으로 제한한다
-const SAME_ADDRESS_METERS = 300
-// 건물명이 없는 곳(지방 등)도 찾도록 "동 + 도로명 + 업종"으로도 검색한다 (예: "오송읍 봉산2길 맛집" → 특별횟집 오송점)
-const ROAD_SEARCH_WORDS = ['맛집', '카페', '술집']
-
 /**
- * 좌표에 있는 상가를 찾는다. 네이버 지도 JS API는 바탕 지도의 상호 클릭을 알려주지 않아서 지역 검색으로 추정한다.
- * - 검색어: 역지오코딩의 건물명(예: "성수동2가 대림창고") + 도로명과 흔한 업종(예: "오송읍 봉산2길 맛집")
- * - 고르는 순서 (네이버 지도처럼 라벨 근처를 눌러도 잡히게)
- *   1) 누른 곳에서 tapMeters(손가락 범위) 안의 상가: 건물명으로 시작 > 주소가 같음 > 가장 가까움
- *   2) 건물명으로 찾은 상가 (같은 건물 입점 매장보다 건물 자체 우선)
- *   3) 주소(도로명 + 건물번호)가 같은 상가
- * - 못 찾으면 name 은 건물명 또는 null (주소만 표시)
- * @param {{ tapMeters?: number }} options 화면에서 손가락이 닿는 범위를 미터로 바꾼 값 (줌에 따라 다름)
+ * 지도에서 누른 좌표의 주소와 상가 이름을 구한다.
+ *
+ * 브라우저 요청은 2회다.
+ *   1) 역지오코딩 1회 — 주소·건물명·도로명을 얻는다 (지도 SDK, Client ID만 필요)
+ *   2) 주변 상가 검색 1회 — 주소 조각을 백엔드로 넘기고, 서버가 질의를 순차 시도한다
+ *
+ * 이전에는 역지오코딩 5회 + 상호 검색 최대 12회를 동시에 쐈다.
+ * 검색을 서버로 모으고 순차로 바꾸면서 요청 수와 업스트림 호출이 모두 줄었다.
+ *
+ * @param {{ tapMeters?: number }} options 손가락이 닿는 범위(미터). 줌에 따라 호출부가 계산해 넘긴다
  * @returns {Promise<{name: string|null, category: string, address: string|null, lat: number, lng: number}>}
  */
 export async function describeLocation(lat, lng, { tapMeters = 30 } = {}) {
-  // 누른 곳 + 손가락 범위 가장자리 4곳의 주소를 본다. 라벨 근처를 누르면 옆 필지·옆 도로가 나와서
-  // 그 도로로만 검색하면 정작 라벨의 상가가 결과에 없기 때문
-  const [result, ...around] = await Promise.all(
-    [[0, 0], ...TAP_SAMPLE_DIRECTIONS].map(([dy, dx]) => {
-      const [sLat, sLng] = offsetMeters(lat, lng, dy * tapMeters * 0.7, dx * tapMeters * 0.7)
-      return reverseGeocodeResult(sLat, sLng).catch(() => null)
-    })
-  )
+  const result = await reverseGeocodeResult(lat, lng).catch(() => null)
   const address = formatAddress(result)
-  const area = result?.region?.area3?.name ?? ''
-  const building = result?.land?.addition0?.value?.trim()
-  const road = result?.name === 'roadaddr' ? result?.land?.name : null
-  const roadNumber = [result?.land?.number1, result?.land?.number2].filter(v => v && v !== '0').join('-')
 
-  const samples = [result, ...around].filter(Boolean)
-  const buildings = unique(samples.map(r => r.land?.addition0?.value?.trim())).slice(0, MAX_SAMPLE_NAMES)
-  const roads = unique(samples.map(r => (r.name === 'roadaddr' ? r.land?.name : null))).slice(0, MAX_SAMPLE_NAMES)
-  const queries = [
-    ...buildings.map(b => `${area} ${b}`),
-    ...roads.flatMap(r => ROAD_SEARCH_WORDS.map(word => `${area} ${r} ${word}`)),
-  ]
-  const places = await searchAll(queries)
+  const building = result?.land?.addition0?.value?.trim() ?? ''
+  const road = result?.name === 'roadaddr' ? (result?.land?.name ?? '') : ''
+  const roadNumber = [result?.land?.number1, result?.land?.number2]
+    .filter(value => value && value !== '0')
+    .join('-')
 
-  const sameAddress = place => isSameRoadAddress(place.address, road, roadNumber)
-  const ofBuilding = place => Boolean(building) && place.name.startsWith(building)
-  const within = meters => list => pickNearest(list, lat, lng, meters)
-  const tap = within(tapMeters)
-  const nearBuilding = within(BUILDING_NEARBY_METERS)
-
-  const found =
-    tap(places.filter(ofBuilding)) ??
-    tap(places.filter(sameAddress)) ??
-    tap(places) ??
-    nearBuilding(places.filter(ofBuilding)) ??
-    (building ? nearBuilding(places.filter(p => p.name.includes(building))) : null) ??
-    within(SAME_ADDRESS_METERS)(places.filter(sameAddress))
-
-  if (!found) return { name: building || null, category: '', address, lat, lng }
-
-  return {
-    name: found.name,
-    category: found.category || '',
-    address: found.address || address,
-    lat: found.lat,
-    lng: found.lng,
-  }
-}
-
-// 주변 주소를 볼 방향 (북·동·남·서) 과, 검색어로 쓸 건물명·도로명 최대 개수 (API 호출 수 제한)
-const TAP_SAMPLE_DIRECTIONS = [[1, 0], [0, 1], [-1, 0], [0, -1]]
-const MAX_SAMPLE_NAMES = 3
-
-const unique = values => [...new Set(values.filter(Boolean))]
-
-/** (lat, lng)에서 북쪽 dy 미터, 동쪽 dx 미터 떨어진 좌표 */
-function offsetMeters(lat, lng, dy, dx) {
-  return [lat + dy / 111_320, lng + dx / (111_320 * Math.cos((lat * Math.PI) / 180))]
-}
-
-/** 여러 검색어 결과를 한 목록으로 (실패한 검색은 빈 결과로 친다) */
-async function searchAll(queries) {
-  const lists = await Promise.all(queries.map(q => searchPlaces(q.trim()).catch(() => [])))
-  return lists.flat()
-}
-
-/** "… 봉산2길 76-1 1층" 이 도로명 + 건물번호와 같은지 (76-1 과 76-10 은 다르게 본다) */
-export function isSameRoadAddress(placeAddress, road, roadNumber) {
-  if (!placeAddress || !road || !roadNumber) return false
-  const target = `${road} ${roadNumber}`
-  const at = placeAddress.indexOf(target)
-  if (at === -1) return false
-  const prev = placeAddress[at - 1]
-  const next = placeAddress[at + target.length]
-  // 앞뒤 경계 확인: "신봉산2길" 이나 "76-10" 은 다른 주소
-  return (prev === undefined || prev === ' ') && (next === undefined || !/[\d-]/.test(next))
-}
-
-/** 좌표가 있는 결과 중 (lat, lng)에서 maxMeters 안에 있는 가장 가까운 것 */
-export function pickNearest(places, lat, lng, maxMeters) {
-  let best = null
-  let bestDistance = Infinity
-  for (const place of places) {
-    if (place.lat == null || place.lng == null) continue
-    const d = distanceMeters(lat, lng, place.lat, place.lng)
-    if (d <= maxMeters && d < bestDistance) {
-      best = place
-      bestDistance = d
+  try {
+    const found = await searchNearby({
+      lat,
+      lng,
+      tapMeters,
+      area: result?.region?.area3?.name ?? '',
+      building,
+      road,
+      roadNumber,
+    })
+    // 상가를 찾으면 그 좌표로 옮겨 찍는다 (못 찾으면 누른 자리 그대로)
+    if (found?.lat != null && found?.lng != null) {
+      return { ...found, address: found.address || address }
     }
+  } catch {
+    // 백엔드가 없거나 검색 키가 없으면 주소만 보여준다
   }
-  return best
-}
 
-// 수백 m 범위라 평면 근사로 충분하다
-function distanceMeters(lat1, lng1, lat2, lng2) {
-  const dy = (lat2 - lat1) * 111_320
-  const dx = (lng2 - lng1) * 111_320 * Math.cos((lat1 * Math.PI) / 180)
-  return Math.hypot(dx, dy)
+  return { name: building || null, category: '', address, lat, lng }
 }
 
 /** reverseGeocode 의 첫 결과(도로명 우선)를 그대로 돌려준다 */
