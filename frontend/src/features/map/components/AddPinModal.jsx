@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Search, MapPin, Tag, FileText, ArrowLeft, Crosshair } from 'lucide-react'
-import { CATEGORY_META } from '../categories'
+import { CATEGORY_META, guessCategory } from '../categories'
 import { CURRENT_USER } from '../../../lib/currentUser'
 import { loadNaverMaps } from '../../../lib/naverMaps'
 import { geocode, reverseGeocode } from '../geocode'
@@ -65,6 +65,10 @@ export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = nul
 
   // 결과 선택 — 상호명 결과는 좌표가 없어서 주소로 지오코딩한다
   const handleSelectResult = async place => {
+    // 네이버 분류("술집>요리주점")로 카테고리를 미리 골라준다. 못 맞히면 기본값 유지
+    const guessed = guessCategory(place.category)
+    if (guessed) setCategory(guessed)
+
     if (place.lat && place.lng) {
       setSelected(place)
       setName(place.name)
@@ -200,7 +204,9 @@ export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = nul
                       <span className={styles.resultEmoji}>📍</span>
                       <div className={styles.resultInfo}>
                         <div className={styles.resultName}>{place.name}</div>
-                        <div className={styles.resultAddress}>{place.address}</div>
+                        <div className={styles.resultAddress}>
+                          {place.category ? `${place.category} · ${place.address}` : place.address}
+                        </div>
                       </div>
                       <span className={styles.resultType}>{place.kind === 'address' ? '주소' : '장소'}</span>
                     </button>
