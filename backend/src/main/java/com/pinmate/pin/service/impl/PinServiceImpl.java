@@ -2,11 +2,9 @@ package com.pinmate.pin.service.impl;
 
 import com.pinmate.pin.dao.PinDao;
 import com.pinmate.team.dao.TeamDao;
-import com.pinmate.auth.dao.UserDao;
 import com.pinmate.pin.domain.Pin;
 import com.pinmate.team.domain.Team;
 import com.pinmate.team.domain.TeamMember;
-import com.pinmate.auth.domain.User;
 import com.pinmate.pin.dto.CreatePinRequest;
 import com.pinmate.pin.dto.PinResponse;
 import com.pinmate.pin.dto.RecommendResponse;
@@ -26,7 +24,6 @@ public class PinServiceImpl implements PinService {
 
     private final PinDao pinDao;
     private final TeamDao teamDao;
-    private final UserDao userDao;
 
     @Override
     @Transactional(readOnly = true)
@@ -47,7 +44,7 @@ public class PinServiceImpl implements PinService {
 
     @Override
     @Transactional
-    public PinResponse createPin(CreatePinRequest req) {
+    public PinResponse createPin(CreatePinRequest req, Long userId) {
         if (req.name() == null || req.name().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "장소 이름을 입력해주세요.");
         }
@@ -56,8 +53,6 @@ public class PinServiceImpl implements PinService {
         }
 
         Long teamId = Long.parseLong(req.teamId());
-        Long userId = resolveUserId(req.addedBy());
-
         Pin pin = new Pin();
         pin.setTeamId(teamId);
         pin.setName(req.name().trim());
@@ -81,13 +76,12 @@ public class PinServiceImpl implements PinService {
 
     @Override
     @Transactional
-    public RecommendResponse toggleRecommendation(Long placeId, String userIdentifier) {
+    public RecommendResponse toggleRecommendation(Long placeId, Long userId) {
         Pin pin = pinDao.findPinById(placeId);
         if (pin == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "장소를 찾을 수 없습니다.");
         }
 
-        Long userId = resolveUserId(userIdentifier);
         boolean previouslyAchieved = pin.getConsensusAchievedAt() != null;
 
         int existing = pinDao.countRecommendations(placeId, userId);
@@ -105,13 +99,12 @@ public class PinServiceImpl implements PinService {
 
     @Override
     @Transactional
-    public PinResponse toggleVisit(Long placeId, String userIdentifier) {
+    public PinResponse toggleVisit(Long placeId, Long userId) {
         Pin pin = pinDao.findPinById(placeId);
         if (pin == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "장소를 찾을 수 없습니다.");
         }
 
-        Long userId = resolveUserId(userIdentifier);
         int existing = pinDao.countVisits(placeId, userId);
         if (existing > 0) {
             pinDao.deleteVisit(placeId, userId);
@@ -182,18 +175,4 @@ public class PinServiceImpl implements PinService {
         };
     }
 
-    private Long resolveUserId(String identifier) {
-        if (identifier == null || identifier.isBlank()) {
-            return 1L;
-        }
-        User user = userDao.findByIdOrLoginId(identifier.trim());
-        if (user != null) {
-            return user.getUserId();
-        }
-        try {
-            return Long.parseLong(identifier.trim());
-        } catch (NumberFormatException ignored) {
-            return 1L;
-        }
-    }
 }
