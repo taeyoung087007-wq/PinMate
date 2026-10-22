@@ -20,3 +20,18 @@ export const toggleVisitApi = (pinId, userId) =>
  * @returns {Promise<Array<{name: string, category: string, address: string}>>}
  */
 export const searchPlaces = (query) => request(`/places/search?query=${encodeURIComponent(query)}`)
+
+/**
+ * 지도에서 누른 좌표 주변의 상가를 찾는다.
+ * 역지오코딩으로 얻은 주소 조각을 넘기면, 서버가 질의를 순서대로 시도해 가장 맞는 한 곳을 돌려준다.
+ * (브라우저가 여러 번 검색하지 않도록 검색을 서버로 모은 것)
+ * @returns {Promise<{name: string, category: string, address: string, lat: number, lng: number} | null>}
+ */
+export const searchNearby = ({ lat, lng, tapMeters, area, building, road, roadNumber }) => {
+  const params = new URLSearchParams({ lat, lng, tapMeters: Math.round(tapMeters) })
+  if (area) params.set('area', area)
+  if (building) params.set('building', building)
+  if (road) params.set('road', road)
+  if (roadNumber) params.set('roadNumber', roadNumber)
+  return request(`/places/nearby?${params}`)
+}
