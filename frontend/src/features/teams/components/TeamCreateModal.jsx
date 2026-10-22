@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, MapPin, Copy, QrCode, Users, Link2, Check } from 'lucide-react'
+import { buildInviteLink } from '../inviteLink'
 import styles from './TeamCreateModal.module.css'
 
 /**
@@ -15,7 +16,8 @@ export default function TeamCreateModal({ onClose, onCreateTeam }) {
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const inviteLink = `https://pinmate.io/invite/${createdTeam?.inviteCode ?? ''}`
+  // 초대 링크는 공용 함수로 만든다 (도메인은 현재 접속 주소를 자동으로 따라간다)
+  const inviteLink = buildInviteLink(createdTeam?.inviteCode)
 
   const handleCreate = async (e) => {
     e.preventDefault()

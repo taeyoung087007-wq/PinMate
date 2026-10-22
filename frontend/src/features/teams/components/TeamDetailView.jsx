@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Check, MapPin } from 'lucide-react'
 import { fetchTeam } from '../api'
+import { buildInviteLink, inviteBase } from '../inviteLink'
 import styles from './TeamDetailView.module.css'
 
 // 한 페이지 인원. 작은 휴대폰에서도 바텀시트(최대 85vh) 안에 하단 버튼까지 스크롤 없이 들어오는 정도
@@ -49,8 +50,7 @@ export default function TeamDetailView({ teamId, onBack, onEnter }) {
   const currentPage = Math.min(page, totalPages - 1)
   const pageMembers = members.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE)
 
-  const inviteBase = `${window.location.origin}/login?invite=`
-  const inviteLink = team.inviteCode ? inviteBase + encodeURIComponent(team.inviteCode) : ''
+  const inviteLink = buildInviteLink(team.inviteCode)
 
   const handleCopy = async () => {
     try {
@@ -80,7 +80,7 @@ export default function TeamDetailView({ teamId, onBack, onEnter }) {
               aria-label="초대 링크 복사"
             >
               <span className={styles.inviteText}>
-                {revealed ? inviteLink : inviteBase + '•'.repeat(10)}
+                {revealed ? inviteLink : `${inviteBase()}${'•'.repeat(10)}`}
               </span>
               <span className={copyState === 'copied' ? styles.copiedTag : styles.copyIcon}>
                 {copyState === 'copied' ? <><Check size={13} />복사됨</> : <Copy size={14} />}
