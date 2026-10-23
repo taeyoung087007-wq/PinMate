@@ -1,5 +1,5 @@
 import { loadKakaoMaps } from '../../lib/kakaoMaps'
-import { searchNearby } from './api'
+import { findNearestPlace } from './places'
 
 /**
  * 주소·장소명으로 좌표를 찾는다 (Geocoding)
@@ -47,10 +47,8 @@ export async function reverseGeocode(lat, lng) {
 
 /**
  * 지도에서 누른 좌표의 주소와 상가 이름을 구한다.
- *
- * 브라우저 요청은 2회다.
- *   1) 역지오코딩 1회 — 주소·건물명·도로명을 얻는다 (지도 SDK, JavaScript 키만 필요)
- *   2) 주변 상가 검색 1회 — 주소 조각을 백엔드로 넘기고, 서버가 질의를 순차 시도한다
+ * 1) 역지오코딩으로 주소·건물명을 얻고
+ * 2) 카카오 Places 로 누른 곳 반경(tapMeters) 안의 가장 가까운 상가를 찾는다
  *
  * @param {{ tapMeters?: number }} options 손가락이 닿는 범위(미터). 줌에 따라 호출부가 계산해 넘긴다
  * @returns {Promise<{name: string|null, category: string, address: string|null, lat: number, lng: number}>}
@@ -58,33 +56,11 @@ export async function reverseGeocode(lat, lng) {
 export async function describeLocation(lat, lng, { tapMeters = 30 } = {}) {
   const result = await reverseGeocodeResult(lat, lng).catch(() => null)
   const address = formatAddress(result)
+  const building = result?.road_address?.building_name?.trim() ?? ''
 
-  const road = result?.road_address ?? null
-  const land = result?.address ?? null
-
-  const building = road?.building_name?.trim() ?? ''
-  const roadName = road?.road_name ?? ''
-  const roadNumber = [road?.main_building_no, road?.sub_building_no]
-    .filter(value => value && value !== '0')
-    .join('-')
-
-  try {
-    const found = await searchNearby({
-      lat,
-      lng,
-      tapMeters,
-      area: road?.region_3depth_name || land?.region_3depth_name || '',
-      building,
-      road: roadName,
-      roadNumber,
-    })
-    // 상가를 찾으면 그 좌표로 옮겨 찍는다 (못 찾으면 누른 자리 그대로)
-    if (found?.lat != null && found?.lng != null) {
-      return { ...found, address: found.address || address }
-    }
-  } catch {
-    // 백엔드가 없거나 검색 키가 없으면 주소만 보여준다
-  }
+  const found = await findNearestPlace(lat, lng, tapMeters, { building }).catch(() => null)
+  // 상가를 찾으면 그 좌표로 옮겨 찍는다 (못 찾으면 누른 자리 그대로)
+  if (found) return { ...found, address: found.address || address }
 
   return { name: building || null, category: '', address, lat, lng }
 }
