@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pinmate.auth.dao.AuthDAO">
+
+	<select id="selectUserByLoginId" parameterType="string" resultType="java.util.HashMap">
+		SELECT user_id, login_id, email, password_hash, nickname
+		  FROM users
+		 WHERE login_id = #{loginId}
+	</select>
+
+	<select id="selectUserByNickname" parameterType="string" resultType="java.util.HashMap">
+		SELECT user_id
+		  FROM users
+		 WHERE nickname = #{nickname}
+	</select>
+
+	<!-- param: loginId, email, passwordHash, nickname -->
+	<insert id="insertUser" parameterType="map">
+		INSERT INTO users (login_id, email, password_hash, nickname, status, terms_agreed_at, privacy_agreed_at, created_at)
+		VALUES (#{loginId}, #{email}, #{passwordHash}, #{nickname}, 'active', now(), now(), now())
+	</insert>
+
+	<!-- param: userId, passwordHash -->
+	<update id="updatePasswordHash" parameterType="map">
+		UPDATE users SET password_hash = #{passwordHash} WHERE user_id = #{userId}
+	</update>
+
+	<!-- 로그인 직후 열 기본 모임(가장 최근에 만들어진 참여 모임)과 그 모임에서의 내 색상 -->
+	<select id="selectDefaultTeam" parameterType="long" resultType="java.util.HashMap">
+		SELECT t.team_id,
+		       t.name,
+		       tm.color
+		  FROM teams t
+		  JOIN team_members tm ON t.team_id = tm.team_id
+		 WHERE tm.user_id = #{userId}
+		 ORDER BY t.created_at DESC
+		 LIMIT 1
+	</select>
+
+</mapper>

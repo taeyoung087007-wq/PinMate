@@ -1,21 +1,20 @@
 package com.pinmate.auth.service;
 
-import com.pinmate.auth.dto.AuthResponse;
-import com.pinmate.auth.dto.InviteCheckResponse;
-import com.pinmate.auth.dto.LoginRequest;
-import com.pinmate.auth.dto.SignupRequest;
+import java.util.Map;
 
-/**
- * 인증(초대코드 확인 / 회원가입 / 로그인) 서비스
- */
 public interface AuthService {
 
-    /** 초대 코드 유효성 검사 */
-    InviteCheckResponse checkInvite(String code);
+	// 로그인 계정 정보 (user_id, login_id, email, password_hash, nickname). 없으면 null
+	Map<String, Object> selectUserByLoginId(String loginId) throws Exception;
 
-    /** 신규 회원가입 및 팀 참여/생성 */
-    AuthResponse signup(SignupRequest request);
+	boolean existsNickname(String nickname) throws Exception;
 
-    /** 로그인 */
-    AuthResponse login(LoginRequest request);
+	// 가입 (param: loginId, email, passwordHash, nickname). 팀 참여는 로그인 후 초대 링크로 따로 한다
+	void insertUser(Map<String, Object> param) throws Exception;
+
+	// 비밀번호 해시 교체 (param: userId, passwordHash)
+	void updatePasswordHash(Map<String, Object> param) throws Exception;
+
+	// 로그인 응답 (id, loginId, nickname, email, avatarColor, initials, defaultTeam)
+	Map<String, Object> selectLoginInfo(Map<String, Object> user) throws Exception;
 }
