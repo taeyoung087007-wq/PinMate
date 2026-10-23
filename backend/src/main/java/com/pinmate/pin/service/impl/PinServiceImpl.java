@@ -147,7 +147,8 @@ public class PinServiceImpl implements PinService {
         );
     }
 
-    private String toDbCategory(String cat) {
+    /** 프론트 카테고리 키 -> DB CHECK 값. 순수 함수라 테스트에서 직접 호출한다 */
+    static String toDbCategory(String cat) {
         if (cat == null) return "etc";
         return switch (cat.toLowerCase().trim()) {
             case "food" -> "restaurant";
@@ -158,7 +159,8 @@ public class PinServiceImpl implements PinService {
         };
     }
 
-    private String toFrontendCategory(String cat) {
+    /** DB CHECK 값 -> 프론트 카테고리 키 */
+    static String toFrontendCategory(String cat) {
         if (cat == null) return "etc";
         return switch (cat.toLowerCase().trim()) {
             case "restaurant" -> "food";

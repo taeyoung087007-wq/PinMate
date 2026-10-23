@@ -116,6 +116,49 @@ npm run dev   # http://localhost:5173 (/api 요청은 8080으로 프록시)
   - '모두 인정' 달성 순간 모든 팀원 화면에 축하 팡파레 브로드캐스트
 - 네이버 클라우드 플랫폼 장소 검색 API (NAVER Search API) 연동
 
+### 🔀 브랜치 운영 규칙 — main에 직접 커밋하지 않는다
+
+`main`은 항상 배포 가능한 상태로 둡니다. 모든 작업은 브랜치를 따서 PR로 올립니다.
+
+```bash
+git switch main && git pull
+git switch -c fix/pin-detail-panel      # <타입>/<내용>
+# 작업 후
+git push -u origin fix/pin-detail-panel
+# GitHub에서 PR 생성 → CI 통과 확인 → 머지
+```
+
+| 타입 | 용도 |
+| :--- | :--- |
+| `feat/` | 기능 추가 |
+| `fix/` | 버그 수정 |
+| `chore/` | 설정·의존성·문서 정리 |
+| `refactor/` | 동작 변경 없는 구조 개선 |
+
+**① 로컬 방어선 (각자 1회 설치)**
+
+`main`으로 직접 push하면 아래 hook이 막아줍니다.
+
+```bash
+git config core.hooksPath .githooks
+```
+
+> `core.hooksPath`는 저장소가 아니라 **내 PC 설정**이라, 팀원 각자 한 번씩 실행해야 합니다.
+
+**② GitHub에서 강제 (권장)**
+
+CI만으로는 push 자체를 막을 수 없습니다. 저장소 관리자가 한 번만 설정하세요.
+
+```
+Settings → Branches → Add branch protection rule (또는 Rulesets)
+  Branch name pattern: main
+  ☑ Require a pull request before merging
+  ☑ Require status checks to pass before merging  → CI 선택
+  ☑ Do not allow bypassing the above settings
+```
+
+> 비공개 저장소는 플랜에 따라 branch protection이 제한될 수 있습니다. 그 경우 ①의 hook과 팀 규칙으로 운영하세요.
+
 ---
 
 ## 6. 핵심 기능 및 기획서 매핑

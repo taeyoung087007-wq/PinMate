@@ -21,7 +21,8 @@ public final class PasswordUtil {
     }
 
     public static boolean matches(String rawPassword, String hashedPassword) {
-        if (rawPassword == null || hashedPassword == null) return false;
+        // hash() 는 공백 입력에 null 을 돌려주므로, 여기서 먼저 걸러야 NPE 가 나지 않는다
+        if (rawPassword == null || rawPassword.isBlank() || hashedPassword == null) return false;
         return hash(rawPassword).equalsIgnoreCase(hashedPassword);
     }
 }
