@@ -1,7 +1,7 @@
 .panel {
   position: absolute;
   /* 하단 내비게이션(64px)에 가리지 않도록 그 위로 띄운다 */
-  bottom: calc(64px + 16px);
+  bottom: calc(var(--bottom-nav-h) + 16px);
   left: 50%;
   transform: translateX(-50%);
   width: 400px;
