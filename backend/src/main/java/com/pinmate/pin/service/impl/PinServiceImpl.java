@@ -54,6 +54,7 @@ public class PinServiceImpl implements PinService {
 				"roadAddress", roadAddress == null ? address : roadAddress,
 				"latitude", BigDecimal.valueOf((Double) param.get("lat")),
 				"longitude", BigDecimal.valueOf((Double) param.get("lng")),
+				"source", param.get("source"),
 				"createdBy", userId);
 		pinDAO.insertPin(pin);                     // useGeneratedKeys → pin.placeId
 		Long placeId = ((Number) pin.get("placeId")).longValue();
@@ -61,7 +62,7 @@ public class PinServiceImpl implements PinService {
 		// 등록자를 첫 번째 추천인으로 등록 (한 줄 메모 포함)
 		pinDAO.insertRecommendation(ParamUtil.map("placeId", placeId, "userId", userId, "comment", param.get("memo")));
 
-		updateConsensus(placeId, teamId);
+		updateConsensus(placeId, teamId, false);
 		return toItem(pinDAO.selectPinById(placeId));
 	}
 
@@ -80,7 +81,7 @@ public class PinServiceImpl implements PinService {
 			pinDAO.insertRecommendation(ParamUtil.map("placeId", placeId, "userId", userId, "comment", null));
 		}
 
-		boolean currentAchieved = updateConsensus(placeId, (Long) pin.get("team_id"));
+		boolean currentAchieved = updateConsensus(placeId, (Long) pin.get("team_id"), false);
 
 		Map<String, Object> result = new HashMap<>();
 		result.put("pin", toItem(pinDAO.selectPinById(placeId)));
@@ -100,6 +101,14 @@ public class PinServiceImpl implements PinService {
 			pinDAO.insertVisit(key);
 		}
 		return toItem(pinDAO.selectPinById(placeId));
+	}
+
+	@Override
+	@Transactional
+	public void updateTeamConsensus(Long teamId) throws Exception {
+		for (Long placeId : pinDAO.selectPinIdsByTeamId(teamId)) {
+			updateConsensus(placeId, teamId, true);
+		}
 	}
 
 	// 등록자 본인 또는 팀 owner 만 수정·삭제할 수 있다. 팀 멤버가 아니면 없는 핀과 같이 NOT_FOUND
@@ -141,8 +150,12 @@ public class PinServiceImpl implements PinService {
 		return pin;
 	}
 
-	// '모두 인정' 달성 여부를 다시 계산해 저장한다. 규칙이 all 이면 팀원 전원, 아니면 consensus_min_count 명
-	private boolean updateConsensus(Long placeId, Long teamId) {
+	/*
+	 * '모두 인정' 달성 여부를 다시 계산해 저장한다. 규칙이 all 이면 팀원 전원, 아니면 consensus_min_count 명.
+	 * 팀원이 2명 미만이면 판정하지 않는다 (혼자 등록하자마자 달성되지 않게).
+	 * keepRecord: 팀원이 늘어 풀리는 경우 true — 'N명일 때 달성' 기록(consensus_member_count)을 남긴다
+	 */
+	private boolean updateConsensus(Long placeId, Long teamId, boolean keepRecord) {
 		Map<String, Object> team = teamDAO.selectTeamById(teamId);
 		if (team == null) return false;
 
@@ -151,11 +164,11 @@ public class PinServiceImpl implements PinService {
 
 		Object minCount = team.get("consensus_min_count");
 		int target = "all".equalsIgnoreCase((String) team.get("consensus_rule"))
-				? Math.max(1, memberCount)
+				? memberCount
 				: (minCount == null ? 2 : ((Number) minCount).intValue());
 
-		boolean achieved = recCount >= target;
-		pinDAO.updateConsensus(ParamUtil.map("placeId", placeId, "achieved", achieved, "memberCount", recCount));
+		boolean achieved = memberCount >= 2 && recCount >= target;
+		pinDAO.updateConsensus(ParamUtil.map("placeId", placeId, "achieved", achieved, "memberCount", recCount, "keepRecord", keepRecord));
 		return achieved;
 	}
 
@@ -177,6 +190,8 @@ public class PinServiceImpl implements PinService {
 		item.put("visitedBy", pinDAO.selectVisitorIds(placeId));
 		item.put("memo", row.get("memo"));
 		item.put("isAllApproved", row.get("consensus_achieved_at") != null);
+		item.put("consensusAchievedAt", toIso(row.get("consensus_achieved_at")));
+		item.put("consensusMemberCount", row.get("consensus_member_count"));   // 달성 중이면 달성 인원, 팀원이 늘어 풀렸으면 그때 인원
 		item.put("createdAt", toIso(row.get("created_at")));
 		return item;
 	}

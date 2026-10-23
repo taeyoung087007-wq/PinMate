@@ -17,6 +17,7 @@
 		COALESCE(u.login_id, p.created_by::text) AS created_by_login_id,
 		(SELECT r.comment FROM recommendations r WHERE r.place_id = p.place_id AND r.user_id = p.created_by LIMIT 1) AS memo,
 		p.consensus_achieved_at,
+		p.consensus_member_count,
 		p.created_at
 	</sql>
 
@@ -26,6 +27,11 @@
 		  LEFT JOIN users u ON p.created_by = u.user_id
 		 WHERE p.team_id = #{teamId}
 		 ORDER BY p.created_at DESC
+	</select>
+
+	<!-- 팀의 핀 id 목록 (팀원 변동 시 모두 인정 재계산용) -->
+	<select id="selectPinIdsByTeamId" parameterType="long" resultType="long">
+		SELECT place_id FROM places WHERE team_id = #{teamId}
 	</select>
 
 	<select id="selectPinById" parameterType="long" resultType="java.util.HashMap">
@@ -53,12 +59,12 @@
 		 ORDER BY v.visited_at ASC
 	</select>
 
-	<!-- param: teamId, name, category, roadAddress, address, latitude, longitude, createdBy. 실행 후 param.placeId 에 생성된 키가 들어간다 -->
+	<!-- param: teamId, name, category, roadAddress, address, latitude, longitude, source(search/manual), createdBy. 실행 후 param.placeId 에 생성된 키가 들어간다 -->
 	<insert id="insertPin" parameterType="map" useGeneratedKeys="true" keyProperty="placeId" keyColumn="place_id">
 		INSERT INTO places (team_id, name, category, road_address, address,
 		                    latitude, longitude, source, created_by, created_at, updated_at)
 		VALUES (#{teamId}, #{name}, #{category}, #{roadAddress}, #{address},
-		        #{latitude}, #{longitude}, 'search', #{createdBy}, now(), now())
+		        #{latitude}, #{longitude}, #{source}, #{createdBy}, now(), now())
 	</insert>
 
 	<!-- param: placeId, userId -->
@@ -81,17 +87,29 @@
 		 WHERE place_id = #{placeId} AND user_id = #{userId}
 	</delete>
 
+	<!-- 모두 인정 판정용 추천 수. 지금 팀원인 사람의 추천만 센다 (떠난 멤버의 추천 기록은 남지만 판정에서는 빠진다) -->
 	<select id="countRecommendationsByPlaceId" parameterType="long" resultType="int">
 		SELECT COUNT(*)
-		  FROM recommendations
-		 WHERE place_id = #{placeId}
+		  FROM recommendations r
+		  JOIN places p ON p.place_id = r.place_id
+		  JOIN team_members tm ON tm.team_id = p.team_id AND tm.user_id = r.user_id
+		 WHERE r.place_id = #{placeId}
 	</select>
 
-	<!-- param: placeId, achieved, memberCount -->
+	<!--
+		모두 인정 상태 저장. param: placeId, achieved, memberCount, keepRecord
+		- 이미 달성 중이면 달성 시각·인원을 그대로 둔다 (추천을 다시 눌러도 달성일이 바뀌지 않게)
+		- 해제될 때 keepRecord 면 consensus_member_count 를 남겨 'N명일 때 달성' 기록으로 쓴다 (팀원이 늘어 풀린 경우)
+		  추천 취소로 '달성 중 → 미달'이 된 경우만 기록도 지운다 (원래 미달이던 핀의 기록은 건드리지 않는다)
+		SET 의 오른쪽은 모두 수정 전 값을 본다
+	-->
 	<update id="updateConsensus" parameterType="map">
 		UPDATE places
-		   SET consensus_achieved_at = (CASE WHEN #{achieved} THEN now() ELSE NULL END),
-		       consensus_member_count = (CASE WHEN #{achieved} THEN #{memberCount} ELSE NULL END),
+		   SET consensus_achieved_at = (CASE WHEN #{achieved} THEN COALESCE(consensus_achieved_at, now()) ELSE NULL END),
+		       consensus_member_count = (CASE WHEN #{achieved} AND consensus_achieved_at IS NOT NULL THEN consensus_member_count
+		                                      WHEN #{achieved} THEN #{memberCount}
+		                                      WHEN #{keepRecord} OR consensus_achieved_at IS NULL THEN consensus_member_count
+		                                      ELSE NULL END),
 		       updated_at = now()
 		 WHERE place_id = #{placeId}
 	</update>

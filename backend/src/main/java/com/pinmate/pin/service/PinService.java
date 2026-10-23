@@ -18,6 +18,9 @@ public interface PinService {
 	// 방문 토글 (방문 ↔ 방문 취소)
 	Map<String, Object> toggleVisit(Long placeId, Long userId) throws Exception;
 
+	// 팀원 수가 바뀐 뒤 그 팀 핀들의 '모두 인정'을 다시 판정한다. 풀린 핀은 'N명일 때 달성' 기록을 남긴다
+	void updateTeamConsensus(Long teamId) throws Exception;
+
 	// 수정·삭제 가능 여부: SUCCESS(등록자 또는 팀 owner) / NO_PERMISSION / NOT_FOUND(없거나 팀 멤버가 아님)
 	String selectEditCode(Long placeId, Long userId) throws Exception;
 
