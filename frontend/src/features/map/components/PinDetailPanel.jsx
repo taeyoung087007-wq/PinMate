@@ -87,7 +87,13 @@ export default function PinDetailPanel({
             {meta.icon} {meta.label}
           </span>
           {pin.isAllApproved && (
-            <span className="badge badge-gold">⭐ 모두 인정</span>
+            <span className="badge badge-gold">
+              ⭐ 모두 인정{pin.consensusMemberCount ? ` · ${pin.consensusMemberCount}명` : ''}
+            </span>
+          )}
+          {/* 팀원이 늘어 배지가 풀린 경우: 그때 몇 명이 모두 인정했는지 남겨 보여준다 */}
+          {!pin.isAllApproved && pin.consensusMemberCount > 0 && (
+            <span className="badge">🏅 {pin.consensusMemberCount}명 달성</span>
           )}
         </div>
         <div className={styles.headerActions}>

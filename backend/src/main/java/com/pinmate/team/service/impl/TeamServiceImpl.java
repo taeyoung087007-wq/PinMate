@@ -1,6 +1,7 @@
 package com.pinmate.team.service.impl;
 
 import com.pinmate.cmmn.util.ParamUtil;
+import com.pinmate.pin.service.PinService;
 import com.pinmate.presence.service.PresenceService;
 import com.pinmate.team.TeamColors;
 import com.pinmate.team.dao.TeamDAO;
@@ -24,6 +25,9 @@ public class TeamServiceImpl implements TeamService {
 
 	@Resource(name = "PresenceService")
 	private PresenceService presenceService;
+
+	@Resource(name = "PinService")
+	private PinService pinService;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -85,6 +89,8 @@ public class TeamServiceImpl implements TeamService {
 		List<Map<String, Object>> members = teamDAO.selectTeamMembers(teamId);
 		if (!isMember(members, userId)) {
 			teamDAO.insertTeamMember(ParamUtil.map("teamId", teamId, "userId", userId, "role", "member", "color", TeamColors.pickUnused(members)));
+			// 기준 인원이 늘었으니 이미 달성한 '모두 인정'도 다시 판정한다
+			pinService.updateTeamConsensus(teamId);
 		}
 		return selectTeam(teamId, userId);
 	}

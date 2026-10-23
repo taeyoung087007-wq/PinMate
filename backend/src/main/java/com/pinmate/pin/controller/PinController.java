@@ -66,7 +66,7 @@ public class PinController {
 		return result;
 	}
 
-	// 핀 등록 (teamId, name, category, address, roadAddress, lat, lng, memo)
+	// 핀 등록 (teamId, name, category, address, roadAddress, lat, lng, memo, source: search=키워드 검색 / manual=지도에서 직접 찍음)
 	@ResponseBody
 	@PostMapping("pins")
 	public Response insertPin(@RequestBody HashMap<String, Object> param, HttpSession session) {
@@ -109,7 +109,8 @@ public class PinController {
 					"roadAddress", roadAddress.isEmpty() ? null : roadAddress,
 					"lat", lat,
 					"lng", lng,
-					"memo", memo.isEmpty() ? null : memo), SessionUtil.getUserId(session));
+					"memo", memo.isEmpty() ? null : memo,
+					"source", "manual".equals(ParamUtil.str(param, "source")) ? "manual" : "search"), SessionUtil.getUserId(session));
 			result = (data == null)
 					? Response.of(Constants.NOT_FOUND, "모임을 찾을 수 없습니다.", null)
 					: Response.of(Constants.SUCCESS, data);

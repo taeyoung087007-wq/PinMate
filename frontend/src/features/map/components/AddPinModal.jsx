@@ -26,6 +26,8 @@ export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = nul
   const [selecting, setSelecting] = useState(false)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState(initialPlace) // { name, address, lat, lng }
+  // 등록 방식: 키워드 검색으로 고르면 search, 지도에서 직접 찍으면 manual (나중에 같은 장소 판별에 쓴다)
+  const [source, setSource] = useState(initialPlace ? 'manual' : 'search')
   const [picked, setPicked] = useState(null) // 지도에서 찍은 { lat, lng, address, loading }
   const [category, setCategory] = useState('food')
   const [name, setName] = useState(initialPlace?.name ?? '')
@@ -68,6 +70,7 @@ export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = nul
     // 네이버 분류("술집>요리주점")로 카테고리를 미리 골라준다. 못 맞히면 기본값 유지
     const guessed = guessCategory(place.category)
     if (guessed) setCategory(guessed)
+    setSource('search')
 
     if (place.lat && place.lng) {
       setSelected(place)
@@ -116,6 +119,7 @@ export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = nul
     }
     setSelected(place)
     setName(place.name)
+    setSource('manual')
     setStep('detail')
   }
 
@@ -130,6 +134,7 @@ export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = nul
       lng: selected.lng,
       addedBy: CURRENT_USER.id,
       memo: memo.trim(),
+      source,
     })
   }
 
