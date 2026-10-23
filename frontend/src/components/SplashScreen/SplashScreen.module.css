@@ -1,0 +1,54 @@
+/* 앱 진입 인트로 — 로고가 뜬 뒤 워드마크가 사라지고 심볼이 위로 올라간다 */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--bg-base);
+  opacity: 1;
+  transition: opacity 320ms ease;
+}
+
+/* 오버레이가 걷히는 단계 */
+.overlayDone {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.symbol {
+  width: 168px;
+  height: 168px;
+  object-fit: contain;
+  will-change: transform;
+  transform-origin: center;
+  /* 위로 이동할 때의 곡선. 끝에서 부드럽게 멈춘다 */
+  transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.wordmark {
+  width: 232px;
+  height: auto;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 380ms ease, transform 380ms ease;
+}
+
+/* 워드마크가 아래로 흐려지며 사라진다 */
+.wordmarkOut {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+/* 움직임을 줄이는 설정에서는 이동 없이 바로 걷히게 한다 */
+@media (prefers-reduced-motion: reduce) {
+  .symbol {
+    transition: none;
+  }
+  .wordmark {
+    transition: none;
+  }
+}
