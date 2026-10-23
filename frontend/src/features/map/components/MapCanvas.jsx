@@ -2,14 +2,18 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, Minus, RotateCcw, LocateFixed } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { describeLocation } from '../geocode'
-import { loadNaverMaps, onNaverMapAuthFailure } from '../../../lib/naverMaps'
+import { loadKakaoMaps } from '../../../lib/kakaoMaps'
 import styles from './MapCanvas.module.css'
 
 // 핀이 하나도 없을 때 보여줄 기본 위치 (서울시청)
 const SEOUL_CENTER = { lat: 37.5665, lng: 126.9780 }
-const DEFAULT_ZOOM = 14
-const MAX_FIT_ZOOM = 16
-const MY_LOCATION_ZOOM = 16
+
+// 카카오는 "level"이 클수록 축소된다 (네이버 zoom과 반대)
+const DEFAULT_LEVEL = 5      // 동네 단위
+const MY_LOCATION_LEVEL = 3  // 내 주변
+const MAX_FIT_LEVEL = 3      // 핀 전체 보기 후 너무 당겨지지 않게
+const MIN_LEVEL = 1
+const MAX_LEVEL = 14
 
 // 마커 아이콘 기준점: 원형 마커의 중심이 좌표에 오도록
 const PIN_ANCHOR = { x: 17, y: 17 }
@@ -52,11 +56,30 @@ function createPinElement({ pin, meta, memberColor, isSelected }) {
   return wrap
 }
 
+/**
+ * 카카오 CustomOverlay 는 "요소의 어느 지점이 좌표에 닿는지"를 비율(0~1)로만 받는다.
+ * 요소 크기가 글자마다 달라서 비율을 미리 알 수 없으므로,
+ * 크기 0인 컨테이너를 두고 그 안에서 (x, y) 픽셀만큼 왼쪽·위로 밀어 기준점을 맞춘다.
+ * → 네이버의 `anchor: Point(x, y)` 와 같은 효과
+ */
+function anchorContent(el, x, y) {
+  const wrap = document.createElement('div')
+  wrap.style.position = 'relative'
+  wrap.style.width = '0'
+  wrap.style.height = '0'
+
+  el.style.position = 'absolute'
+  el.style.left = `${-x}px`
+  el.style.top = `${-y}px`
+  wrap.appendChild(el)
+  return wrap
+}
+
 // 지도에서 고른 위치 마커: 물방울 끝이 좌표에 오도록 (SVG 32x42)
 const PICK_ANCHOR = { x: 16, y: 42 }
 // 말풍선 윗변이 지도 위쪽에서 이만큼은 떨어지게 한다 (상단 검색바·필터 칩·안내 문구에 가리지 않게)
 const PICK_SAFE_TOP = 170
-// 이 픽셀 반경 안의 상가를 "누른 상가"로 본다 (네이버 지도처럼 라벨 근처를 눌러도 잡히게)
+// 이 픽셀 반경 안의 상가를 "누른 상가"로 본다 (지도 라벨 근처를 눌러도 잡히게)
 const TAP_RADIUS_PX = 40
 // 정적인 SVG라 문자열로 넣는다 (사용자 입력이 섞이지 않음)
 const PICK_PIN_SVG = `<svg width="32" height="42" viewBox="0 0 32 42" aria-hidden="true">
@@ -160,17 +183,33 @@ function getMyLocation(highAccuracy = false) {
 function createMyLocationMarker(maps, map, position) {
   const dot = document.createElement('div')
   dot.className = styles.myLocationDot
-  return new maps.Marker({
+  return new maps.CustomOverlay({
     position,
+    content: anchorContent(dot, 9, 9),
     map,
-    icon: { content: dot, anchor: new maps.Point(9, 9) },
     zIndex: 200,
   })
 }
 
+/** 핀 마커(오버레이)를 만든다 */
+function createPinOverlay(maps, map, { pin, meta, memberColor, isSelected }) {
+  return new maps.CustomOverlay({
+    position: new maps.LatLng(pin.lat, pin.lng),
+    content: anchorContent(
+      createPinElement({ pin, meta, memberColor, isSelected }),
+      PIN_ANCHOR.x,
+      PIN_ANCHOR.y
+    ),
+    map,
+    zIndex: isSelected ? 100 : pin.isAllApproved ? 50 : 10,
+    // 기본값(false)이면 클릭이 지도로 통과해 핀을 눌러도 "위치 고르기"가 같이 뜬다
+    clickable: true,
+  })
+}
+
 /**
- * 네이버 지도 기반 지도 컴포넌트
- * - 지도 생성·이동·줌은 SDK에 맡기고, 이 컴포넌트는 핀(마커)만 그린다
+ * 카카오 지도 기반 지도 컴포넌트
+ * - 지도 생성·이동·줌은 SDK에 맡기고, 이 컴포넌트는 핀(오버레이)만 그린다
  * - props: pins(필터링된 핀), members(멤버 색상 조회용), onSelectPin, selectedPin,
  *          onAddAtLocation(지도에서 고른 위치로 장소 추가: { name, address, lat, lng })
  */
@@ -201,10 +240,10 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     pickedMarkerRef.current = null
   }, [])
 
-  // 지도 빈 곳(또는 바탕 지도의 상가)을 누르면 그 자리에 우리 마커를 찍고 주소를 붙인다
+  // 지도 빈 곳을 누르면 그 자리에 우리 마커를 찍고 주소를 붙인다
   const pickLocation = useCallback((maps, map, coord) => {
     clearPick()
-    let place = { name: '', address: '', lat: coord.lat(), lng: coord.lng() }
+    let place = { name: '', address: '', lat: coord.getLat(), lng: coord.getLng() }
     const { el, card, setInfo } = createPickedElement({
       onAdd: () => {
         onAddAtLocationRef.current?.({ ...place, name: place.name || place.address })
@@ -212,18 +251,21 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
       },
       onClose: clearPick,
     })
-    const marker = new maps.Marker({
+    const marker = new maps.CustomOverlay({
       position: coord,
+      content: anchorContent(el, PICK_ANCHOR.x, PICK_ANCHOR.y),
       map,
-      icon: { content: el, anchor: new maps.Point(PICK_ANCHOR.x, PICK_ANCHOR.y) },
       zIndex: 300,
+      clickable: true,
     })
     pickedMarkerRef.current = marker
 
     const isCurrent = () => pickedMarkerRef.current === marker // 그 사이 다른 곳을 골랐으면 무시
     // 손가락 범위를 지금 줌의 미터로 바꾼다 (확대하면 좁게, 축소하면 넓게)
     const bounds = map.getBounds()
-    const metersPerPx = ((bounds.getNE().lat() - bounds.getSW().lat()) * 111_320) / map.getSize().height
+    const height = containerRef.current?.clientHeight || 1
+    const metersPerPx =
+      ((bounds.getNorthEast().getLat() - bounds.getSouthWest().getLat()) * 111_320) / height
     const tapMeters = Math.min(80, Math.max(10, TAP_RADIUS_PX * metersPerPx))
 
     describeLocation(place.lat, place.lng, { tapMeters })
@@ -235,24 +277,16 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
         marker.setPosition(new maps.LatLng(info.lat, info.lng))
         // 내용이 채워져 높이가 정해진 뒤 실제 화면 위치를 재서, 위쪽 UI에 가리면 그만큼 지도를 내린다
         requestAnimationFrame(() => {
-          const top = card.getBoundingClientRect().top - map.getElement().getBoundingClientRect().top
-          if (top < PICK_SAFE_TOP) map.panBy(new maps.Point(0, top - PICK_SAFE_TOP))
+          const container = containerRef.current
+          if (!container) return
+          const top = card.getBoundingClientRect().top - container.getBoundingClientRect().top
+          if (top < PICK_SAFE_TOP) map.panBy(0, top - PICK_SAFE_TOP)
         })
       })
       .catch(() => {
         if (isCurrent()) setInfo({ name: null, category: '', address: null })
       })
   }, [clearPick])
-
-  // 인증 실패는 지도가 뜬 뒤에 통지될 수 있다 (도메인 미등록 등)
-  useEffect(
-    () =>
-      onNaverMapAuthFailure(error => {
-        setStatus('error')
-        setErrorMessage(error.message)
-      }),
-    []
-  )
 
   // 1) 지도 생성 (마운트 시 1회)
   useEffect(() => {
@@ -262,7 +296,7 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     // 위치 조회와 SDK 로드를 동시에 시작한다 (순서대로 하면 체감 대기가 두 배가 된다)
     const locationPromise = getMyLocation()
 
-    Promise.all([loadNaverMaps(), Promise.race([locationPromise, wait(FIRST_PAINT_WAIT).then(() => null)])])
+    Promise.all([loadKakaoMaps(), Promise.race([locationPromise, wait(FIRST_PAINT_WAIT).then(() => null)])])
       .then(([maps, firstResult]) => {
         if (cancelled || !containerRef.current || mapRef.current) return
 
@@ -276,38 +310,25 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
 
         const map = new maps.Map(el, {
           center: new maps.LatLng(center.lat, center.lng),
-          zoom: firstLocation ? MY_LOCATION_ZOOM : DEFAULT_ZOOM,
-          minZoom: 6,
-          maxZoom: 21,
-          size: new maps.Size(el.clientWidth, el.clientHeight),
-          zoomControl: false, // 컨트롤은 아래에서 직접 그린다
-          mapTypeControl: false,
-          scaleControl: false,
-          // 지도 로고(좌하단)와 데이터 출처(우하단)는 약관상 유지해야 하므로 기본값 그대로 둔다
-          logoControl: true,
-          mapDataControl: true,
+          level: firstLocation ? MY_LOCATION_LEVEL : DEFAULT_LEVEL,
         })
 
         mapRef.current = map
-        maps.Event.addListener(map, 'click', e => {
+        maps.event.addListener(map, 'click', e => {
           // 핀 상세가 열려 있으면 첫 클릭은 닫기만 한다
           if (selectedPinRef.current) {
             onSelectRef.current(null)
             return
           }
-          pickLocation(maps, map, e.coord)
+          pickLocation(maps, map, e.latLng)
         })
         setStatus('ready')
 
         // 컨테이너 크기가 바뀌면(패널 열림 등) 지도를 다시 그린다
         resizeObserver = new ResizeObserver(() => {
-          const e = containerRef.current
-          if (!e) return
-          const width = e.clientWidth
-          const height = e.clientHeight
-          if (width > 0 && height > 0) {
-            map.setSize(new maps.Size(width, height))
-          }
+          const target = containerRef.current
+          if (!target) return
+          if (target.clientWidth > 0 && target.clientHeight > 0) map.relayout()
         })
         resizeObserver.observe(el)
 
@@ -335,7 +356,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
           }
           const here = new maps.LatLng(result.lat, result.lng)
           myLocationRef.current = here
-          map.morph(here, MY_LOCATION_ZOOM)
+          map.setLevel(MY_LOCATION_LEVEL)
+          map.panTo(here)
           if (myLocationMarkerRef.current) {
             myLocationMarkerRef.current.setPosition(here)
           } else {
@@ -355,7 +377,7 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
       resizeObserver?.disconnect()
       markersRef.current.clear()
       pickedMarkerRef.current = null
-      mapRef.current?.destroy?.()
+      myLocationMarkerRef.current = null
       mapRef.current = null
       // SDK가 남긴 DOM 정리 (StrictMode 재마운트 대비)
       if (containerRef.current) containerRef.current.innerHTML = ''
@@ -364,7 +386,7 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
 
   // 2) 핀 목록이 바뀌면 마커를 다시 만든다
   useEffect(() => {
-    const maps = window.naver?.maps
+    const maps = window.kakao?.maps
     const map = mapRef.current
     if (!maps || !map || status !== 'ready') return
 
@@ -375,33 +397,28 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
       const meta = CATEGORY_META[pin.category] || CATEGORY_META.etc
       const memberColor = members.find(m => m.id === pin.addedBy)?.avatarColor ?? meta.color
 
-      const marker = new maps.Marker({
-        position: new maps.LatLng(pin.lat, pin.lng),
-        map,
-        title: pin.name,
-        zIndex: pin.isAllApproved ? 50 : 10,
-        icon: {
-          content: createPinElement({ pin, meta, memberColor, isSelected: false }),
-          anchor: new maps.Point(PIN_ANCHOR.x, PIN_ANCHOR.y),
-        },
-      })
-
-      maps.Event.addListener(marker, 'click', () => onSelectRef.current(pin))
+      const marker = createPinOverlay(maps, map, { pin, meta, memberColor, isSelected: false })
+      // 오버레이는 DOM이라 클릭 리스너를 요소에 직접 건다
+      marker.getContent().firstChild.addEventListener('click', () => onSelectRef.current(pin))
       markersRef.current.set(pin.id, { marker, pin, meta, memberColor })
     })
   }, [pins, members, status])
 
   // 3) 선택된 핀의 강조 표시만 갱신한다 (마커를 다시 만들지 않음)
   useEffect(() => {
-    const maps = window.naver?.maps
+    const maps = window.kakao?.maps
     if (!maps) return
 
     markersRef.current.forEach((entry, pinId) => {
       const isSelected = selectedPin?.id === pinId
-      entry.marker.setIcon({
-        content: createPinElement({ ...entry, isSelected }),
-        anchor: new maps.Point(PIN_ANCHOR.x, PIN_ANCHOR.y),
-      })
+      entry.marker.setContent(
+        anchorContent(
+          createPinElement({ ...entry, isSelected }),
+          PIN_ANCHOR.x,
+          PIN_ANCHOR.y
+        )
+      )
+      entry.marker.getContent().firstChild.addEventListener('click', () => onSelectRef.current(entry.pin))
       entry.marker.setZIndex(isSelected ? 100 : entry.pin.isAllApproved ? 50 : 10)
     })
   }, [selectedPin, pins, members])
@@ -411,17 +428,17 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
 
   // 5) 목록 패널 등에서 고른 핀이 화면 밖이면 그쪽으로 이동
   useEffect(() => {
-    const maps = window.naver?.maps
+    const maps = window.kakao?.maps
     const map = mapRef.current
     if (!maps || !map || !selectedPin) return
 
     clearPick() // 핀을 고르면 지도에서 고른 위치 표시는 지운다
     const position = new maps.LatLng(selectedPin.lat, selectedPin.lng)
-    if (!map.getBounds().hasLatLng(position)) map.panTo(position)
+    if (!map.getBounds().contain(position)) map.panTo(position)
   }, [selectedPin, clearPick])
 
-  const moveToMyLocation = useCallback(async (zoom = MY_LOCATION_ZOOM) => {
-    const maps = window.naver?.maps
+  const moveToMyLocation = useCallback(async (level = MY_LOCATION_LEVEL) => {
+    const maps = window.kakao?.maps
     const map = mapRef.current
     if (!maps || !map) return
 
@@ -437,7 +454,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     setLocateError('')
     const here = new maps.LatLng(result.lat, result.lng)
     myLocationRef.current = here
-    map.morph(here, zoom)
+    map.setLevel(level)
+    map.panTo(here)
 
     if (myLocationMarkerRef.current) {
       myLocationMarkerRef.current.setPosition(here)
@@ -453,13 +471,16 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     return () => clearTimeout(timer)
   }, [locateError])
 
+  // 카카오는 레벨이 작을수록 확대다 (네이버 zoom 과 반대 방향)
   const changeZoom = delta => {
     const map = mapRef.current
-    if (map) map.setZoom(map.getZoom() + delta)
+    if (!map) return
+    const next = map.getLevel() - delta
+    map.setLevel(Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, next)))
   }
 
   const resetView = () => {
-    const maps = window.naver?.maps
+    const maps = window.kakao?.maps
     const map = mapRef.current
     if (!maps || !map) return
 
@@ -471,8 +492,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
 
     const bounds = new maps.LatLngBounds()
     pins.forEach(pin => bounds.extend(new maps.LatLng(pin.lat, pin.lng)))
-    map.fitBounds(bounds)
-    if (map.getZoom() > MAX_FIT_ZOOM) map.setZoom(MAX_FIT_ZOOM)
+    map.setBounds(bounds)
+    if (map.getLevel() < MAX_FIT_LEVEL) map.setLevel(MAX_FIT_LEVEL)
   }
 
   return (
@@ -489,18 +510,18 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
         <div className={styles.overlay}>
           <div className={styles.notice}>
             <strong className={styles.noticeTitle}>
-              {status === 'nokey' ? '네이버 지도 키가 없습니다' : '지도를 표시하지 못했습니다'}
+              {status === 'nokey' ? '카카오 지도 키가 없습니다' : '지도를 표시하지 못했습니다'}
             </strong>
             <p className={styles.noticeText}>{errorMessage}</p>
             <p className={styles.noticeMeta}>현재 접속 주소: {window.location.origin}</p>
             {status === 'nokey' && (
               <ol className={styles.noticeList}>
-                <li>NCP 콘솔에서 Maps(Web Dynamic Map) 활성화 후 Client ID 발급</li>
+                <li>카카오 콘솔 → 내 애플리케이션 → 앱 선택 → 플랫폼 키</li>
                 <li>
-                  <code>frontend/.env</code>에 <code>VITE_NAVER_MAP_KEY=발급받은키</code> 추가
+                  <code>frontend/.env</code>에 <code>VITE_KAKAO_MAP_KEY=JavaScript키</code> 추가
                 </li>
                 <li>
-                  콘솔에 <code>http://localhost:5173</code> 도메인 등록
+                  JavaScript SDK 도메인에 <code>http://localhost:5173</code> 등록
                 </li>
                 <li>개발 서버 재시작</li>
               </ol>
@@ -512,7 +533,7 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
       {status === 'ready' && (
         <>
           <div className={styles.controlStack}>
-            {/* 네이버 지도처럼 지도 위에 떠 있는 원형 내 위치 버튼 */}
+            {/* 지도 위에 떠 있는 원형 내 위치 버튼 */}
             <button
               className={styles.locateBtn}
               onClick={() => moveToMyLocation()}

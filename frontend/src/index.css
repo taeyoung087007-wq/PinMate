@@ -57,6 +57,8 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 24px;
+  /* 하단 내비게이션 높이. 지도·패널이 이 값을 기준으로 위로 띄운다 */
+  --bottom-nav-h: 64px;
   --radius-full: 9999px;
 
   /* Typography */
