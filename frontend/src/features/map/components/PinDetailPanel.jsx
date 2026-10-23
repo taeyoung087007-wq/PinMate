@@ -72,9 +72,9 @@ export default function PinDetailPanel({
     onDelete?.(pin.id)
   }
 
-  // 네이버 지도 검색 새 탭 열기
-  const handleOpenNaverMap = () => {
-    const url = `https://map.naver.com/p/search/${encodeURIComponent(pin.name)}`
+  // 카카오맵 검색 새 탭 열기
+  const handleOpenKakaoMap = () => {
+    const url = `https://map.kakao.com/link/search/${encodeURIComponent(pin.name)}`
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
@@ -287,8 +287,8 @@ export default function PinDetailPanel({
             </button>
             <button
               className="btn btn-secondary btn-icon"
-              onClick={handleOpenNaverMap}
-              title="네이버 지도에서 보기"
+              onClick={handleOpenKakaoMap}
+              title="카카오맵에서 보기"
             >
               <ExternalLink size={16} />
             </button>
