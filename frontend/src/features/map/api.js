@@ -14,6 +14,14 @@ export const toggleRecommendationApi = (pinId, userId) =>
 export const toggleVisitApi = (pinId, userId) =>
   post(`/pins/${encodeURIComponent(pinId)}/visit`, { userId })
 
+/** 이름·카테고리·한 줄 추천평 수정 (등록자 또는 팀 owner 만) */
+export const updatePinApi = (pinId, data) =>
+  request(`/pins/${encodeURIComponent(pinId)}`, { method: 'PATCH', body: JSON.stringify(data) })
+
+/** 핀 삭제 (등록자 또는 팀 owner 만) */
+export const deletePinApi = (pinId) =>
+  request(`/pins/${encodeURIComponent(pinId)}`, { method: 'DELETE' })
+
 /**
  * 상호명으로 장소를 검색한다 (백엔드가 NAVER 검색 API를 대신 호출).
  * 좌표는 포함되지 않으므로, 선택한 뒤 주소를 지오코딩해 얻는다.

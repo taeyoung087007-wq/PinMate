@@ -130,4 +130,24 @@
         WHERE place_id = #{placeId} AND user_id = #{userId}
     </delete>
 
+    <update id="updatePin">
+        UPDATE places
+        SET name = #{name},
+            category = #{category},
+            updated_at = now()
+        WHERE place_id = #{placeId}
+    </update>
+
+    <update id="updateRecommendationComment">
+        UPDATE recommendations
+        SET comment = #{comment},
+            updated_at = now()
+        WHERE place_id = #{placeId} AND user_id = #{userId}
+    </update>
+
+    <delete id="deletePin">
+        DELETE FROM places
+        WHERE place_id = #{placeId}
+    </delete>
+
 </mapper>

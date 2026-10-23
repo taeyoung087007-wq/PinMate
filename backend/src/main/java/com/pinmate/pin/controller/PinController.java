@@ -7,6 +7,7 @@ import com.pinmate.common.ApiResponse;
 import com.pinmate.pin.dto.CreatePinRequest;
 import com.pinmate.pin.dto.PinResponse;
 import com.pinmate.pin.dto.RecommendResponse;
+import com.pinmate.pin.dto.UpdatePinRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -56,6 +57,26 @@ public class PinController {
         @SessionAttribute(name = "userId", required = false) Long userId
     ) {
         return ApiResponse.ok(pinService.toggleVisit(pinId, requireUserId(userId)));
+    }
+
+    /** 이름·카테고리·한 줄 추천평 수정. 등록자 또는 팀 owner 만 가능하다 */
+    @PatchMapping("/{pinId}")
+    public ApiResponse<PinResponse> updatePin(
+        @PathVariable("pinId") Long pinId,
+        @Valid @RequestBody UpdatePinRequest request,
+        @SessionAttribute(name = "userId", required = false) Long userId
+    ) {
+        return ApiResponse.ok(pinService.updatePin(pinId, request, requireUserId(userId)));
+    }
+
+    /** 핀 삭제. 등록자 또는 팀 owner 만 가능하다 */
+    @DeleteMapping("/{pinId}")
+    public ApiResponse<Void> deletePin(
+        @PathVariable("pinId") Long pinId,
+        @SessionAttribute(name = "userId", required = false) Long userId
+    ) {
+        pinService.deletePin(pinId, requireUserId(userId));
+        return ApiResponse.ok(null);
     }
 
     /** 세션이 없으면 401. 프론트는 이 응답을 받으면 로그인 화면으로 보낸다 */

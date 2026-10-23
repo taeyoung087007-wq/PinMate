@@ -8,6 +8,7 @@ import com.pinmate.team.domain.TeamMember;
 import com.pinmate.pin.dto.CreatePinRequest;
 import com.pinmate.pin.dto.PinResponse;
 import com.pinmate.pin.dto.RecommendResponse;
+import com.pinmate.pin.dto.UpdatePinRequest;
 import com.pinmate.pin.service.PinService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -107,6 +108,55 @@ public class PinServiceImpl implements PinService {
         }
 
         return getPin(placeId);
+    }
+
+    @Override
+    @Transactional
+    public PinResponse updatePin(Long placeId, UpdatePinRequest req, Long userId) {
+        Pin pin = requirePin(placeId);
+        requireEditable(pin, userId);
+
+        pinDao.updatePin(placeId, req.name().trim(), toDbCategory(req.category()));
+
+        // 한 줄 추천평은 등록자의 recommendations 행에 들어 있으므로 그쪽을 고친다
+        if (req.memo() != null) {
+            pinDao.updateRecommendationComment(placeId, pin.getCreatedBy(), req.memo().trim());
+        }
+
+        return getPin(placeId);
+    }
+
+    @Override
+    @Transactional
+    public void deletePin(Long placeId, Long userId) {
+        Pin pin = requirePin(placeId);
+        requireEditable(pin, userId);
+
+        // 추천·방문 기록은 places 를 참조하는 FK 가 ON DELETE CASCADE 라 함께 지워진다
+        pinDao.deletePin(placeId);
+    }
+
+    private Pin requirePin(Long placeId) {
+        Pin pin = pinDao.findPinById(placeId);
+        if (pin == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "장소를 찾을 수 없습니다.");
+        }
+        return pin;
+    }
+
+    /** 등록자 본인 또는 팀 owner 만 수정·삭제할 수 있다 */
+    private void requireEditable(Pin pin, Long userId) {
+        if (pin.getCreatedBy() != null && pin.getCreatedBy().equals(userId)) {
+            return;
+        }
+
+        boolean isOwner = teamDao.findTeamMembersByTeamId(pin.getTeamId()).stream()
+                .anyMatch(member -> userId.equals(member.getUserId())
+                        && "owner".equalsIgnoreCase(member.getRole()));
+
+        if (!isOwner) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "이 장소를 수정할 권한이 없습니다.");
+        }
     }
 
     private boolean checkAndUpdateConsensus(Long placeId, Long teamId) {
