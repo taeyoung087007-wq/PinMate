@@ -49,16 +49,6 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse signup(SignupRequest req) {
-        if (req.loginId() == null || req.loginId().trim().length() < 3) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "아이디는 3자 이상 입력해주세요.");
-        }
-        if (req.password() == null || req.password().length() < 4) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비밀번호는 4자 이상 입력해주세요.");
-        }
-        if (req.nickname() == null || req.nickname().trim().length() < 2) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "닉네임은 2자 이상 입력해주세요.");
-        }
-
         String loginId = req.loginId().trim();
         String nickname = req.nickname().trim();
 
@@ -132,10 +122,6 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public AuthResponse login(LoginRequest req) {
-        if (req.loginId() == null || req.loginId().trim().isBlank() || req.password() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "아이디와 비밀번호를 입력해주세요.");
-        }
-
         String identifier = req.loginId().trim();
         User user = userDao.findByIdOrLoginId(identifier);
         if (user == null) {

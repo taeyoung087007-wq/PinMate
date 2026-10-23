@@ -1,5 +1,6 @@
 package com.pinmate.team.controller;
 
+import jakarta.validation.Valid;
 import com.pinmate.team.service.TeamService;
 
 import com.pinmate.common.ApiResponse;
@@ -32,14 +33,14 @@ public class TeamController {
     }
 
     @PostMapping
-    public ApiResponse<TeamResponse> createTeam(@RequestBody CreateTeamRequest request,
+    public ApiResponse<TeamResponse> createTeam(@Valid @RequestBody CreateTeamRequest request,
                                                @SessionAttribute(name = "userId", required = false) Long userId) {
         return ApiResponse.ok(teamService.createTeam(request, requireUserId(userId)));
     }
 
     /** 로그인한 회원의 초대 코드 참여. 예: POST /api/teams/join {"code": "team13_0c009f"} */
     @PostMapping("/join")
-    public ApiResponse<TeamResponse> joinTeam(@RequestBody JoinTeamRequest request,
+    public ApiResponse<TeamResponse> joinTeam(@Valid @RequestBody JoinTeamRequest request,
                                              @SessionAttribute(name = "userId", required = false) Long userId) {
         return ApiResponse.ok(teamService.joinTeam(request, requireUserId(userId)));
     }
