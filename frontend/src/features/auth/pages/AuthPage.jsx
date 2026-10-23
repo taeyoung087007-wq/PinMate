@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   MapPin, Users, Lock, Eye, EyeOff, ArrowRight,
-  Sparkles, CheckCircle2, AlertCircle, Link2, Sparkle
+  Sparkles, CheckCircle2, AlertCircle, Link2
 } from 'lucide-react'
 import { signupApi, loginApi, checkInviteCodeApi } from '../api'
 import { setCurrentUserStorage } from '../../../lib/currentUser'
@@ -10,11 +10,9 @@ import styles from './AuthPage.module.css'
 
 /**
  * 로그인 및 회원가입 페이지
- * - 기획안 UI Flow 완벽 반영:
- *   1. 초대코드 확인 (초대 링크 접속 시 자동 입력 및 자동 검증)
- *   2. 회원 정보 입력 (아이디, 비밀번호, 닉네임)
- *   3. 가입 완료 시 초대받은 팀 자동 참여 후 메인 지도 진입
- *   4. 초대코드 없는 사용자를 위한 '새 모임으로 가입' 모드 지원
+ * - 가입: 서비스 가입 코드 + 아이디·비밀번호·닉네임 입력. 가입 후에는 로그인 탭으로 돌아가 다시 로그인한다
+ * - 팀 초대 링크(?invite=코드)로 들어왔으면 어떤 모임인지 보여주고,
+ *   로그인하면 같은 링크의 참여 확인 화면(InvitePage)으로 이어진다
  */
 export default function AuthPage({ onLogin }) {
   const [searchParams] = useSearchParams()
@@ -25,30 +23,27 @@ export default function AuthPage({ onLogin }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
-
-  // 초대 코드 상태
-  const [inviteCode, setInviteCode] = useState(inviteParam || '')
-  const [inviteValid, setInviteValid] = useState(null) // null | boolean
   const [invitedTeamName, setInvitedTeamName] = useState('')
-  const [inviteChecking, setInviteChecking] = useState(false)
-  const [isNoCodeMode, setIsNoCodeMode] = useState(false) // 초대코드 없이 시작하기
 
   // 폼 입력 상태
   const [form, setForm] = useState({
-    id: inviteParam ? '' : 'taeyoung',
-    password: inviteParam ? '' : '••••••••',
+    id: '',
+    password: '',
     passwordConfirm: '',
     nickname: '',
+    signupCode: '',
     termsAgreed: true,
   })
 
-  // URL에 초대 코드가 있으면 자동 검증
+  // 팀 초대 링크로 들어왔으면 어떤 모임인지 미리 보여준다 (참여는 로그인 후)
   useEffect(() => {
-    if (inviteParam) {
-      setMode('signup')
-      setInviteCode(inviteParam)
-      handleVerifyInvite(inviteParam)
-    }
+    if (!inviteParam) return
+    checkInviteCodeApi(inviteParam)
+      .then(res => {
+        if (res.valid) setInvitedTeamName(res.teamName)
+        else setError(res.message)
+      })
+      .catch(e => setError(e.message || '초대 정보를 확인하지 못했습니다.'))
   }, [inviteParam])
 
   const handleInputChange = (e) => {
@@ -58,36 +53,6 @@ export default function AuthPage({ onLogin }) {
       [name]: type === 'checkbox' ? checked : value,
     }))
     if (error) setError('')
-  }
-
-  // 초대 코드 검증 함수
-  const handleVerifyInvite = async (codeToVerify) => {
-    const code = (codeToVerify !== undefined ? codeToVerify : inviteCode).trim()
-    if (!code) {
-      setInviteValid(false)
-      setError('초대 코드를 입력해주세요.')
-      return
-    }
-
-    setInviteChecking(true)
-    setError('')
-    try {
-      const res = await checkInviteCodeApi(code)
-      if (res.valid) {
-        setInviteValid(true)
-        setInvitedTeamName(res.teamName)
-      } else {
-        setInviteValid(false)
-        setInvitedTeamName('')
-        setError(res.message || '유효하지 않거나 만료된 초대 코드입니다.')
-      }
-    } catch (e) {
-      setInviteValid(false)
-      setInvitedTeamName('')
-      setError(e.message || '초대 코드 확인에 실패했습니다.')
-    } finally {
-      setInviteChecking(false)
-    }
   }
 
   // 폼 제출 (로그인 또는 회원가입)
@@ -107,18 +72,6 @@ export default function AuthPage({ onLogin }) {
         setCurrentUserStorage(userData)
         onLogin(userData)
       } catch (err) {
-        // 기존 데모 사용자 호환
-        if (form.id === 'taeyoung') {
-          onLogin({
-            id: 'user-1',
-            loginId: 'user-1',
-            nickname: '김태영',
-            email: 'taeyoung@pinmate.io',
-            avatarColor: '#6C63FF',
-            initials: '김',
-          })
-          return
-        }
         setError(err.message || '아이디 또는 비밀번호가 올바르지 않습니다.')
       } finally {
         setLoading(false)
@@ -146,43 +99,28 @@ export default function AuthPage({ onLogin }) {
         return
       }
 
-      // 초대 코드가 필수인 모드일 경우 사전 검증 확인
-      if (!isNoCodeMode && inviteValid !== true) {
-        if (!inviteCode.trim()) {
-          setError('초대 코드를 입력하거나 "새 모임으로 가입하기"를 선택해주세요.')
-          return
-        }
-        // 미검증 상태라면 즉시 검증 시도
-        try {
-          const res = await checkInviteCodeApi(inviteCode.trim())
-          if (!res.valid) {
-            setError(res.message || '유효하지 않은 초대 코드입니다.')
-            return
-          }
-        } catch (e) {
-          setError(e.message || '초대 코드 검증 실패')
-          return
-        }
+      if (!form.signupCode.trim()) {
+        setError('가입 코드를 입력해주세요.')
+        return
       }
 
       setLoading(true)
       try {
-        const newUser = await signupApi({
+        await signupApi({
           loginId: form.id.trim(),
           password: form.password,
+          passwordConfirm: form.passwordConfirm,
           nickname: form.nickname.trim(),
           email: `${form.id.trim()}@pinmate.io`,
-          inviteCode: isNoCodeMode ? null : inviteCode.trim(),
+          signupCode: form.signupCode.trim(),
         })
 
-        setCurrentUserStorage(newUser)
-        const teamMsg = newUser.defaultTeam ? ` [${newUser.defaultTeam.name}] 모임에 참여되었습니다!` : ''
-        setSuccessMsg(`🎉 가입이 완료되었습니다!${teamMsg}`)
-
-        // 가입 완료 후 메인 지도로 바로 이동
-        setTimeout(() => {
-          onLogin(newUser)
-        }, 800)
+        // 가입만 되고 로그인되지는 않는다. 아이디는 남겨두고 로그인 탭으로 돌아간다
+        setForm(p => ({ ...p, password: '', passwordConfirm: '' }))
+        setMode('login')
+        setSuccessMsg(invitedTeamName
+          ? `🎉 가입이 완료되었습니다! 로그인하면 [${invitedTeamName}] 모임에 참여할 수 있어요.`
+          : '🎉 가입이 완료되었습니다! 로그인해주세요.')
       } catch (err) {
         setError(err.message || '회원가입에 실패했습니다.')
       } finally {
@@ -250,64 +188,33 @@ export default function AuthPage({ onLogin }) {
           )}
 
           <form className={styles.form} onSubmit={handleSubmit}>
-            {/* 회원가입 전용 1단계: 초대 코드 영역 */}
+            {/* 팀 초대 링크로 들어온 경우: 어떤 모임인지 안내 */}
+            {invitedTeamName && (
+              <div className={styles.inviteBadge}>
+                <CheckCircle2 size={15} />
+                <span>
+                  <strong>{invitedTeamName}</strong>에 초대되었습니다! (로그인 후 참여)
+                </span>
+              </div>
+            )}
+
+            {/* 회원가입 전용: 서비스 가입 코드 */}
             {mode === 'signup' && (
-              <div className={styles.inviteCard}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label className={styles.label}>
-                    <Link2 size={14} />
-                    팀 초대 코드
-                  </label>
-                  <button
-                    type="button"
-                    className={styles.toggleModeBtn}
-                    onClick={() => {
-                      setIsNoCodeMode(p => !p)
-                      setError('')
-                    }}
-                  >
-                    {isNoCodeMode ? '초대 코드로 참여하기' : '초대 코드가 없으신가요?'}
-                  </button>
-                </div>
-
-                {!isNoCodeMode ? (
-                  <>
-                    <div className={styles.inviteRow}>
-                      <input
-                        className="input"
-                        placeholder="예: seongsu123"
-                        value={inviteCode}
-                        onChange={e => {
-                          setInviteCode(e.target.value)
-                          setInviteValid(null)
-                          setInvitedTeamName('')
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className={`btn btn-secondary ${styles.checkBtn}`}
-                        onClick={() => handleVerifyInvite()}
-                        disabled={inviteChecking || !inviteCode.trim()}
-                      >
-                        {inviteChecking ? '확인 중...' : '확인'}
-                      </button>
-                    </div>
-
-                    {inviteValid === true && (
-                      <div className={styles.inviteBadge}>
-                        <CheckCircle2 size={15} />
-                        <span>
-                          <strong>{invitedTeamName}</strong>에 초대되었습니다! (가입 시 자동 참여)
-                        </span>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className={styles.noCodeBadge}>
-                    <Sparkle size={14} />
-                    <span>초대 코드 없이 가입하며 <strong>나만의 첫 모임</strong>이 자동 생성됩니다.</span>
-                  </div>
-                )}
+              <div className={styles.field}>
+                <label className={styles.label}>
+                  <Link2 size={14} />
+                  가입 코드
+                </label>
+                <input
+                  className="input"
+                  type="text"
+                  name="signupCode"
+                  placeholder="운영자에게 받은 가입 코드"
+                  value={form.signupCode}
+                  onChange={handleInputChange}
+                  autoComplete="off"
+                  required
+                />
               </div>
             )}
 
@@ -415,7 +322,7 @@ export default function AuthPage({ onLogin }) {
                 ? '처리 중...'
                 : mode === 'login'
                   ? '로그인하기'
-                  : '가입 및 모임 참여하기'}
+                  : '가입하기'}
               <ArrowRight size={16} />
             </button>
 
