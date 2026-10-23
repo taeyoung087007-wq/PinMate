@@ -1,53 +1,62 @@
 # ⚙️ PinMate 백엔드 (Backend)
 
-Spring Boot 4.1 (Spring MVC) + MyBatis + PostgreSQL + Flyway 기반 REST API 서버의 기본 골격입니다.
-현재 API는 헬스체크(`GET /api/health`)뿐입니다.
+Spring Boot 4.1 (Spring MVC) + MyBatis + PostgreSQL + Flyway 기반 REST API 서버입니다.
 
 ---
 
 ## 📁 디렉토리 구조
 
-[Spring Boot 공식 문서의 권장 구조](https://docs.spring.io/spring-boot/reference/using/structuring-your-code.html)처럼 메인 클래스를 루트 패키지에 두고, 그 아래를 **계층(Layer)별 패키지**로 나눕니다.
+메인 클래스를 루트 패키지에 두고, 그 아래를 **기능별 패키지**로 나눈 뒤 각 기능 안을 controller / service / dao 로 나눕니다.
 
 ```text
 backend/
-├── pom.xml                         # Maven 설정 (mvnw로 실행, Maven 별도 설치 불필요)
+├── pom.xml                              # Maven 설정 (mvnw로 실행, Maven 별도 설치 불필요)
 └── src/main/
     ├── java/com/pinmate/
-    │   ├── PinmateApplication.java # 메인 클래스 (루트 패키지 = 컴포넌트 스캔 범위)
-    │   ├── controller/             # @RestController — 요청/응답만 담당
-    │   ├── service/                # 서비스 인터페이스 (기능 명세)
-    │   │   └── impl/               # 서비스 구현체 (@Service, @Transactional, 비즈니스 로직)
-    │   ├── dao/                    # MyBatis @Mapper 인터페이스 (@MapperScan 대상)
-    │   ├── domain/                 # DB 조회 결과 객체 (User, Team, Pin ...)
-    │   ├── dto/{auth,pin,team}/    # 요청/응답 DTO
-    │   ├── util/                   # 유틸리티 (PasswordUtil)
-    │   └── common/                 # 공통 응답 형식(ApiResponse), 예외 처리
+    │   ├── PinmateApplication.java      # 메인 클래스
+    │   ├── cmmn/                        # 공통
+    │   │   ├── config/WebMvcConfig.java # 인터셉터 등록
+    │   │   ├── controller/              # 헬스체크, 공통 예외 처리(CmmnExceptionHandler)
+    │   │   └── util/                    # Response, Constants(결과 코드), ParamUtil, SessionUtil ...
+    │   ├── interceptor/                 # 로그인 검사, POST 요청 형식 검사
+    │   └── {auth,team,pin,place,presence}/
+    │       ├── controller/XxxController.java   # 입력 검증, try/catch, Response 반환
+    │       ├── service/XxxService.java            # 인터페이스
+    │       ├── service/impl/XxxServiceImpl.java   # 비즈니스 로직, @Transactional
+    │       └── dao/XxxDAO.java                    # SqlSessionTemplate + SQL_PATH
     └── resources/
-        ├── application.yml         # 공통 설정 (DB 접속 정보는 환경변수)
-        ├── application-local.yml   # 로컬 개발 설정 (기본 프로파일)
-        ├── mapper/                 # MyBatis SQL XML (XxxDao.xml)
+        ├── application.yml              # 공통 설정 (DB 접속 정보는 환경변수)
+        ├── application-local.yml        # 로컬 개발 설정 (기본 프로파일)
+        ├── sqlmap/mappers/pinmate/<기능>/<기능>.xml   # MyBatis SQL (namespace = DAO 클래스 이름)
         └── db/
-            ├── migration/          # Flyway 스키마 마이그레이션 (모든 환경)
-            └── seed/               # 개발용 시드 데이터 (local 프로파일에서만 적용)
+            ├── migration/               # Flyway 스키마 마이그레이션 (모든 환경)
+            └── seed/                    # 개발용 시드 데이터 (local 프로파일에서만 적용)
 ```
 
-### 기능 추가 방법 (예: 팀)
+### 작성 규칙
 
-```text
-java/com/pinmate/
-├── controller/TeamController.java      # @RestController, TeamService(인터페이스)를 주입
-├── service/TeamService.java            # 인터페이스 — 메서드 시그니처만
-├── service/impl/TeamServiceImpl.java   # implements TeamService, 비즈니스 로직
-├── dao/TeamDao.java                    # @Mapper 인터페이스
-├── domain/Team.java                    # 조회 결과
-└── dto/team/TeamResponse.java          # 요청/응답 DTO
-resources/mapper/TeamDao.xml            # namespace="com.pinmate.dao.TeamDao"
-resources/db/migration/V1__create_team.sql
-```
+- **요청**: `@RequestBody HashMap<String, Object> param` 으로 받고 `ParamUtil.str / raw / lng / dbl` 로 꺼냅니다. 검증 실패는 `Response.invalid("문구")`(code `90`).
+- **응답**: 모두 `Response` — `{"code": "00", "message": null, "data": ...}`. 결과 코드는 `Constants` 에 있고, 프론트 `src/lib/apiClient.js` 의 `CODE` 와 값을 맞춥니다.
+- **예외**: 컨트롤러 메서드마다 `try/catch` 로 `Response.of(Constants.FAIL, "문구", null)` 을 돌려줍니다. 트랜잭션은 서비스(`@Transactional`)에 있으므로 컨트롤러에서 잡아도 롤백됩니다. 컨트롤러 진입 전 예외(본문 형식 오류, 없는 경로 등)는 `CmmnExceptionHandler` 가 처리합니다.
+- **조회 결과**: `resultType="java.util.HashMap"` 이라 키는 컬럼명 그대로(`team_id`)입니다. 화면에 넘길 때 서비스에서 camelCase 키로 바꿉니다.
+- **로그인 사용자**: 요청 값이 아니라 `SessionUtil.getUserId(session)` 으로 가져옵니다. `/api/**` 는 `/api/auth/**`, `/api/health` 를 빼고 로그인이 필요하며, 세션이 없으면 401 + `{"sessionExpired": true}` 입니다.
+- **POST·PATCH·DELETE**: `X-Requested-With: XMLHttpRequest` 헤더와 JSON 본문이 있어야 합니다 (다른 사이트의 폼 전송 차단).
 
-- `@MapperScan`은 `com.pinmate.dao`만 스캔합니다. Mapper 인터페이스는 반드시 `dao/`에 두세요 (그 외 패키지의 인터페이스가 Mapper로 오인되는 것을 방지).
-- 응답은 `ApiResponse.ok(data)`로 감쌉니다. 실패는 `ResponseStatusException`을 던지면 `ApiExceptionHandler`가 `{"success": false, "message"}`로 바꿉니다.
+### 로그인 · 가입
+
+| 엔드포인트 | 결과 코드 |
+| :--- | :--- |
+| `POST /api/auth/signup` | `00` 가입 완료(로그인되지 않음) · `11` 가입 코드 불일치 · `12` 아이디 중복 · `13` 시도 제한 · `14` 닉네임 중복 · `90` 입력 오류 |
+| `POST /api/auth/login` | `00` 성공(data: 사용자·기본 모임) · `01` 아이디 또는 비밀번호 불일치 · `03` 시도 제한 |
+| `POST /api/auth/logout` | `00` |
+| `GET /api/auth/invite/check?code=` | 팀 초대 링크 미리보기. `00`(data: teamId, teamName) · `21` 코드 불일치·만료 · `23` 시도 제한 |
+
+- 가입에는 **서비스 가입 코드**(환경변수 `PINMATE_SIGNUP_CODE`)가 필요합니다. 비어 있으면 아무도 가입할 수 없습니다. 팀 초대 코드와는 별개입니다.
+- 가입은 계정만 만듭니다. 팀 초대 링크(`/login?invite=코드`)로 들어온 사람은 가입 → 로그인 후 참여 확인 화면에서 팀에 들어갑니다 (`POST /api/teams/join`).
+- 로그인은 아이디+IP, 가입 코드는 IP, 팀 초대 코드(미리보기·참여)는 IP 기준으로 5회 실패하면 5분 동안 막습니다 (`LoginAttemptLimiter`, 서버 메모리).
+- 비밀번호는 BCrypt 로 저장합니다(최대 72바이트). 예전 SHA-256 해시 계정은 로그인에 성공하는 순간 BCrypt 로 다시 저장됩니다.
+- 팀 하위 API(핀 목록·등록·추천·방문, 팀 조회)는 요청자가 그 팀 멤버인지 확인하고, 아니면 `91`(없음)로 응답합니다.
+- 팀 초대 코드는 팀을 만들 때 발급되고 7일 뒤 만료됩니다.
 
 ---
 

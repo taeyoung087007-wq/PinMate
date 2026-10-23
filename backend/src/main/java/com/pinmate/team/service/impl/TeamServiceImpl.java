@@ -1,112 +1,126 @@
 package com.pinmate.team.service.impl;
 
-import com.pinmate.team.dao.TeamDao;
-import com.pinmate.auth.dao.UserDao;
-import com.pinmate.team.domain.Team;
-import com.pinmate.team.domain.TeamColors;
-import com.pinmate.team.domain.TeamInvite;
-import com.pinmate.team.domain.TeamMember;
-import com.pinmate.auth.domain.User;
+import com.pinmate.cmmn.util.ParamUtil;
 import com.pinmate.presence.service.PresenceService;
-import com.pinmate.team.dto.CreateTeamRequest;
-import com.pinmate.team.dto.JoinTeamRequest;
-import com.pinmate.team.dto.TeamMemberResponse;
-import com.pinmate.team.dto.TeamResponse;
+import com.pinmate.team.TeamColors;
+import com.pinmate.team.dao.TeamDAO;
 import com.pinmate.team.service.TeamService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import jakarta.annotation.Resource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
-@Service
-@RequiredArgsConstructor
+@Service("TeamService")
 public class TeamServiceImpl implements TeamService {
 
-    private final TeamDao teamDao;
-    private final UserDao userDao;
-    private final PresenceService presenceService;
+	@Autowired
+	private TeamDAO teamDAO;
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<TeamResponse> getTeams(Long userId) {
-        List<Team> teams = teamDao.findTeamsByUserId(userId);
-        return teams.stream().map(team -> toResponse(team, userId)).toList();
-    }
+	@Resource(name = "PresenceService")
+	private PresenceService presenceService;
 
-    @Override
-    @Transactional(readOnly = true)
-    public TeamResponse getTeam(Long teamId, Long userId) {
-        Team team = teamDao.findTeamById(teamId);
-        if (team == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀을 찾을 수 없습니다.");
-        }
-        return toResponse(team, userId);
-    }
+	@Override
+	@Transactional(readOnly = true)
+	public List<Map<String, Object>> selectTeamList(Long userId) throws Exception {
+		List<Map<String, Object>> list = new ArrayList<>();
+		for (Map<String, Object> team : teamDAO.selectTeamsByUserId(userId)) {
+			list.add(toItem(team, teamDAO.selectTeamMembers((Long) team.get("team_id"))));
+		}
+		return list;
+	}
 
-    @Override
-    @Transactional
-    public TeamResponse createTeam(CreateTeamRequest req, Long userId) {
-        Team team = new Team();
-        team.setName(req.name().trim());
-        teamDao.insertTeam(team);
+	// 참여하지 않은 팀은 없는 팀과 같이 null 로 돌려준다 (팀 존재 여부를 드러내지 않는다)
+	@Override
+	@Transactional(readOnly = true)
+	public Map<String, Object> selectTeam(Long teamId, Long userId) throws Exception {
+		Map<String, Object> team = teamDAO.selectTeamById(teamId);
+		if (team == null) return null;
 
-        // 생성자를 owner로 등록 (기본 보라색 계열 아바타)
-        teamDao.insertTeamMember(team.getTeamId(), userId, "owner", "#6C63FF");
+		List<Map<String, Object>> members = teamDAO.selectTeamMembers(teamId);
+		if (!isMember(members, userId)) return null;
 
-        // 회원가입으로 만든 첫 모임과 같은 형식의 초대 코드를 함께 발급한다
-        String inviteCode = "team" + team.getTeamId() + "_" + UUID.randomUUID().toString().substring(0, 6);
-        teamDao.insertTeamInvite(team.getTeamId(), inviteCode, userId);
+		return toItem(team, members);
+	}
 
-        return getTeam(team.getTeamId(), userId);
-    }
+	@Override
+	@Transactional
+	public Map<String, Object> insertTeam(String name, Long userId) throws Exception {
+		Map<String, Object> team = ParamUtil.map("name", name);
+		teamDAO.insertTeam(team);                  // useGeneratedKeys → team.teamId
+		Long teamId = ((Number) team.get("teamId")).longValue();
 
-    @Override
-    @Transactional
-    public TeamResponse joinTeam(JoinTeamRequest req, Long userId) {
-        User user = userDao.findById(userId);
-        if (user == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "가입한 계정으로 로그인한 뒤 참여할 수 있습니다.");
-        }
-        TeamInvite invite = teamDao.findInviteByCode(req.code().trim());
-        if (invite == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "유효하지 않거나 만료된 초대 코드입니다.");
-        }
+		teamDAO.insertTeamMember(ParamUtil.map("teamId", teamId, "userId", userId, "role", "owner", "color", TeamColors.PALETTE.get(0)));
 
-        List<TeamMember> members = teamDao.findTeamMembersByTeamId(invite.getTeamId());
-        boolean alreadyMember = members.stream().anyMatch(m -> user.getUserId().equals(m.getUserId()));
-        if (!alreadyMember) {
-            teamDao.insertTeamMember(invite.getTeamId(), user.getUserId(), "member", TeamColors.pickUnused(members));
-        }
-        return getTeam(invite.getTeamId(), userId);
-    }
+		String inviteCode = "team" + teamId + "_" + UUID.randomUUID().toString().substring(0, 6);
+		teamDAO.insertTeamInvite(ParamUtil.map("teamId", teamId, "code", inviteCode, "createdBy", userId));
 
-    private TeamResponse toResponse(Team team, Long userId) {
-        List<TeamMember> members = teamDao.findTeamMembersByTeamId(team.getTeamId());
-        if (members.stream().noneMatch(m -> m.getUserId().equals(userId))) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "참여 중인 모임만 조회할 수 있습니다.");
-        }
-        List<TeamMemberResponse> memberResponses = members.stream()
-            .map(m -> TeamMemberResponse.of(
-                m.getLoginId() != null ? m.getLoginId() : String.valueOf(m.getUserId()),
-                m.getNickname(),
-                m.getColor(),
-                m.getRole(),
-                presenceService.isOnline(m.getUserId())
-            ))
-            .toList();
+		return selectTeam(teamId, userId);
+	}
 
-        return new TeamResponse(
-            String.valueOf(team.getTeamId()),
-            team.getName(),
-            team.getInviteCode(),
-            team.getAllApprovedCount(),
-            team.getPinCount(),
-            members.size(),
-            memberResponses
-        );
-    }
+	@Override
+	@Transactional(readOnly = true)
+	public Map<String, Object> selectInvite(String code) throws Exception {
+		Map<String, Object> invite = teamDAO.selectInviteByCode(code);
+		if (invite == null) return null;
+
+		Map<String, Object> item = new HashMap<>();
+		item.put("teamId", invite.get("team_id"));
+		item.put("teamName", invite.get("team_name"));
+		return item;
+	}
+
+	@Override
+	@Transactional
+	public Map<String, Object> joinTeam(String code, Long userId) throws Exception {
+		Map<String, Object> invite = teamDAO.selectInviteByCode(code);
+		if (invite == null) return null;
+
+		Long teamId = (Long) invite.get("team_id");
+		List<Map<String, Object>> members = teamDAO.selectTeamMembers(teamId);
+		if (!isMember(members, userId)) {
+			teamDAO.insertTeamMember(ParamUtil.map("teamId", teamId, "userId", userId, "role", "member", "color", TeamColors.pickUnused(members)));
+		}
+		return selectTeam(teamId, userId);
+	}
+
+	private boolean isMember(List<Map<String, Object>> members, Long userId) {
+		return members.stream().anyMatch(m -> userId.equals(m.get("user_id")));
+	}
+
+	// 화면이 그대로 쓸 수 있는 형태로 변환
+	private Map<String, Object> toItem(Map<String, Object> team, List<Map<String, Object>> members) {
+		List<Map<String, Object>> memberList = new ArrayList<>();
+		for (Map<String, Object> m : members) {
+			String nickname = text(m.get("nickname"));
+			Map<String, Object> member = new HashMap<>();
+			member.put("id", text(m.get("login_id")));
+			member.put("nickname", nickname);
+			member.put("color", m.get("color"));
+			member.put("avatarColor", m.get("color"));
+			member.put("initials", nickname.isBlank() ? "P" : nickname.substring(0, 1));
+			member.put("role", m.get("role"));
+			member.put("online", presenceService.isOnline((Long) m.get("user_id")));
+			memberList.add(member);
+		}
+
+		Map<String, Object> item = new HashMap<>();
+		item.put("id", String.valueOf(team.get("team_id")));
+		item.put("name", team.get("name"));
+		item.put("inviteCode", team.get("invite_code"));     // 유효한 코드가 없으면 null
+		item.put("allApprovedCount", team.get("all_approved_count"));
+		item.put("pinCount", team.get("pin_count"));
+		item.put("memberCount", members.size());
+		item.put("members", memberList);
+		return item;
+	}
+
+	private String text(Object v) {
+		return (v == null) ? "" : v.toString();
+	}
 }

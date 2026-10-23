@@ -1,224 +1,217 @@
 package com.pinmate.pin.service.impl;
 
-import com.pinmate.pin.dao.PinDao;
-import com.pinmate.team.dao.TeamDao;
-import com.pinmate.pin.domain.Pin;
-import com.pinmate.team.domain.Team;
-import com.pinmate.team.domain.TeamMember;
-import com.pinmate.pin.dto.CreatePinRequest;
-import com.pinmate.pin.dto.PinResponse;
-import com.pinmate.pin.dto.RecommendResponse;
-import com.pinmate.pin.dto.UpdatePinRequest;
+import com.pinmate.cmmn.util.Constants;
+import com.pinmate.cmmn.util.ParamUtil;
+import com.pinmate.pin.dao.PinDAO;
 import com.pinmate.pin.service.PinService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import com.pinmate.team.dao.TeamDAO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-@Service
-@RequiredArgsConstructor
+@Service("PinService")
 public class PinServiceImpl implements PinService {
 
-    private final PinDao pinDao;
-    private final TeamDao teamDao;
+	@Autowired
+	private PinDAO pinDAO;
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<PinResponse> getPins(Long teamId) {
-        List<Pin> pins = pinDao.findPinsByTeamId(teamId);
-        return pins.stream().map(this::toResponse).toList();
-    }
+	@Autowired
+	private TeamDAO teamDAO;
 
-    @Override
-    @Transactional(readOnly = true)
-    public PinResponse getPin(Long placeId) {
-        Pin pin = pinDao.findPinById(placeId);
-        if (pin == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "장소를 찾을 수 없습니다.");
-        }
-        return toResponse(pin);
-    }
+	@Override
+	@Transactional(readOnly = true)
+	public List<Map<String, Object>> selectPinList(Long teamId, Long userId) throws Exception {
+		if (!teamDAO.isTeamMember(teamId, userId)) return null;
 
-    @Override
-    @Transactional
-    public PinResponse createPin(CreatePinRequest req, Long userId) {
-        Long teamId = Long.parseLong(req.teamId());
-        Pin pin = new Pin();
-        pin.setTeamId(teamId);
-        pin.setName(req.name().trim());
-        pin.setCategory(toDbCategory(req.category()));
-        pin.setAddress(req.address());
-        pin.setRoadAddress(req.roadAddress() != null ? req.roadAddress() : req.address());
-        // 좌표는 @NotNull 로 검증되므로 여기서는 그대로 쓴다
-        pin.setLatitude(BigDecimal.valueOf(req.lat()));
-        pin.setLongitude(BigDecimal.valueOf(req.lng()));
-        pin.setCreatedBy(userId);
+		List<Map<String, Object>> list = new ArrayList<>();
+		for (Map<String, Object> row : pinDAO.selectPinsByTeamId(teamId)) {
+			list.add(toItem(row));
+		}
+		return list;
+	}
 
-        pinDao.insertPin(pin);
+	@Override
+	@Transactional
+	public Map<String, Object> insertPin(Map<String, Object> param, Long userId) throws Exception {
+		Long teamId = (Long) param.get("teamId");
+		if (!teamDAO.isTeamMember(teamId, userId)) return null;
 
-        // 등록자를 첫 번째 추천인으로 등록 (한 줄 메모 포함)
-        pinDao.insertRecommendation(pin.getPlaceId(), userId, req.memo());
+		String address = (String) param.get("address");
+		String roadAddress = (String) param.get("roadAddress");
 
-        // '모두 인정' 달성 여부 검사
-        checkAndUpdateConsensus(pin.getPlaceId(), teamId);
+		Map<String, Object> pin = ParamUtil.map(
+				"teamId", teamId,
+				"name", param.get("name"),
+				"category", toDbCategory((String) param.get("category")),
+				"address", address,
+				"roadAddress", roadAddress == null ? address : roadAddress,
+				"latitude", BigDecimal.valueOf((Double) param.get("lat")),
+				"longitude", BigDecimal.valueOf((Double) param.get("lng")),
+				"createdBy", userId);
+		pinDAO.insertPin(pin);                     // useGeneratedKeys → pin.placeId
+		Long placeId = ((Number) pin.get("placeId")).longValue();
 
-        return getPin(pin.getPlaceId());
-    }
+		// 등록자를 첫 번째 추천인으로 등록 (한 줄 메모 포함)
+		pinDAO.insertRecommendation(ParamUtil.map("placeId", placeId, "userId", userId, "comment", param.get("memo")));
 
-    @Override
-    @Transactional
-    public RecommendResponse toggleRecommendation(Long placeId, Long userId) {
-        Pin pin = pinDao.findPinById(placeId);
-        if (pin == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "장소를 찾을 수 없습니다.");
-        }
+		updateConsensus(placeId, teamId);
+		return toItem(pinDAO.selectPinById(placeId));
+	}
 
-        boolean previouslyAchieved = pin.getConsensusAchievedAt() != null;
+	@Override
+	@Transactional
+	public Map<String, Object> toggleRecommendation(Long placeId, Long userId) throws Exception {
+		Map<String, Object> pin = selectMemberPin(placeId, userId);
+		if (pin == null) return null;
 
-        int existing = pinDao.countRecommendations(placeId, userId);
-        if (existing > 0) {
-            pinDao.deleteRecommendation(placeId, userId);
-        } else {
-            pinDao.insertRecommendation(placeId, userId, null);
-        }
+		boolean previouslyAchieved = pin.get("consensus_achieved_at") != null;
 
-        boolean currentAchieved = checkAndUpdateConsensus(placeId, pin.getTeamId());
-        boolean reachedAllApproved = !previouslyAchieved && currentAchieved;
+		Map<String, Object> key = ParamUtil.map("placeId", placeId, "userId", userId);
+		if (pinDAO.countRecommendation(key) > 0) {
+			pinDAO.deleteRecommendation(key);
+		} else {
+			pinDAO.insertRecommendation(ParamUtil.map("placeId", placeId, "userId", userId, "comment", null));
+		}
 
-        return new RecommendResponse(getPin(placeId), reachedAllApproved);
-    }
+		boolean currentAchieved = updateConsensus(placeId, (Long) pin.get("team_id"));
 
-    @Override
-    @Transactional
-    public PinResponse toggleVisit(Long placeId, Long userId) {
-        Pin pin = pinDao.findPinById(placeId);
-        if (pin == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "장소를 찾을 수 없습니다.");
-        }
+		Map<String, Object> result = new HashMap<>();
+		result.put("pin", toItem(pinDAO.selectPinById(placeId)));
+		result.put("reachedAllApproved", !previouslyAchieved && currentAchieved);   // 이번 추천으로 처음 달성했을 때만 true
+		return result;
+	}
 
-        int existing = pinDao.countVisits(placeId, userId);
-        if (existing > 0) {
-            pinDao.deleteVisit(placeId, userId);
-        } else {
-            pinDao.insertVisit(placeId, userId);
-        }
+	@Override
+	@Transactional
+	public Map<String, Object> toggleVisit(Long placeId, Long userId) throws Exception {
+		if (selectMemberPin(placeId, userId) == null) return null;
 
-        return getPin(placeId);
-    }
+		Map<String, Object> key = ParamUtil.map("placeId", placeId, "userId", userId);
+		if (pinDAO.countVisit(key) > 0) {
+			pinDAO.deleteVisit(key);
+		} else {
+			pinDAO.insertVisit(key);
+		}
+		return toItem(pinDAO.selectPinById(placeId));
+	}
 
-    @Override
-    @Transactional
-    public PinResponse updatePin(Long placeId, UpdatePinRequest req, Long userId) {
-        Pin pin = requirePin(placeId);
-        requireEditable(pin, userId);
+	// 등록자 본인 또는 팀 owner 만 수정·삭제할 수 있다. 팀 멤버가 아니면 없는 핀과 같이 NOT_FOUND
+	@Override
+	@Transactional(readOnly = true)
+	public String selectEditCode(Long placeId, Long userId) throws Exception {
+		Map<String, Object> pin = selectMemberPin(placeId, userId);
+		if (pin == null) return Constants.NOT_FOUND;
+		if (userId.equals(pin.get("created_by"))) return Constants.SUCCESS;
 
-        pinDao.updatePin(placeId, req.name().trim(), toDbCategory(req.category()));
+		boolean isOwner = teamDAO.selectTeamMembers((Long) pin.get("team_id")).stream()
+				.anyMatch(m -> userId.equals(m.get("user_id")) && "owner".equalsIgnoreCase((String) m.get("role")));
+		return isOwner ? Constants.SUCCESS : Constants.NO_PERMISSION;
+	}
 
-        // 한 줄 추천평은 등록자의 recommendations 행에 들어 있으므로 그쪽을 고친다
-        if (req.memo() != null) {
-            pinDao.updateRecommendationComment(placeId, pin.getCreatedBy(), req.memo().trim());
-        }
+	@Override
+	@Transactional
+	public Map<String, Object> updatePin(Long placeId, Map<String, Object> param) throws Exception {
+		pinDAO.updatePin(ParamUtil.map("placeId", placeId, "name", param.get("name"), "category", toDbCategory((String) param.get("category"))));
 
-        return getPin(placeId);
-    }
+		// 한 줄 추천평은 등록자의 recommendations 행에 들어 있으므로 그쪽을 고친다 (memo 를 보내지 않았으면 그대로 둔다)
+		if (param.containsKey("memo")) {
+			Map<String, Object> pin = pinDAO.selectPinById(placeId);
+			pinDAO.updateRecommendationComment(ParamUtil.map("placeId", placeId, "userId", pin.get("created_by"), "comment", param.get("memo")));
+		}
+		return toItem(pinDAO.selectPinById(placeId));
+	}
 
-    @Override
-    @Transactional
-    public void deletePin(Long placeId, Long userId) {
-        Pin pin = requirePin(placeId);
-        requireEditable(pin, userId);
+	@Override
+	@Transactional
+	public void deletePin(Long placeId) throws Exception {
+		pinDAO.deletePin(placeId);
+	}
 
-        // 추천·방문 기록은 places 를 참조하는 FK 가 ON DELETE CASCADE 라 함께 지워진다
-        pinDao.deletePin(placeId);
-    }
+	// 요청자가 속한 팀의 핀. 없거나 다른 팀의 핀이면 null (존재 여부를 드러내지 않는다)
+	private Map<String, Object> selectMemberPin(Long placeId, Long userId) {
+		Map<String, Object> pin = pinDAO.selectPinById(placeId);
+		if (pin == null || !teamDAO.isTeamMember((Long) pin.get("team_id"), userId)) return null;
+		return pin;
+	}
 
-    private Pin requirePin(Long placeId) {
-        Pin pin = pinDao.findPinById(placeId);
-        if (pin == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "장소를 찾을 수 없습니다.");
-        }
-        return pin;
-    }
+	// '모두 인정' 달성 여부를 다시 계산해 저장한다. 규칙이 all 이면 팀원 전원, 아니면 consensus_min_count 명
+	private boolean updateConsensus(Long placeId, Long teamId) {
+		Map<String, Object> team = teamDAO.selectTeamById(teamId);
+		if (team == null) return false;
 
-    /** 등록자 본인 또는 팀 owner 만 수정·삭제할 수 있다 */
-    private void requireEditable(Pin pin, Long userId) {
-        if (pin.getCreatedBy() != null && pin.getCreatedBy().equals(userId)) {
-            return;
-        }
+		int memberCount = teamDAO.selectTeamMembers(teamId).size();
+		int recCount = pinDAO.countRecommendationsByPlaceId(placeId);
 
-        boolean isOwner = teamDao.findTeamMembersByTeamId(pin.getTeamId()).stream()
-                .anyMatch(member -> userId.equals(member.getUserId())
-                        && "owner".equalsIgnoreCase(member.getRole()));
+		Object minCount = team.get("consensus_min_count");
+		int target = "all".equalsIgnoreCase((String) team.get("consensus_rule"))
+				? Math.max(1, memberCount)
+				: (minCount == null ? 2 : ((Number) minCount).intValue());
 
-        if (!isOwner) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "이 장소를 수정할 권한이 없습니다.");
-        }
-    }
+		boolean achieved = recCount >= target;
+		pinDAO.updateConsensus(ParamUtil.map("placeId", placeId, "achieved", achieved, "memberCount", recCount));
+		return achieved;
+	}
 
-    private boolean checkAndUpdateConsensus(Long placeId, Long teamId) {
-        Team team = teamDao.findTeamById(teamId);
-        if (team == null) return false;
+	// 화면이 그대로 쓸 수 있는 형태로 변환
+	private Map<String, Object> toItem(Map<String, Object> row) {
+		Long placeId = (Long) row.get("place_id");
 
-        List<TeamMember> members = teamDao.findTeamMembersByTeamId(teamId);
-        int recCount = pinDao.countRecommendationsByPlaceId(placeId);
+		Map<String, Object> item = new HashMap<>();
+		item.put("id", String.valueOf(placeId));
+		item.put("teamId", String.valueOf(row.get("team_id")));
+		item.put("name", row.get("name"));
+		item.put("category", toFrontendCategory((String) row.get("category")));
+		item.put("address", row.get("address"));
+		item.put("roadAddress", row.get("road_address"));
+		item.put("lat", toDouble(row.get("latitude")));
+		item.put("lng", toDouble(row.get("longitude")));
+		item.put("addedBy", row.get("created_by_login_id"));
+		item.put("recommenders", pinDAO.selectRecommenderIds(placeId));
+		item.put("visitedBy", pinDAO.selectVisitorIds(placeId));
+		item.put("memo", row.get("memo"));
+		item.put("isAllApproved", row.get("consensus_achieved_at") != null);
+		item.put("createdAt", toIso(row.get("created_at")));
+		return item;
+	}
 
-        int target = "all".equalsIgnoreCase(team.getConsensusRule())
-            ? Math.max(1, members.size())
-            : (team.getConsensusMinCount() != null ? team.getConsensusMinCount() : 2);
+	private Double toDouble(Object v) {
+		return (v == null) ? null : ((Number) v).doubleValue();
+	}
 
-        boolean achieved = (recCount >= target);
-        pinDao.updateConsensus(placeId, achieved, recCount);
-        return achieved;
-    }
+	// timestamptz 는 HashMap 결과에서 java.sql.Timestamp 로 온다. 프론트가 new Date() 로 읽도록 ISO-8601(UTC) 문자열로 바꾼다
+	private String toIso(Object v) {
+		if (v == null) return null;
+		return (v instanceof Timestamp ts) ? ts.toInstant().toString() : v.toString();
+	}
 
-    private PinResponse toResponse(Pin pin) {
-        List<String> recommenders = pinDao.findRecommenderIdsByPlaceId(pin.getPlaceId());
-        List<String> visitedBy = pinDao.findVisitorIdsByPlaceId(pin.getPlaceId());
+	// 프론트 카테고리 → DB 카테고리 (places.category CHECK 값). 순수 함수라 테스트에서 직접 호출한다
+	static String toDbCategory(String cat) {
+		if (cat == null || cat.isBlank()) return "etc";
+		return switch (cat.toLowerCase().trim()) {
+			case "food" -> "restaurant";
+			case "drink" -> "bar";
+			case "sight" -> "attraction";
+			case "play" -> "activity";
+			default -> cat.toLowerCase().trim();
+		};
+	}
 
-        return new PinResponse(
-            String.valueOf(pin.getPlaceId()),
-            String.valueOf(pin.getTeamId()),
-            pin.getName(),
-            toFrontendCategory(pin.getCategory()),
-            pin.getAddress(),
-            pin.getRoadAddress(),
-            pin.getLatitude() != null ? pin.getLatitude().doubleValue() : null,
-            pin.getLongitude() != null ? pin.getLongitude().doubleValue() : null,
-            pin.getCreatedByLoginId() != null ? pin.getCreatedByLoginId() : String.valueOf(pin.getCreatedBy()),
-            recommenders,
-            visitedBy,
-            pin.getMemo(),
-            pin.getConsensusAchievedAt() != null,
-            pin.getCreatedAt() != null ? pin.getCreatedAt().toString() : null
-        );
-    }
-
-    /** 프론트 카테고리 키 -> DB CHECK 값. 순수 함수라 테스트에서 직접 호출한다 */
-    static String toDbCategory(String cat) {
-        if (cat == null) return "etc";
-        return switch (cat.toLowerCase().trim()) {
-            case "food" -> "restaurant";
-            case "drink" -> "bar";
-            case "sight" -> "attraction";
-            case "play" -> "activity";
-            default -> cat.toLowerCase().trim();
-        };
-    }
-
-    /** DB CHECK 값 -> 프론트 카테고리 키 */
-    static String toFrontendCategory(String cat) {
-        if (cat == null) return "etc";
-        return switch (cat.toLowerCase().trim()) {
-            case "restaurant" -> "food";
-            case "bar" -> "drink";
-            case "attraction" -> "sight";
-            case "activity" -> "play";
-            default -> cat.toLowerCase().trim();
-        };
-    }
-
+	// DB 카테고리 → 프론트 카테고리
+	static String toFrontendCategory(String cat) {
+		if (cat == null) return "etc";
+		return switch (cat.toLowerCase().trim()) {
+			case "restaurant" -> "food";
+			case "bar" -> "drink";
+			case "attraction" -> "sight";
+			case "activity" -> "play";
+			default -> cat.toLowerCase().trim();
+		};
+	}
 }

@@ -1,30 +1,27 @@
 package com.pinmate.pin.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.pinmate.pin.dao.PinDao;
-import com.pinmate.pin.domain.Pin;
-import com.pinmate.pin.dto.UpdatePinRequest;
-import com.pinmate.team.dao.TeamDao;
-import com.pinmate.team.domain.TeamMember;
+import com.pinmate.cmmn.util.Constants;
+import com.pinmate.pin.dao.PinDAO;
+import com.pinmate.team.dao.TeamDAO;
+import java.util.HashMap;
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
  * 핀 수정·삭제 권한 규칙.
- * 등록자 본인과 팀 owner 만 손댈 수 있고, 일반 팀원은 403 이어야 한다.
+ * 등록자 본인과 팀 owner 만 손댈 수 있고, 일반 팀원은 NO_PERMISSION,
+ * 팀 멤버가 아니거나 없는 핀은 NOT_FOUND 여야 한다.
  * (DB 없이 DAO 를 대체해 규칙만 검증한다)
  */
 @ExtendWith(MockitoExtension.class)
@@ -37,107 +34,91 @@ class PinServiceImplPermissionTest {
     private static final Long OTHER_ID = 11L;
 
     @Mock
-    private PinDao pinDao;
+    private PinDAO pinDAO;
 
     @Mock
-    private TeamDao teamDao;
+    private TeamDAO teamDAO;
 
+    @InjectMocks
     private PinServiceImpl service;
 
-    @BeforeEach
-    void setUp() {
-        service = new PinServiceImpl(pinDao, teamDao);
-    }
-
-    private Pin existingPin() {
-        Pin pin = new Pin();
-        pin.setPlaceId(PLACE_ID);
-        pin.setTeamId(TEAM_ID);
-        pin.setCreatedBy(CREATOR_ID);
-        pin.setName("대림창고");
-        pin.setCategory("cafe");
+    private Map<String, Object> existingPin() {
+        Map<String, Object> pin = new HashMap<>();
+        pin.put("place_id", PLACE_ID);
+        pin.put("team_id", TEAM_ID);
+        pin.put("created_by", CREATOR_ID);
+        pin.put("name", "대림창고");
+        pin.put("category", "cafe");
         return pin;
     }
 
-    private TeamMember member(Long userId, String role) {
-        TeamMember member = new TeamMember();
-        member.setUserId(userId);
-        member.setRole(role);
-        return member;
+    private Map<String, Object> member(Long userId, String role) {
+        return Map.of("user_id", userId, "role", role);
     }
 
     @Test
-    @DisplayName("등록자는 자기 핀을 삭제할 수 있다")
-    void creatorCanDeleteOwnPin() {
-        given(pinDao.findPinById(PLACE_ID)).willReturn(existingPin());
+    @DisplayName("등록자는 자기 핀을 수정·삭제할 수 있다")
+    void creatorCanEdit() throws Exception {
+        given(pinDAO.selectPinById(PLACE_ID)).willReturn(existingPin());
+        given(teamDAO.isTeamMember(TEAM_ID, CREATOR_ID)).willReturn(true);
 
-        service.deletePin(PLACE_ID, CREATOR_ID);
-
-        verify(pinDao).deletePin(PLACE_ID);
+        assertThat(service.selectEditCode(PLACE_ID, CREATOR_ID)).isEqualTo(Constants.SUCCESS);
     }
 
     @Test
-    @DisplayName("팀 owner 는 남이 등록한 핀도 삭제할 수 있다")
-    void ownerCanDeleteOthersPin() {
-        given(pinDao.findPinById(PLACE_ID)).willReturn(existingPin());
-        given(teamDao.findTeamMembersByTeamId(TEAM_ID))
+    @DisplayName("팀 owner 는 남이 등록한 핀도 수정·삭제할 수 있다")
+    void ownerCanEditOthersPin() throws Exception {
+        given(pinDAO.selectPinById(PLACE_ID)).willReturn(existingPin());
+        given(teamDAO.isTeamMember(TEAM_ID, OWNER_ID)).willReturn(true);
+        given(teamDAO.selectTeamMembers(TEAM_ID))
                 .willReturn(List.of(member(CREATOR_ID, "member"), member(OWNER_ID, "owner")));
 
-        service.deletePin(PLACE_ID, OWNER_ID);
-
-        verify(pinDao).deletePin(PLACE_ID);
+        assertThat(service.selectEditCode(PLACE_ID, OWNER_ID)).isEqualTo(Constants.SUCCESS);
     }
 
     @Test
-    @DisplayName("일반 팀원은 남의 핀을 삭제할 수 없다 (403)")
-    void memberCannotDeleteOthersPin() {
-        given(pinDao.findPinById(PLACE_ID)).willReturn(existingPin());
-        given(teamDao.findTeamMembersByTeamId(TEAM_ID))
+    @DisplayName("일반 팀원은 남의 핀을 수정·삭제할 수 없다")
+    void memberCannotEditOthersPin() throws Exception {
+        given(pinDAO.selectPinById(PLACE_ID)).willReturn(existingPin());
+        given(teamDAO.isTeamMember(TEAM_ID, OTHER_ID)).willReturn(true);
+        given(teamDAO.selectTeamMembers(TEAM_ID))
                 .willReturn(List.of(member(CREATOR_ID, "member"), member(OTHER_ID, "member")));
 
-        assertThatThrownBy(() -> service.deletePin(PLACE_ID, OTHER_ID))
-                .isInstanceOfSatisfying(ResponseStatusException.class,
-                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
-
-        verify(pinDao, never()).deletePin(any());
+        assertThat(service.selectEditCode(PLACE_ID, OTHER_ID)).isEqualTo(Constants.NO_PERMISSION);
     }
 
     @Test
-    @DisplayName("없는 핀이면 404")
-    void deleteFailsWhenPinMissing() {
-        given(pinDao.findPinById(PLACE_ID)).willReturn(null);
+    @DisplayName("팀 멤버가 아니면 핀이 있어도 없는 것과 같이 NOT_FOUND")
+    void nonMemberSeesNotFound() throws Exception {
+        given(pinDAO.selectPinById(PLACE_ID)).willReturn(existingPin());
+        given(teamDAO.isTeamMember(TEAM_ID, OTHER_ID)).willReturn(false);
 
-        assertThatThrownBy(() -> service.deletePin(PLACE_ID, CREATOR_ID))
-                .isInstanceOfSatisfying(ResponseStatusException.class,
-                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        assertThat(service.selectEditCode(PLACE_ID, OTHER_ID)).isEqualTo(Constants.NOT_FOUND);
     }
 
     @Test
-    @DisplayName("등록자가 이름·카테고리·추천평을 고치면 저장소에 반영된다")
-    void creatorCanUpdateOwnPin() {
-        given(pinDao.findPinById(PLACE_ID)).willReturn(existingPin());
-        given(pinDao.findRecommenderIdsByPlaceId(PLACE_ID)).willReturn(List.of());
-        given(pinDao.findVisitorIdsByPlaceId(PLACE_ID)).willReturn(List.of());
+    @DisplayName("없는 핀이면 NOT_FOUND")
+    void missingPin() throws Exception {
+        given(pinDAO.selectPinById(PLACE_ID)).willReturn(null);
 
-        service.updatePin(PLACE_ID, new UpdatePinRequest("새 이름", "drink", "여기 좋아요"), CREATOR_ID);
+        assertThat(service.selectEditCode(PLACE_ID, CREATOR_ID)).isEqualTo(Constants.NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("수정하면 카테고리는 DB 값으로 바뀌고, 추천평은 등록자의 추천 행에 저장된다")
+    void updateWritesNameCategoryAndCreatorComment() throws Exception {
+        given(pinDAO.selectPinById(PLACE_ID)).willReturn(existingPin());
+        given(pinDAO.selectRecommenderIds(anyLong())).willReturn(List.of());
+        given(pinDAO.selectVisitorIds(anyLong())).willReturn(List.of());
+
+        Map<String, Object> param = new HashMap<>();
+        param.put("name", "새 이름");
+        param.put("category", "drink");
+        param.put("memo", "여기 좋아요");
+        service.updatePin(PLACE_ID, param);
 
         // drink 는 DB CHECK 값인 bar 로 변환되어 저장된다
-        verify(pinDao).updatePin(PLACE_ID, "새 이름", "bar");
-        verify(pinDao).updateRecommendationComment(PLACE_ID, CREATOR_ID, "여기 좋아요");
-    }
-
-    @Test
-    @DisplayName("일반 팀원은 핀을 수정할 수 없다 (403)")
-    void memberCannotUpdateOthersPin() {
-        given(pinDao.findPinById(PLACE_ID)).willReturn(existingPin());
-        given(teamDao.findTeamMembersByTeamId(TEAM_ID))
-                .willReturn(List.of(member(CREATOR_ID, "member"), member(OTHER_ID, "member")));
-
-        assertThatThrownBy(() ->
-                service.updatePin(PLACE_ID, new UpdatePinRequest("가로채기", "food", null), OTHER_ID))
-                .isInstanceOfSatisfying(ResponseStatusException.class,
-                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
-
-        verify(pinDao, never()).updatePin(any(), any(), any());
+        verify(pinDAO).updatePin(Map.of("placeId", PLACE_ID, "name", "새 이름", "category", "bar"));
+        verify(pinDAO).updateRecommendationComment(Map.of("placeId", PLACE_ID, "userId", CREATOR_ID, "comment", "여기 좋아요"));
     }
 }

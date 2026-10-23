@@ -1,35 +1,29 @@
 package com.pinmate.pin.service;
 
-import com.pinmate.pin.dto.CreatePinRequest;
-import com.pinmate.pin.dto.PinResponse;
-import com.pinmate.pin.dto.RecommendResponse;
-import com.pinmate.pin.dto.UpdatePinRequest;
-
 import java.util.List;
+import java.util.Map;
 
-/**
- * 장소(핀) 서비스
- */
+// 모든 메서드는 요청자(userId)가 그 팀의 멤버인지 확인한다. 멤버가 아니면 없는 대상과 같이 null 을 돌려준다
 public interface PinService {
 
-    /** 팀의 핀 목록 조회 */
-    List<PinResponse> getPins(Long teamId);
+	// 팀의 핀 목록
+	List<Map<String, Object>> selectPinList(Long teamId, Long userId) throws Exception;
 
-    /** 핀 단건 조회 */
-    PinResponse getPin(Long placeId);
+	// 핀 등록 (등록자를 첫 추천인으로 등록). param: teamId, name, category, address, roadAddress, lat, lng, memo
+	Map<String, Object> insertPin(Map<String, Object> param, Long userId) throws Exception;
 
-    /** 핀 등록 (등록자를 첫 추천인으로 등록). userId 는 로그인 세션에서 가져온다 */
-    PinResponse createPin(CreatePinRequest request, Long userId);
+	// 추천 토글 (추천 ↔ 추천 취소). 결과: pin, reachedAllApproved
+	Map<String, Object> toggleRecommendation(Long placeId, Long userId) throws Exception;
 
-    /** 추천 토글 (추천 ↔ 추천 취소). userId 는 로그인 세션에서 가져온다 */
-    RecommendResponse toggleRecommendation(Long placeId, Long userId);
+	// 방문 토글 (방문 ↔ 방문 취소)
+	Map<String, Object> toggleVisit(Long placeId, Long userId) throws Exception;
 
-    /** 방문 토글 (방문 ↔ 방문 취소). userId 는 로그인 세션에서 가져온다 */
-    PinResponse toggleVisit(Long placeId, Long userId);
+	// 수정·삭제 가능 여부: SUCCESS(등록자 또는 팀 owner) / NO_PERMISSION / NOT_FOUND(없거나 팀 멤버가 아님)
+	String selectEditCode(Long placeId, Long userId) throws Exception;
 
-    /** 핀 수정 (이름·카테고리·추천평). 등록자 본인 또는 팀 owner 만 가능하다 */
-    PinResponse updatePin(Long placeId, UpdatePinRequest request, Long userId);
+	// 핀 수정 (이름·카테고리·등록자 추천평). 권한은 selectEditCode 로 먼저 확인한다. param: name, category, memo
+	Map<String, Object> updatePin(Long placeId, Map<String, Object> param) throws Exception;
 
-    /** 핀 삭제. 등록자 본인 또는 팀 owner 만 가능하다 */
-    void deletePin(Long placeId, Long userId);
+	// 핀 삭제 (추천·방문 기록도 함께). 권한은 selectEditCode 로 먼저 확인한다
+	void deletePin(Long placeId) throws Exception;
 }
