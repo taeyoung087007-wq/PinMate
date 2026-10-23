@@ -465,6 +465,13 @@
   margin-top: 6px;
 }
 
+.routeError {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--warning);
+}
+
 .routeTabs {
   display: flex;
   gap: 4px;
