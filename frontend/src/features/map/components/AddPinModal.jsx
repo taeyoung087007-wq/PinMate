@@ -2,14 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { X, Search, MapPin, Tag, FileText, ArrowLeft, Crosshair } from 'lucide-react'
 import { CATEGORY_META, guessCategory } from '../categories'
 import { CURRENT_USER } from '../../../lib/currentUser'
-import { loadNaverMaps } from '../../../lib/naverMaps'
+import { loadKakaoMaps } from '../../../lib/kakaoMaps'
 import { geocode, reverseGeocode } from '../geocode'
 import { searchPlaces } from '../api'
 import styles from './AddPinModal.module.css'
 
 // 지도에서 직접 고를 때의 기본 중심 (서울시청)
 const PICKER_CENTER = { lat: 37.5665, lng: 126.9780 }
-const PICKER_ZOOM = 15
+// 카카오는 레벨이 작을수록 확대된다 (네이버 zoom 15 ≈ 카카오 level 4)
+const PICKER_LEVEL = 4
 
 /**
  * 장소 추가 모달
@@ -343,31 +344,25 @@ function MiniMapPicker({ onPick }) {
   useEffect(() => {
     let cancelled = false
 
-    loadNaverMaps()
+    loadKakaoMaps()
       .then(maps => {
         const el = containerRef.current
         if (cancelled || !el || mapRef.current) return
 
         const map = new maps.Map(el, {
           center: new maps.LatLng(PICKER_CENTER.lat, PICKER_CENTER.lng),
-          zoom: PICKER_ZOOM,
-          minZoom: 6,
-          maxZoom: 21,
-          zoomControl: false,
-          mapTypeControl: false,
-          scaleControl: false,
-          size: new maps.Size(el.clientWidth, el.clientHeight),
+          level: PICKER_LEVEL,
         })
         mapRef.current = map
 
-        maps.Event.addListener(map, 'click', event => {
-          const position = event.coord
+        maps.event.addListener(map, 'click', event => {
+          const position = event.latLng
           if (markerRef.current) {
             markerRef.current.setPosition(position)
           } else {
             markerRef.current = new maps.Marker({ position, map })
           }
-          onPickRef.current({ lat: position.lat(), lng: position.lng() })
+          onPickRef.current({ lat: position.getLat(), lng: position.getLng() })
         })
       })
       .catch(() => {})
@@ -375,7 +370,6 @@ function MiniMapPicker({ onPick }) {
     return () => {
       cancelled = true
       markerRef.current = null
-      mapRef.current?.destroy?.()
       mapRef.current = null
       if (containerRef.current) containerRef.current.innerHTML = ''
     }
