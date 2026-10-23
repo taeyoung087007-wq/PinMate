@@ -434,26 +434,85 @@
   }
 }
 
-/* 길찾기 결과 칩 (검색바 아래) */
-.routeChip {
+/* 길찾기 패널 (검색바 아래): 목적지 이름 + 이동 수단 탭 + 거리·시간 */
+.routePanel {
   position: absolute;
   left: 50%;
-  top: 120px;
+  top: 112px;
   transform: translateX(-50%);
-  max-width: calc(100% - 32px);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 6px 6px 16px;
-  border-radius: var(--radius-full);
-  background: rgba(18, 19, 32, 0.9);
+  width: min(420px, calc(100% - 32px));
+  padding: 8px 8px 10px 14px;
+  border-radius: var(--radius-lg);
+  background: rgba(18, 19, 32, 0.92);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border-strong);
   font-size: 13px;
   z-index: 15;
 }
 
+.routeHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.routeBody {
+  display: flex;
+  flex-wrap: wrap; /* 좁은 화면에선 거리·시간이 탭 아래 줄로 내려간다 */
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+  margin-top: 6px;
+}
+
+.routeTabs {
+  display: flex;
+  gap: 4px;
+}
+
+.routeTab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.routeTab:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.routeTabActive {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.routeTabActive:hover:not(:disabled) {
+  color: #fff;
+}
+
+.routeTab:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.routeTab:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}
+
 .routeName {
+  flex: 1;
   min-width: 0;
   font-weight: 700;
   color: var(--text-primary);
@@ -464,6 +523,7 @@
 
 .routeInfo {
   flex-shrink: 0;
+  white-space: nowrap;
   color: var(--primary-light);
   font-variant-numeric: tabular-nums;
 }

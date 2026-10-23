@@ -23,12 +23,13 @@ export const deletePinApi = (pinId) =>
   request(`/pins/${encodeURIComponent(pinId)}`, { method: 'DELETE' })
 
 /**
- * 자동차 길찾기 (백엔드가 카카오모빌리티를 대신 호출)
+ * 길찾기 (백엔드가 자동차는 카카오모빌리티, 도보는 TMAP 을 대신 호출)
+ * @param {'car' | 'walk'} mode
  * @returns {Promise<{ distance: number, duration: number, path: Array<[number, number]> }>} 거리(m), 시간(초), [위도, 경도] 목록
  */
-export const fetchCarRoute = (origin, dest) => {
+export const fetchRoute = (origin, dest, mode = 'car') => {
   const params = new URLSearchParams({
-    originLat: origin.lat, originLng: origin.lng, destLat: dest.lat, destLng: dest.lng,
+    mode, originLat: origin.lat, originLng: origin.lng, destLat: dest.lat, destLng: dest.lng,
   })
   return request(`/route?${params}`)
 }

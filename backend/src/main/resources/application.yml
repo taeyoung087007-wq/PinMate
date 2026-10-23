@@ -26,3 +26,7 @@ pinmate:
 # 카카오 REST API 키 (길찾기). JavaScript 키와 다른 값. 없으면 길찾기만 실패한다
 kakao:
   rest-api-key: ${KAKAO_REST_API_KEY:}
+
+# TMAP 앱 키 (도보 길찾기). 없으면 도보 길찾기만 실패한다
+tmap:
+  app-key: ${TMAP_APP_KEY:}

@@ -17,6 +17,7 @@ import java.util.Map;
 public class RouteServiceImpl implements RouteService {
 
 	private static final String DIRECTIONS_URL = "https://apis-navi.kakaomobility.com/v1/directions";
+	private static final String PEDESTRIAN_URL = "https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1";
 
 	private static final ObjectMapper MAPPER = JsonMapper.builder().build();
 
@@ -25,6 +26,9 @@ public class RouteServiceImpl implements RouteService {
 
 	@Value("${kakao.rest-api-key:}")
 	private String restApiKey;
+
+	@Value("${tmap.app-key:}")
+	private String tmapAppKey;
 
 	@Override
 	public Map<String, Object> selectCarRoute(double originLat, double originLng, double destLat, double destLng) {
@@ -45,6 +49,70 @@ public class RouteServiceImpl implements RouteService {
 				.body(String.class);
 
 		return parseRoute(raw == null || raw.isBlank() ? null : MAPPER.readValue(raw, Map.class));
+	}
+
+	@Override
+	public Map<String, Object> selectWalkRoute(double originLat, double originLng, double destLat, double destLng) {
+		if (tmapAppKey == null || tmapAppKey.isBlank()) {
+			throw new IllegalStateException("TMAP_APP_KEY 가 없습니다.");
+		}
+
+		Map<String, Object> body = new HashMap<>();
+		body.put("startX", originLng);
+		body.put("startY", originLat);
+		body.put("endX", destLng);
+		body.put("endY", destLat);
+		body.put("startName", "출발");
+		body.put("endName", "도착");
+		body.put("reqCoordType", "WGS84GEO");
+		body.put("resCoordType", "WGS84GEO");
+
+		String raw = restClient.post()
+				.uri(PEDESTRIAN_URL)
+				.header("appKey", tmapAppKey)
+				.header("Content-Type", "application/json")
+				.body(MAPPER.writeValueAsString(body))
+				.retrieve()
+				.body(String.class);
+
+		return parseWalkRoute(raw == null || raw.isBlank() ? null : MAPPER.readValue(raw, Map.class));
+	}
+
+	// TMAP 보행자 응답(GeoJSON). 총거리·총시간은 첫 feature 의 properties, 경로는 LineString 들을 이어 붙인다
+	static Map<String, Object> parseWalkRoute(Map<?, ?> body) {
+		if (body == null || !(body.get("features") instanceof List<?> features) || features.isEmpty()) {
+			return null;
+		}
+
+		Map<?, ?> summary = Map.of();
+		List<double[]> path = new ArrayList<>();
+		for (Object element : features) {
+			if (!(element instanceof Map<?, ?> feature)) {
+				continue;
+			}
+			if (summary.isEmpty() && feature.get("properties") instanceof Map<?, ?> props && props.containsKey("totalDistance")) {
+				summary = props;
+			}
+			if (!(feature.get("geometry") instanceof Map<?, ?> geometry) || !"LineString".equals(geometry.get("type"))
+					|| !(geometry.get("coordinates") instanceof List<?> coordinates)) {
+				continue;
+			}
+			// 좌표는 [경도, 위도]
+			for (Object c : coordinates) {
+				if (c instanceof List<?> xy && xy.size() >= 2 && xy.get(0) instanceof Number x && xy.get(1) instanceof Number y) {
+					path.add(new double[] { y.doubleValue(), x.doubleValue() });
+				}
+			}
+		}
+		if (path.isEmpty()) {
+			return null;
+		}
+
+		Map<String, Object> result = new HashMap<>();
+		result.put("distance", summary.get("totalDistance") instanceof Number d ? d.intValue() : 0);
+		result.put("duration", summary.get("totalTime") instanceof Number t ? t.intValue() : 0);
+		result.put("path", path);
+		return result;
 	}
 
 	// 응답의 첫 경로만 쓴다. result_code 가 0 이 아니면(출발지=도착지, 너무 가까움, 길 없음 등) null

@@ -32,6 +32,29 @@ class RouteServiceImplTest {
     }
 
     @Test
+    @DisplayName("TMAP 도보: 첫 feature 의 총거리·총시간, LineString 좌표만 이어 붙이고 Point 는 건너뛴다")
+    void parsesWalkPath() {
+        Map<String, Object> body = Map.of("type", "FeatureCollection", "features", List.of(
+                Map.of("geometry", Map.of("type", "Point", "coordinates", List.of(127.1, 37.5)),
+                        "properties", Map.of("totalDistance", 3083, "totalTime", 2462)),
+                Map.of("geometry", Map.of("type", "LineString",
+                        "coordinates", List.of(List.of(127.1, 37.5), List.of(127.2, 37.6)))),
+                Map.of("geometry", Map.of("type", "Point", "coordinates", List.of(127.2, 37.6))),
+                Map.of("geometry", Map.of("type", "LineString",
+                        "coordinates", List.of(List.of(127.3, 37.7))))));
+
+        Map<String, Object> route = RouteServiceImpl.parseWalkRoute(body);
+
+        assertThat(route).containsEntry("distance", 3083).containsEntry("duration", 2462);
+        @SuppressWarnings("unchecked")
+        List<double[]> path = (List<double[]>) route.get("path");
+        assertThat(path).hasSize(3);
+        assertThat(path.get(0)).containsExactly(37.5, 127.1);
+        assertThat(path.get(2)).containsExactly(37.7, 127.3);
+        assertThat(RouteServiceImpl.parseWalkRoute(Map.of("features", List.of()))).isNull();
+    }
+
+    @Test
     @DisplayName("result_code 가 0 이 아니면(길 없음 등) null")
     void noRoute() {
         Map<String, Object> body = Map.of("routes", List.of(Map.of(
