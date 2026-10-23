@@ -18,12 +18,6 @@ mybatis:
     map-underscore-to-camel-case: true
     call-setters-on-nulls: true   # resultType=HashMap 에서 NULL 컬럼도 키를 남긴다
 
-# 장소(상호명) 검색 API 키.
-naver:
-  search:
-    provider: ${NAVER_SEARCH_PROVIDER:ncp}
-    client-id: ${NAVER_SEARCH_CLIENT_ID:}
-    client-secret: ${NAVER_SEARCH_CLIENT_SECRET:}
 
 # 서비스 가입 코드. 비어 있으면 아무도 가입할 수 없다
 pinmate:

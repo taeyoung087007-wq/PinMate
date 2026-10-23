@@ -9,7 +9,7 @@ export const CATEGORY_META = {
 }
 
 /**
- * 네이버 지역 검색의 category 문자열("술집>요리주점")을 우리 카테고리 키로 바꾼다.
+ * 장소 검색의 category 문자열("음식점>술집")을 우리 카테고리 키로 바꾼다.
  * 위에서부터 먼저 맞는 것을 쓰므로 순서가 중요하다.
  * - "음식점>카페,디저트" 처럼 상위가 음식점이어도 카페로 잡히도록 cafe를 food보다 앞에 둔다
  * - "술집>요리주점" 은 '음식점'을 포함하지 않지만, "음식점>주점" 형태도 있어 drink를 맨 앞에 둔다
@@ -24,12 +24,12 @@ const CATEGORY_KEYWORDS = [
 ]
 
 /**
- * @param {string | null | undefined} naverCategory 네이버 지역 검색의 category 값
+ * @param {string | null | undefined} placeCategory 장소 검색의 category 값
  * @returns {keyof CATEGORY_META | null} 맞는 카테고리가 없으면 null (호출부가 기본값을 유지한다)
  */
-export function guessCategory(naverCategory) {
-  if (!naverCategory) return null
-  const text = String(naverCategory).toLowerCase()
+export function guessCategory(placeCategory) {
+  if (!placeCategory) return null
+  const text = String(placeCategory).toLowerCase()
   for (const [key, keywords] of CATEGORY_KEYWORDS) {
     if (keywords.some(keyword => text.includes(keyword))) return key
   }

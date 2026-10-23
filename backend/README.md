@@ -76,7 +76,6 @@ cp .env.example .env
 | :--- | :--- | :--- |
 | `DB_PASSWORD` | ✅ | DB 접속 실패 |
 | `PINMATE_SIGNUP_CODE` | ✅ | **회원가입 불가** — 가입 화면에서 `11`(가입 코드 불일치) |
-| `NAVER_SEARCH_CLIENT_ID` / `NAVER_SEARCH_CLIENT_SECRET` | 선택 | 상호명 검색만 503, 주소 검색은 정상 |
 
 ```bash
 # 2. 서버 실행 (포트 8080, local 프로파일)
@@ -103,32 +102,10 @@ curl http://localhost:8080/api/health
 
 ---
 
-## 🔎 장소 검색 API
+## 🔎 장소 검색
 
-| 엔드포인트 | 용도 |
-| :--- | :--- |
-| `GET /api/places/search?query=대림창고` | 상호명·주소로 검색 (장소 추가 모달의 검색창) |
-| `GET /api/places/nearby?lat&lng&tapMeters&area&building&road&roadNumber` | 지도에서 누른 좌표 주변의 상가 1곳 |
-
-두 엔드포인트 모두 **NAVER API HUB 지역 검색**(`naverapihub.apigw.ntruss.com`)을 서버에서 대신 호출합니다.
-Client Secret이 필요한 API라 브라우저에서 직접 부르면 키가 노출되고 CORS로도 막히기 때문입니다.
-
-`/nearby`는 지도 클릭 한 번에 브라우저가 역지오코딩 5회 + 검색 12회를 쏘던 것을 서버로 모은 것입니다.
-
-- 프론트는 역지오코딩(지도 SDK, Client ID만 필요) 1회로 주소 조각을 얻어 넘깁니다
-- 서버는 `건물명 → 도로명+업종(맛집·카페·술집)` 순으로 **하나씩** 시도하고, 맞으면 즉시 멈춥니다 (최대 4회)
-- 클릭 지점에서 `tapMeters` 안에 있는 후보만 인정하고, 건물명 일치 > 주소 일치 > 최근접 순으로 고릅니다
-- 같은 자리를 다시 누르면 10분간 캐시된 결과를 씁니다
-- 못 찾으면 `data: null`을 돌려주고, 프론트는 주소만 표시합니다
-
-**필요한 환경변수** (NCP 콘솔 > NAVER API HUB > Application > 지역 검색)
-
-```bash
-NAVER_SEARCH_CLIENT_ID=
-NAVER_SEARCH_CLIENT_SECRET=
-```
-
-값이 없으면 두 엔드포인트 모두 503을 돌려주고, 프론트는 주소 검색(지도 SDK 지오코딩)만 사용합니다.
+장소(상호명) 검색과 지도 클릭 시 주변 상가 찾기는 **프론트에서 카카오 지도 SDK(`services.Places`)로 직접** 합니다.
+JavaScript 키만으로 동작하므로 백엔드에는 장소 검색 API도, 검색 키도 없습니다. (`frontend/src/features/map/places.js`)
 
 ---
 

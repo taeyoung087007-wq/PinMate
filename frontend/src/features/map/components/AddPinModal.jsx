@@ -4,7 +4,7 @@ import { CATEGORY_META, guessCategory } from '../categories'
 import { CURRENT_USER } from '../../../lib/currentUser'
 import { loadKakaoMaps } from '../../../lib/kakaoMaps'
 import { geocode, reverseGeocode } from '../geocode'
-import { searchPlaces } from '../api'
+import { searchPlaces } from '../places'
 import styles from './AddPinModal.module.css'
 
 // 지도에서 직접 고를 때의 기본 중심 (서울시청)
@@ -34,7 +34,7 @@ export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = nul
   const [name, setName] = useState(initialPlace?.name ?? '')
   const [memo, setMemo] = useState('')
 
-  // 검색: 상호명(백엔드 프록시)과 주소(지도 SDK 지오코딩)를 동시에 조회해 합친다
+  // 검색: 상호명(카카오 Places)과 주소(카카오 Geocoder)를 동시에 조회해 합친다
   const handleSearch = async e => {
     e.preventDefault()
     const keyword = query.trim()
@@ -59,16 +59,15 @@ export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = nul
     })
 
     setResults(merged)
-    // 백엔드가 아직 /api/places를 지원하지 않아도 주소 검색 결과는 보여준다
     if (placeResult.status === 'rejected' && addressResult.status === 'rejected') {
       setError('검색에 실패했습니다. 잠시 후 다시 시도해 주세요.')
     }
     setSearching(false)
   }
 
-  // 결과 선택 — 상호명 결과는 좌표가 없어서 주소로 지오코딩한다
+  // 결과 선택 — 좌표가 있으면 바로 쓰고, 없으면 주소로 지오코딩한다
   const handleSelectResult = async place => {
-    // 네이버 분류("술집>요리주점")로 카테고리를 미리 골라준다. 못 맞히면 기본값 유지
+    // 장소 분류("음식점>술집")로 카테고리를 미리 골라준다. 못 맞히면 기본값 유지
     const guessed = guessCategory(place.category)
     if (guessed) setCategory(guessed)
     setSource('search')
