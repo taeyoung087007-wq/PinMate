@@ -433,3 +433,61 @@
     animation: none;
   }
 }
+
+/* 길찾기 결과 칩 (검색바 아래) */
+.routeChip {
+  position: absolute;
+  left: 50%;
+  top: 120px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 16px;
+  border-radius: var(--radius-full);
+  background: rgba(18, 19, 32, 0.9);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-strong);
+  font-size: 13px;
+  z-index: 15;
+}
+
+.routeName {
+  min-width: 0;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.routeInfo {
+  flex-shrink: 0;
+  color: var(--primary-light);
+  font-variant-numeric: tabular-nums;
+}
+
+.routeClose {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.routeClose:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.routeClose:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}
+

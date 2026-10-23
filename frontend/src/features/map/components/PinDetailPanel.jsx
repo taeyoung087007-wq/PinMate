@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, MapPin, Star, Check, ExternalLink, Clock, Pencil, Trash2, Save } from 'lucide-react'
+import { X, MapPin, Star, Check, ExternalLink, Clock, Pencil, Trash2, Save, Navigation } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { getCurrentUser } from '../../../lib/currentUser'
 import styles from './PinDetailPanel.module.css'
@@ -30,6 +30,7 @@ export default function PinDetailPanel({
   onToggleVisit,
   onUpdate,
   onDelete,
+  onRoute,
 }) {
   const meta = CATEGORY_META[pin.category] || CATEGORY_META.etc
   const addedByMember = members.find(m => m.id === pin.addedBy)
@@ -284,6 +285,14 @@ export default function PinDetailPanel({
             >
               <Star size={15} fill={isMeRecommended ? 'var(--danger)' : 'white'} />
               {isMeRecommended ? '추천 취소' : '나도 추천하기!'}
+            </button>
+            <button
+              className="btn btn-secondary btn-icon"
+              onClick={() => onRoute?.(pin)}
+              title="내 위치에서 길찾기"
+              aria-label="내 위치에서 길찾기"
+            >
+              <Navigation size={16} />
             </button>
             <button
               className="btn btn-secondary btn-icon"

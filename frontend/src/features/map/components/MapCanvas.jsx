@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, Minus, RotateCcw, LocateFixed } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { describeLocation } from '../geocode'
+import { fetchCarRoute } from '../api'
 import { loadKakaoMaps } from '../../../lib/kakaoMaps'
 import styles from './MapCanvas.module.css'
 
@@ -213,7 +214,7 @@ function createPinOverlay(maps, map, { pin, meta, memberColor, isSelected }) {
  * - props: pins(필터링된 핀), members(멤버 색상 조회용), onSelectPin, selectedPin,
  *          onAddAtLocation(지도에서 고른 위치로 장소 추가: { name, address, lat, lng })
  */
-export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onAddAtLocation }) {
+export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onAddAtLocation, routeTarget, onClearRoute }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef(new Map()) // pinId -> { marker, pin, meta, memberColor }
@@ -223,6 +224,9 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
   const pickedMarkerRef = useRef(null) // 지도에서 고른 위치 마커
   const selectedPinRef = useRef(selectedPin)
   const onAddAtLocationRef = useRef(onAddAtLocation)
+  const routeLineRef = useRef(null) // 길찾기 경로 선
+  const onClearRouteRef = useRef(onClearRoute)
+  const [route, setRoute] = useState(null) // { name, distance, duration } | { name, loading: true }
   const [status, setStatus] = useState('loading') // loading | ready | nokey | error
   const [errorMessage, setErrorMessage] = useState('')
   const [locateError, setLocateError] = useState('')
@@ -233,7 +237,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     onSelectRef.current = onSelectPin
     selectedPinRef.current = selectedPin
     onAddAtLocationRef.current = onAddAtLocation
-  }, [onSelectPin, selectedPin, onAddAtLocation])
+    onClearRouteRef.current = onClearRoute
+  }, [onSelectPin, selectedPin, onAddAtLocation, onClearRoute])
 
   const clearPick = useCallback(() => {
     pickedMarkerRef.current?.setMap(null)
@@ -437,6 +442,58 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     if (!map.getBounds().contain(position)) map.panTo(position)
   }, [selectedPin, clearPick])
 
+  // 6) 길찾기: 내 위치 → routeTarget 핀까지 자동차 경로를 그린다. routeTarget 이 없어지면 지운다
+  useEffect(() => {
+    const maps = window.kakao?.maps
+    const map = mapRef.current
+    routeLineRef.current?.setMap(null)
+    routeLineRef.current = null
+    setRoute(null)
+    if (!maps || !map || !routeTarget || status !== 'ready') return
+
+    let cancelled = false
+    setRoute({ name: routeTarget.name, loading: true })
+
+    const run = async () => {
+      let origin = myLocationRef.current
+      if (!origin) {
+        const here = await getMyLocation(true)
+        if (!here.ok) throw new Error(locationErrorMessage(here.code))
+        origin = new maps.LatLng(here.lat, here.lng)
+      }
+      const data = await fetchCarRoute(
+        { lat: origin.getLat(), lng: origin.getLng() },
+        { lat: routeTarget.lat, lng: routeTarget.lng }
+      )
+      if (cancelled) return
+
+      const path = data.path.map(([lat, lng]) => new maps.LatLng(lat, lng))
+      routeLineRef.current = new maps.Polyline({
+        map,
+        path,
+        strokeWeight: 6,
+        strokeColor: '#6C63FF',
+        strokeOpacity: 0.9,
+        strokeStyle: 'solid',
+      })
+      const bounds = new maps.LatLngBounds()
+      path.forEach(point => bounds.extend(point))
+      // 위쪽 검색바·아래쪽 컨트롤에 가리지 않게 여백을 둔다 (상, 우, 하, 좌)
+      map.setBounds(bounds, 180, 40, 120, 40)
+      setRoute({ name: routeTarget.name, distance: data.distance, duration: data.duration })
+    }
+
+    run().catch(error => {
+      if (cancelled) return
+      setLocateError(error.message || '길찾기에 실패했습니다.')
+      onClearRouteRef.current?.()
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [routeTarget, status])
+
   const moveToMyLocation = useCallback(async (level = MY_LOCATION_LEVEL) => {
     const maps = window.kakao?.maps
     const map = mapRef.current
@@ -558,7 +615,24 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
             </div>
           </div>
 
-          {pins.length === 0 && (
+          {route && (
+            <div className={styles.routeChip} role="status">
+              <span className={styles.routeName}>{route.name}</span>
+              <span className={styles.routeInfo}>
+                {route.loading ? '경로 찾는 중…' : `🚗 ${formatDistance(route.distance)} · ${formatDuration(route.duration)}`}
+              </span>
+              <button
+                type="button"
+                className={styles.routeClose}
+                onClick={() => onClearRoute?.()}
+                aria-label="길찾기 닫기"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {!route && pins.length === 0 && (
             <div className={styles.emptyHint}>아직 등록된 장소가 없습니다 · 우측 상단에서 장소를 추가해 보세요</div>
           )}
 
@@ -567,4 +641,11 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
       )}
     </div>
   )
+}
+
+const formatDistance = meters => (meters >= 1000 ? `${(meters / 1000).toFixed(1)}km` : `${meters}m`)
+
+const formatDuration = seconds => {
+  const minutes = Math.max(1, Math.round(seconds / 60))
+  return minutes >= 60 ? `${Math.floor(minutes / 60)}시간 ${minutes % 60}분` : `${minutes}분`
 }
