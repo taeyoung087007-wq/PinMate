@@ -21,6 +21,7 @@ export const CODE = {
   INVITE_BLOCKED: '23',
   INVALID: '90',
   NOT_FOUND: '91',
+  NO_PERMISSION: '92',
 }
 
 /** 응답 본문 {code, message, data}를 그대로 돌려준다. 세션이 만료됐으면 로그인 화면으로 보낸다 */

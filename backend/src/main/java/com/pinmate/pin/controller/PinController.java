@@ -10,7 +10,9 @@ import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -173,5 +175,81 @@ public class PinController {
 		}
 
 		return result;
+	}
+
+	// 핀 수정 (name, category, memo). 주소·좌표는 바꾸지 않는다. 등록자 또는 팀 owner 만 가능
+	@ResponseBody
+	@PatchMapping("pins/{pinId}")
+	public Response updatePin(@PathVariable("pinId") Long pinId, @RequestBody HashMap<String, Object> param, HttpSession session) {
+		String name = ParamUtil.str(param, "name");
+		String category = ParamUtil.str(param, "category");
+		if (name.isEmpty() || name.length() > NAME_MAX) {
+			return Response.invalid("장소 이름은 100자 이하로 입력해주세요.");
+		}
+		if (category.length() > CATEGORY_MAX) {
+			return Response.invalid("카테고리 값이 올바르지 않습니다.");
+		}
+		Map<String, Object> pin = ParamUtil.map("name", name, "category", category);
+		if (param.get("memo") != null) {
+			String memo = ParamUtil.str(param, "memo");
+			if (memo.length() > MEMO_MAX) {
+				return Response.invalid("한 줄 추천평은 100자 이하로 입력해주세요.");
+			}
+			pin.put("memo", memo.isEmpty() ? null : memo);
+		}
+
+		Response result = null;
+
+		try {
+			String code = pinService.selectEditCode(pinId, SessionUtil.getUserId(session));
+			if (Constants.SUCCESS.equals(code)) {
+				result = Response.of(Constants.SUCCESS, pinService.updatePin(pinId, pin));
+			} else {
+				result = Response.of(code, editFailMessage(code), null);
+			}
+		} catch (NullPointerException npe) {
+			logger.error("장소 수정 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "장소 수정 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("장소 수정 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "장소 수정 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("장소 수정 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "장소 수정 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
+	// 핀 삭제. 추천·방문 기록도 함께 지워진다. 등록자 또는 팀 owner 만 가능
+	@ResponseBody
+	@DeleteMapping("pins/{pinId}")
+	public Response deletePin(@PathVariable("pinId") Long pinId, HttpSession session) {
+		Response result = null;
+
+		try {
+			String code = pinService.selectEditCode(pinId, SessionUtil.getUserId(session));
+			if (Constants.SUCCESS.equals(code)) {
+				pinService.deletePin(pinId);
+				result = Response.of(Constants.SUCCESS);
+			} else {
+				result = Response.of(code, editFailMessage(code), null);
+			}
+		} catch (NullPointerException npe) {
+			logger.error("장소 삭제 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "장소 삭제 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("장소 삭제 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "장소 삭제 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("장소 삭제 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "장소 삭제 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
+	private String editFailMessage(String code) {
+		return Constants.NO_PERMISSION.equals(code) ? "이 장소를 수정할 권한이 없습니다." : "장소를 찾을 수 없습니다.";
 	}
 }

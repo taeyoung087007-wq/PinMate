@@ -40,7 +40,7 @@ backend/
 - **예외**: 컨트롤러 메서드마다 `try/catch` 로 `Response.of(Constants.FAIL, "문구", null)` 을 돌려줍니다. 트랜잭션은 서비스(`@Transactional`)에 있으므로 컨트롤러에서 잡아도 롤백됩니다. 컨트롤러 진입 전 예외(본문 형식 오류, 없는 경로 등)는 `CmmnExceptionHandler` 가 처리합니다.
 - **조회 결과**: `resultType="java.util.HashMap"` 이라 키는 컬럼명 그대로(`team_id`)입니다. 화면에 넘길 때 서비스에서 camelCase 키로 바꿉니다.
 - **로그인 사용자**: 요청 값이 아니라 `SessionUtil.getUserId(session)` 으로 가져옵니다. `/api/**` 는 `/api/auth/**`, `/api/health` 를 빼고 로그인이 필요하며, 세션이 없으면 401 + `{"sessionExpired": true}` 입니다.
-- **POST**: `X-Requested-With: XMLHttpRequest` 헤더와 JSON 본문이 있어야 합니다 (다른 사이트의 폼 전송 차단).
+- **POST·PATCH·DELETE**: `X-Requested-With: XMLHttpRequest` 헤더와 JSON 본문이 있어야 합니다 (다른 사이트의 폼 전송 차단).
 
 ### 로그인 · 가입
 

@@ -23,6 +23,7 @@ public class Constants {
 	// 공통 입력·데이터 결과 코드 (message 에 사용자 문구)
 	public static final String INVALID   = "90"; // 입력 오류
 	public static final String NOT_FOUND = "91"; // 대상 없음(참여하지 않은 모임 포함, 구분하지 않음)
+	public static final String NO_PERMISSION = "92"; // 권한 없음 (예: 등록자·팀 owner 가 아닌 핀 수정·삭제)
 
 	// 세션 키
 	public static final String SESSION_USER_ID  = "userId";  // Long, users.user_id

@@ -64,6 +64,21 @@ public class PinDAO {
 		return sqlSession.update(PinDAO.SQL_PATH + ".updateConsensus", param);
 	}
 
+	//이름·카테고리 수정 (param: placeId, name, category)
+	public int updatePin(Map<String, Object> param) {
+		return sqlSession.update(PinDAO.SQL_PATH + ".updatePin", param);
+	}
+
+	//등록자 한 줄 추천평 수정 (param: placeId, userId, comment)
+	public int updateRecommendationComment(Map<String, Object> param) {
+		return sqlSession.update(PinDAO.SQL_PATH + ".updateRecommendationComment", param);
+	}
+
+	//핀 삭제 (추천·방문 기록은 CASCADE)
+	public int deletePin(Long placeId) {
+		return sqlSession.delete(PinDAO.SQL_PATH + ".deletePin", placeId);
+	}
+
 	//내 방문 여부 (param: placeId, userId)
 	public int countVisit(Map<String, Object> param) {
 		return sqlSession.selectOne(PinDAO.SQL_PATH + ".countVisit", param);

@@ -17,4 +17,13 @@ public interface PinService {
 
 	// 방문 토글 (방문 ↔ 방문 취소)
 	Map<String, Object> toggleVisit(Long placeId, Long userId) throws Exception;
+
+	// 수정·삭제 가능 여부: SUCCESS(등록자 또는 팀 owner) / NO_PERMISSION / NOT_FOUND(없거나 팀 멤버가 아님)
+	String selectEditCode(Long placeId, Long userId) throws Exception;
+
+	// 핀 수정 (이름·카테고리·등록자 추천평). 권한은 selectEditCode 로 먼저 확인한다. param: name, category, memo
+	Map<String, Object> updatePin(Long placeId, Map<String, Object> param) throws Exception;
+
+	// 핀 삭제 (추천·방문 기록도 함께). 권한은 selectEditCode 로 먼저 확인한다
+	void deletePin(Long placeId) throws Exception;
 }

@@ -1,6 +1,7 @@
-import { X, MapPin, Star, Navigation, Heart, Check, ExternalLink, Clock } from 'lucide-react'
+import { useState } from 'react'
+import { X, MapPin, Star, Check, ExternalLink, Clock, Pencil, Trash2, Save } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
-import { CURRENT_USER } from '../../../lib/currentUser'
+import { getCurrentUser } from '../../../lib/currentUser'
 import styles from './PinDetailPanel.module.css'
 
 /**
@@ -19,14 +20,57 @@ function formatCreatedAt(value) {
  * - 장소 이름, 주소, 카테고리
  * - 추천인 목록 및 추천 수
  * - 방문 여부 표시 및 토글
- * - '나도 추천' 및 '네이버 지도 바로가기'
+ * - 등록자·팀 owner 에게만 수정/삭제 버튼 노출
  */
-export default function PinDetailPanel({ pin, members, onClose, onRecommend, onToggleVisit }) {
+export default function PinDetailPanel({
+  pin,
+  members,
+  onClose,
+  onRecommend,
+  onToggleVisit,
+  onUpdate,
+  onDelete,
+}) {
   const meta = CATEGORY_META[pin.category] || CATEGORY_META.etc
   const addedByMember = members.find(m => m.id === pin.addedBy)
-  const isMeRecommended = pin.recommenders.includes(CURRENT_USER.id)
-  const isMeVisited = (pin.visitedBy || []).includes(CURRENT_USER.id)
+
+  // 로그인 직후에도 최신 값을 쓰도록 렌더 시점에 읽는다 (모듈 상수는 로그인 전 값으로 고정된다)
+  const me = getCurrentUser()
+  const myMember = members.find(m => m.id === me.loginId)
+  const isMeRecommended = pin.recommenders.includes(myMember?.id ?? me.loginId)
+  const isMeVisited = (pin.visitedBy || []).includes(myMember?.id ?? me.loginId)
   const createdAtText = formatCreatedAt(pin.createdAt)
+
+  // 등록자 본인 또는 팀 owner 만 수정·삭제할 수 있다 (서버에서도 같은 규칙으로 검사한다)
+  const canEdit = Boolean(onUpdate || onDelete) &&
+    (pin.addedBy === me.loginId || myMember?.role === 'owner')
+
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [draft, setDraft] = useState({ name: '', category: '', memo: '' })
+
+  const startEdit = () => {
+    setDraft({ name: pin.name, category: pin.category, memo: pin.memo || '' })
+    setEditing(true)
+  }
+
+  const handleSave = async () => {
+    if (!draft.name.trim() || saving) return
+    setSaving(true)
+    const ok = await onUpdate?.(pin.id, {
+      name: draft.name.trim(),
+      category: draft.category,
+      memo: draft.memo.trim(),
+    })
+    setSaving(false)
+    if (ok !== false) setEditing(false)
+  }
+
+  const handleDelete = () => {
+    // 실수로 지우는 것을 막기 위해 한 번 확인한다
+    if (!window.confirm(`'${pin.name}' 장소를 삭제할까요? 추천·방문 기록도 함께 사라집니다.`)) return
+    onDelete?.(pin.id)
+  }
 
   // 네이버 지도 검색 새 탭 열기
   const handleOpenNaverMap = () => {
@@ -46,128 +90,205 @@ export default function PinDetailPanel({ pin, members, onClose, onRecommend, onT
             <span className="badge badge-gold">⭐ 모두 인정</span>
           )}
         </div>
-        <button className={`btn btn-ghost btn-icon ${styles.closeBtn}`} onClick={onClose} title="닫기">
-          <X size={16} />
-        </button>
-      </div>
-
-      {/* 장소명 & 주소 */}
-      <div className={styles.title}>{pin.name}</div>
-      <div className={styles.address}>
-        <MapPin size={13} />
-        <span>{pin.address}</span>
-      </div>
-
-      {/* 등록자 한 줄 메모 */}
-      {pin.memo && (
-        <div className={styles.memo}>
-          <span className={styles.memoQuote}>"</span>
-          {pin.memo}
-          <span className={styles.memoQuote}>"</span>
-        </div>
-      )}
-
-      {/* 추천한 멤버 섹션 */}
-      <div className={styles.section}>
-        <div className={styles.sectionLabel}>
-          <Star size={13} />
-          추천한 멤버 ({pin.recommenders.length}/{members.length}명)
-        </div>
-        <div className={styles.recommenders}>
-          {members.map(m => {
-            const didRecommend = pin.recommenders.includes(m.id)
-            return (
-              <div
-                key={m.id}
-                className={`${styles.recommenderItem} ${!didRecommend ? styles.recommenderInactive : ''}`}
-                title={`${m.nickname} ${didRecommend ? '(추천함)' : '(미추천)'}`}
+        <div className={styles.headerActions}>
+          {canEdit && !editing && (
+            <>
+              <button
+                className={`btn btn-ghost btn-icon ${styles.iconBtn}`}
+                onClick={startEdit}
+                title="장소 정보 수정"
               >
-                <div
-                  className={styles.recommenderAvatar}
-                  style={{ background: didRecommend ? m.avatarColor : 'var(--bg-hover)' }}
-                >
-                  {m.initials}
-                </div>
-                <span className={styles.recommenderName}>{m.nickname}</span>
-                {didRecommend && <Check size={12} color="var(--success)" />}
-              </div>
-            )
-          })}
+                <Pencil size={15} />
+              </button>
+              <button
+                className={`btn btn-ghost btn-icon ${styles.iconBtn} ${styles.deleteBtn}`}
+                onClick={handleDelete}
+                title="장소 삭제"
+              >
+                <Trash2 size={15} />
+              </button>
+            </>
+          )}
+          <button className={`btn btn-ghost btn-icon ${styles.closeBtn}`} onClick={onClose} title="닫기">
+            <X size={16} />
+          </button>
         </div>
       </div>
 
-      {/* 방문한 멤버 섹션 및 방문 토글 */}
-      <div className={styles.section}>
-        <div className={styles.sectionLabel}>
-          <Check size={13} />
-          방문 현황 ({(pin.visitedBy || []).length}명 다녀감)
-        </div>
-        <div className={styles.visitedRow}>
-          <div className={styles.visitedList}>
-            {(pin.visitedBy || []).length === 0 ? (
-              <span className={styles.emptyVisited}>아직 방문한 멤버가 없어요</span>
-            ) : (
-              (pin.visitedBy || []).map(uid => {
-                const m = members.find(mem => mem.id === uid)
-                return m ? (
-                  <span
-                    key={uid}
-                    className={styles.visitedBadge}
-                    style={{ borderColor: m.avatarColor + '60', color: m.avatarColor }}
+      {editing ? (
+        <>
+          {/* 수정 모드: 이름 · 카테고리 · 추천평 */}
+          <div className={styles.field}>
+            <label className={styles.fieldLabel}>장소 이름</label>
+            <input
+              className="input"
+              value={draft.name}
+              onChange={e => setDraft(prev => ({ ...prev, name: e.target.value }))}
+              maxLength={100}
+              autoFocus
+            />
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.fieldLabel}>카테고리</label>
+            <div className={styles.catGrid}>
+              {Object.entries(CATEGORY_META).map(([key, value]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`${styles.catChip} ${draft.category === key ? styles.catChipActive : ''}`}
+                  onClick={() => setDraft(prev => ({ ...prev, category: key }))}
+                >
+                  <span>{value.icon}</span>
+                  <span>{value.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.fieldLabel}>한 줄 추천평</label>
+            <textarea
+              className={`input ${styles.memoInput}`}
+              value={draft.memo}
+              onChange={e => setDraft(prev => ({ ...prev, memo: e.target.value }))}
+              maxLength={100}
+              rows={2}
+              placeholder="예: 여기 시그니처 라떼가 진짜 맛있어요"
+            />
+          </div>
+
+          <div className={styles.actions}>
+            <button className="btn btn-primary" onClick={handleSave} disabled={saving || !draft.name.trim()}>
+              <Save size={15} />
+              {saving ? '저장 중…' : '저장'}
+            </button>
+            <button className="btn btn-secondary" onClick={() => setEditing(false)} disabled={saving}>
+              취소
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* 장소명 & 주소 */}
+          <div className={styles.title}>{pin.name}</div>
+          <div className={styles.address}>
+            <MapPin size={13} />
+            <span>{pin.address}</span>
+          </div>
+
+          {/* 등록자 한 줄 메모 */}
+          {pin.memo && (
+            <div className={styles.memo}>
+              <span className={styles.memoQuote}>"</span>
+              {pin.memo}
+              <span className={styles.memoQuote}>"</span>
+            </div>
+          )}
+
+          {/* 추천한 멤버 섹션 */}
+          <div className={styles.section}>
+            <div className={styles.sectionLabel}>
+              <Star size={13} />
+              추천한 멤버 ({pin.recommenders.length}/{members.length}명)
+            </div>
+            <div className={styles.recommenders}>
+              {members.map(m => {
+                const didRecommend = pin.recommenders.includes(m.id)
+                return (
+                  <div
+                    key={m.id}
+                    className={`${styles.recommenderItem} ${!didRecommend ? styles.recommenderInactive : ''}`}
+                    title={`${m.nickname} ${didRecommend ? '(추천함)' : '(미추천)'}`}
                   >
-                    {m.initials} {m.nickname}
-                  </span>
-                ) : null
-              })
+                    <div
+                      className={styles.recommenderAvatar}
+                      style={{ background: didRecommend ? m.avatarColor : 'var(--bg-hover)' }}
+                    >
+                      {m.initials}
+                    </div>
+                    <span className={styles.recommenderName}>{m.nickname}</span>
+                    {didRecommend && <Check size={12} color="var(--success)" />}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 방문한 멤버 섹션 및 방문 토글 */}
+          <div className={styles.section}>
+            <div className={styles.sectionLabel}>
+              <Check size={13} />
+              방문 현황 ({(pin.visitedBy || []).length}명 다녀감)
+            </div>
+            <div className={styles.visitedRow}>
+              <div className={styles.visitedList}>
+                {(pin.visitedBy || []).length === 0 ? (
+                  <span className={styles.emptyVisited}>아직 방문한 멤버가 없어요</span>
+                ) : (
+                  (pin.visitedBy || []).map(uid => {
+                    const m = members.find(mem => mem.id === uid)
+                    return m ? (
+                      <span
+                        key={uid}
+                        className={styles.visitedBadge}
+                        style={{ borderColor: m.avatarColor + '60', color: m.avatarColor }}
+                      >
+                        {m.initials} {m.nickname}
+                      </span>
+                    ) : null
+                  })
+                )}
+              </div>
+              {onToggleVisit && (
+                <button
+                  className={`btn ${isMeVisited ? 'btn-secondary' : 'btn-ghost'} ${styles.visitCheckBtn}`}
+                  onClick={onToggleVisit}
+                  title="내가 다녀왔는지 체크"
+                >
+                  <Check size={13} color={isMeVisited ? 'var(--success)' : 'currentColor'} />
+                  {isMeVisited ? '방문 완료' : '다녀왔어요'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 최초 등록자 정보 */}
+          <div className={styles.addedBy}>
+            <div
+              className={styles.addedByAvatar}
+              style={{ background: addedByMember?.avatarColor || 'var(--primary)' }}
+            >
+              {addedByMember?.initials || '팀'}
+            </div>
+            <span>{addedByMember?.nickname || '팀원'}님이 처음 등록</span>
+            {createdAtText && (
+              <span className={styles.addedByDate}>
+                <Clock size={11} />
+                {createdAtText}
+              </span>
             )}
           </div>
-          {onToggleVisit && (
+
+          {/* 액션 버튼들 */}
+          <div className={styles.actions}>
             <button
-              className={`btn ${isMeVisited ? 'btn-secondary' : 'btn-ghost'} ${styles.visitCheckBtn}`}
-              onClick={onToggleVisit}
-              title="내가 다녀왔는지 체크"
+              className={`btn ${isMeRecommended ? 'btn-danger' : 'btn-primary'} ${styles.recommendBtn}`}
+              onClick={onRecommend}
             >
-              <Check size={13} color={isMeVisited ? 'var(--success)' : 'currentColor'} />
-              {isMeVisited ? '방문 완료' : '다녀왔어요'}
+              <Star size={15} fill={isMeRecommended ? 'var(--danger)' : 'white'} />
+              {isMeRecommended ? '추천 취소' : '나도 추천하기!'}
             </button>
-          )}
-        </div>
-      </div>
-
-      {/* 최초 등록자 정보 */}
-      <div className={styles.addedBy}>
-        <div
-          className={styles.addedByAvatar}
-          style={{ background: addedByMember?.avatarColor || 'var(--primary)' }}
-        >
-          {addedByMember?.initials || '팀'}
-        </div>
-        <span>{addedByMember?.nickname || '팀원'}님이 처음 등록</span>
-        {createdAtText && (
-          <span className={styles.addedByDate}>
-            <Clock size={11} />
-            {createdAtText}
-          </span>
-        )}
-      </div>
-
-      {/* 액션 버튼들 */}
-      <div className={styles.actions}>
-        <button
-          className={`btn ${isMeRecommended ? 'btn-danger' : 'btn-primary'} ${styles.recommendBtn}`}
-          onClick={onRecommend}
-        >
-          <Star size={15} fill={isMeRecommended ? 'var(--danger)' : 'white'} />
-          {isMeRecommended ? '추천 취소' : '나도 추천하기!'}
-        </button>
-        <button
-          className="btn btn-secondary btn-icon"
-          onClick={handleOpenNaverMap}
-          title="네이버 지도에서 보기"
-        >
-          <ExternalLink size={16} />
-        </button>
-      </div>
+            <button
+              className="btn btn-secondary btn-icon"
+              onClick={handleOpenNaverMap}
+              title="네이버 지도에서 보기"
+            >
+              <ExternalLink size={16} />
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

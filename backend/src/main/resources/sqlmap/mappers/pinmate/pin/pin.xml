@@ -110,6 +110,29 @@
 		ON CONFLICT (place_id, user_id) DO NOTHING
 	</insert>
 
+	<!-- 이름·카테고리 수정 (주소·좌표는 바꾸지 않는다). param: placeId, name, category -->
+	<update id="updatePin" parameterType="map">
+		UPDATE places
+		   SET name = #{name},
+		       category = #{category},
+		       updated_at = now()
+		 WHERE place_id = #{placeId}
+	</update>
+
+	<!-- 등록자가 남긴 한 줄 추천평 수정. 해당 추천 행이 없으면 아무 일도 하지 않는다. param: placeId, userId, comment -->
+	<update id="updateRecommendationComment" parameterType="map">
+		UPDATE recommendations
+		   SET comment = #{comment},
+		       updated_at = now()
+		 WHERE place_id = #{placeId} AND user_id = #{userId}
+	</update>
+
+	<!-- 핀 삭제. 추천·방문 기록은 FK ON DELETE CASCADE 로 함께 지워진다 -->
+	<delete id="deletePin" parameterType="long">
+		DELETE FROM places
+		 WHERE place_id = #{placeId}
+	</delete>
+
 	<!-- param: placeId, userId -->
 	<delete id="deleteVisit" parameterType="map">
 		DELETE FROM place_visits

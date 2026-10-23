@@ -1,5 +1,6 @@
 package com.pinmate.pin.service.impl;
 
+import com.pinmate.cmmn.util.Constants;
 import com.pinmate.cmmn.util.ParamUtil;
 import com.pinmate.pin.dao.PinDAO;
 import com.pinmate.pin.service.PinService;
@@ -101,6 +102,38 @@ public class PinServiceImpl implements PinService {
 		return toItem(pinDAO.selectPinById(placeId));
 	}
 
+	// 등록자 본인 또는 팀 owner 만 수정·삭제할 수 있다. 팀 멤버가 아니면 없는 핀과 같이 NOT_FOUND
+	@Override
+	@Transactional(readOnly = true)
+	public String selectEditCode(Long placeId, Long userId) throws Exception {
+		Map<String, Object> pin = selectMemberPin(placeId, userId);
+		if (pin == null) return Constants.NOT_FOUND;
+		if (userId.equals(pin.get("created_by"))) return Constants.SUCCESS;
+
+		boolean isOwner = teamDAO.selectTeamMembers((Long) pin.get("team_id")).stream()
+				.anyMatch(m -> userId.equals(m.get("user_id")) && "owner".equalsIgnoreCase((String) m.get("role")));
+		return isOwner ? Constants.SUCCESS : Constants.NO_PERMISSION;
+	}
+
+	@Override
+	@Transactional
+	public Map<String, Object> updatePin(Long placeId, Map<String, Object> param) throws Exception {
+		pinDAO.updatePin(ParamUtil.map("placeId", placeId, "name", param.get("name"), "category", toDbCategory((String) param.get("category"))));
+
+		// 한 줄 추천평은 등록자의 recommendations 행에 들어 있으므로 그쪽을 고친다 (memo 를 보내지 않았으면 그대로 둔다)
+		if (param.containsKey("memo")) {
+			Map<String, Object> pin = pinDAO.selectPinById(placeId);
+			pinDAO.updateRecommendationComment(ParamUtil.map("placeId", placeId, "userId", pin.get("created_by"), "comment", param.get("memo")));
+		}
+		return toItem(pinDAO.selectPinById(placeId));
+	}
+
+	@Override
+	@Transactional
+	public void deletePin(Long placeId) throws Exception {
+		pinDAO.deletePin(placeId);
+	}
+
 	// 요청자가 속한 팀의 핀. 없거나 다른 팀의 핀이면 null (존재 여부를 드러내지 않는다)
 	private Map<String, Object> selectMemberPin(Long placeId, Long userId) {
 		Map<String, Object> pin = pinDAO.selectPinById(placeId);
@@ -158,8 +191,8 @@ public class PinServiceImpl implements PinService {
 		return (v instanceof Timestamp ts) ? ts.toInstant().toString() : v.toString();
 	}
 
-	// 프론트 카테고리 → DB 카테고리 (places.category CHECK 값)
-	private String toDbCategory(String cat) {
+	// 프론트 카테고리 → DB 카테고리 (places.category CHECK 값). 순수 함수라 테스트에서 직접 호출한다
+	static String toDbCategory(String cat) {
 		if (cat == null || cat.isBlank()) return "etc";
 		return switch (cat.toLowerCase().trim()) {
 			case "food" -> "restaurant";
@@ -170,7 +203,8 @@ public class PinServiceImpl implements PinService {
 		};
 	}
 
-	private String toFrontendCategory(String cat) {
+	// DB 카테고리 → 프론트 카테고리
+	static String toFrontendCategory(String cat) {
 		if (cat == null) return "etc";
 		return switch (cat.toLowerCase().trim()) {
 			case "restaurant" -> "food";
