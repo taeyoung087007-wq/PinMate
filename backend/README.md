@@ -76,6 +76,7 @@ cp .env.example .env
 | :--- | :--- | :--- |
 | `DB_PASSWORD` | ✅ | DB 접속 실패 |
 | `PINMATE_SIGNUP_CODE` | ✅ | **회원가입 불가** — 가입 화면에서 `11`(가입 코드 불일치) |
+| `KAKAO_REST_API_KEY` | 선택 | 길찾기만 안 됨 (카카오 콘솔 > 앱 키 > REST API 키) |
 
 ```bash
 # 2. 서버 실행 (포트 8080, local 프로파일)

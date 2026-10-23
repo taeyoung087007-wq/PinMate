@@ -57,6 +57,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false)
   const [showAddPinModal, setShowAddPinModal] = useState(false)
   const [pickedPlace, setPickedPlace] = useState(null) // 메인 지도에서 고른 위치로 장소 추가할 때
+  const [routeTarget, setRouteTarget] = useState(null) // 길찾기 도착지 핀
   const [showListPanel, setShowListPanel] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [celebrationPin, setCelebrationPin] = useState(null)
@@ -221,6 +222,8 @@ export default function MapPage({ initialTeamId, onLogout }) {
           onSelectPin={setSelectedPin}
           selectedPin={selectedPin}
           onAddAtLocation={place => { setPickedPlace(place); setShowAddPinModal(true) }}
+          routeTarget={routeTarget}
+          onClearRoute={() => setRouteTarget(null)}
         />
       </div>
 
@@ -320,8 +323,8 @@ export default function MapPage({ initialTeamId, onLogout }) {
         </div>
       )}
 
-      {/* 3. 우측 플로팅 액션 버튼 (FAB & 목록) */}
-      <div className={styles.floatingActions}>
+      {/* 3. 우측 플로팅 액션 버튼 (FAB & 목록). 핀 상세가 열려 있으면 패널 버튼을 가리므로 숨긴다 */}
+      {!selectedPin && <div className={styles.floatingActions}>
         <button
           className={styles.listFab}
           onClick={() => setShowListPanel(p => !p)}
@@ -339,7 +342,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
           <Plus size={20} strokeWidth={2.6} />
           <span>장소 추가</span>
         </button>
-      </div>
+      </div>}
 
       {/* 4. 장소 상세 정보 패널 (하단 바텀시트) */}
       {selectedPin && (
@@ -351,6 +354,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
           onToggleVisit={() => handleToggleVisit(selectedPin.id)}
           onUpdate={handleUpdatePin}
           onDelete={handleDeletePin}
+          onRoute={pin => { setRouteTarget(pin); setSelectedPin(null); setShowListPanel(false) }}
         />
       )}
 
