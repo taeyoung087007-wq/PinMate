@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, Outlet, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import AuthPage from '../features/auth/pages/AuthPage'
 import MapPage from '../features/map/pages/MapPage'
 import InvitePage from '../features/teams/pages/InvitePage'
+import SplashScreen, { shouldShowSplash } from '../components/SplashScreen/SplashScreen'
 import { post } from '../lib/apiClient'
 import { getCurrentUser, setCurrentUserStorage } from '../lib/currentUser'
 
@@ -74,16 +75,24 @@ function MapRoute() {
 }
 
 export default function App() {
+  // 앱을 처음 열 때 한 번만 인트로를 보여준다 (탭마다 1회)
+  const [showSplash, setShowSplash] = useState(shouldShowSplash)
+
   return (
-    <Routes>
-      <Route path="/login" element={<LoginRoute />} />
-      <Route element={<RequireLogin />}>
-        <Route path="/" element={<MapRoute />} />
-        <Route path="/teams/:teamId" element={<MapRoute />} />
-        <Route path="/teams" element={<Navigate to="/" replace />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/login" element={<LoginRoute />} />
+        <Route element={<RequireLogin />}>
+          <Route path="/" element={<MapRoute />} />
+          <Route path="/teams/:teamId" element={<MapRoute />} />
+          <Route path="/teams" element={<Navigate to="/" replace />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      {/* 앱 화면 위에 덮였다가, 심볼이 위로 올라가며 걷힌다 */}
+      {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+    </>
   )
 }
 
