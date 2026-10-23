@@ -1,5 +1,6 @@
 package com.pinmate.presence.controller;
 
+import jakarta.validation.Valid;
 import com.pinmate.common.ApiResponse;
 import com.pinmate.presence.dto.HeartbeatRequest;
 import com.pinmate.presence.service.PresenceService;
@@ -20,7 +21,7 @@ public class PresenceController {
     private final PresenceService presenceService;
 
     @PostMapping("/heartbeat")
-    public ApiResponse<Void> heartbeat(@RequestBody HeartbeatRequest request) {
+    public ApiResponse<Void> heartbeat(@Valid @RequestBody HeartbeatRequest request) {
         presenceService.touch(request.userId());
         return ApiResponse.ok(null);
     }

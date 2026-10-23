@@ -1,5 +1,6 @@
 package com.pinmate.pin.controller;
 
+import jakarta.validation.Valid;
 import com.pinmate.pin.service.PinService;
 
 import com.pinmate.common.ApiResponse;
@@ -35,7 +36,7 @@ public class PinController {
 
     @PostMapping
     public ApiResponse<PinResponse> createPin(
-        @RequestBody CreatePinRequest request,
+        @Valid @RequestBody CreatePinRequest request,
         @SessionAttribute(name = "userId", required = false) Long userId
     ) {
         return ApiResponse.ok(pinService.createPin(request, requireUserId(userId)));

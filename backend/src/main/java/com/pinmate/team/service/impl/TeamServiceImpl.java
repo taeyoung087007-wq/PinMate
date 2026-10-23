@@ -50,10 +50,6 @@ public class TeamServiceImpl implements TeamService {
     @Override
     @Transactional
     public TeamResponse createTeam(CreateTeamRequest req, Long userId) {
-        if (req.name() == null || req.name().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 이름을 입력해주세요.");
-        }
-
         Team team = new Team();
         team.setName(req.name().trim());
         teamDao.insertTeam(team);
@@ -71,9 +67,6 @@ public class TeamServiceImpl implements TeamService {
     @Override
     @Transactional
     public TeamResponse joinTeam(JoinTeamRequest req, Long userId) {
-        if (req.code() == null || req.code().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "초대 코드를 입력해주세요.");
-        }
         User user = userDao.findById(userId);
         if (user == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "가입한 계정으로 로그인한 뒤 참여할 수 있습니다.");

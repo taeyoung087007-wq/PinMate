@@ -45,13 +45,6 @@ public class PinServiceImpl implements PinService {
     @Override
     @Transactional
     public PinResponse createPin(CreatePinRequest req, Long userId) {
-        if (req.name() == null || req.name().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "장소 이름을 입력해주세요.");
-        }
-        if (req.teamId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 ID가 필요합니다.");
-        }
-
         Long teamId = Long.parseLong(req.teamId());
         Pin pin = new Pin();
         pin.setTeamId(teamId);
@@ -59,8 +52,9 @@ public class PinServiceImpl implements PinService {
         pin.setCategory(toDbCategory(req.category()));
         pin.setAddress(req.address());
         pin.setRoadAddress(req.roadAddress() != null ? req.roadAddress() : req.address());
-        pin.setLatitude(req.lat() != null ? BigDecimal.valueOf(req.lat()) : BigDecimal.valueOf(37.5665));
-        pin.setLongitude(req.lng() != null ? BigDecimal.valueOf(req.lng()) : BigDecimal.valueOf(126.9780));
+        // 좌표는 @NotNull 로 검증되므로 여기서는 그대로 쓴다
+        pin.setLatitude(BigDecimal.valueOf(req.lat()));
+        pin.setLongitude(BigDecimal.valueOf(req.lng()));
         pin.setCreatedBy(userId);
 
         pinDao.insertPin(pin);

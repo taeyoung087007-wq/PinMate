@@ -1,5 +1,6 @@
 package com.pinmate.auth.controller;
 
+import jakarta.validation.Valid;
 import com.pinmate.auth.service.AuthService;
 
 import com.pinmate.auth.dto.*;
@@ -30,7 +31,7 @@ public class AuthController {
      * POST /api/auth/signup
      */
     @PostMapping("/signup")
-    public ApiResponse<AuthResponse> signup(@RequestBody SignupRequest request, HttpServletRequest httpRequest) {
+    public ApiResponse<AuthResponse> signup(@Valid @RequestBody SignupRequest request, HttpServletRequest httpRequest) {
         return ApiResponse.ok(startSession(authService.signup(request), httpRequest));
     }
 
@@ -39,7 +40,7 @@ public class AuthController {
      * POST /api/auth/login
      */
     @PostMapping("/login")
-    public ApiResponse<AuthResponse> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+    public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         return ApiResponse.ok(startSession(authService.login(request), httpRequest));
     }
 
