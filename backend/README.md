@@ -40,7 +40,7 @@ backend/
 - **예외**: 컨트롤러 메서드마다 `try/catch` 로 `Response.of(Constants.FAIL, "문구", null)` 을 돌려줍니다. 트랜잭션은 서비스(`@Transactional`)에 있으므로 컨트롤러에서 잡아도 롤백됩니다. 컨트롤러 진입 전 예외(본문 형식 오류, 없는 경로 등)는 `CmmnExceptionHandler` 가 처리합니다.
 - **조회 결과**: `resultType="java.util.HashMap"` 이라 키는 컬럼명 그대로(`team_id`)입니다. 화면에 넘길 때 서비스에서 camelCase 키로 바꿉니다.
 - **로그인 사용자**: 요청 값이 아니라 `SessionUtil.getUserId(session)` 으로 가져옵니다. `/api/**` 는 `/api/auth/**`, `/api/health` 를 빼고 로그인이 필요하며, 세션이 없으면 401 + `{"sessionExpired": true}` 입니다.
-- **POST·PATCH·DELETE**: `X-Requested-With: XMLHttpRequest` 헤더와 JSON 본문이 있어야 합니다 (다른 사이트의 폼 전송 차단).
+- **POST·PATCH·DELETE**: `X-Requested-With: XMLHttpRequest` 헤더와 `Content-Type: application/json` 본문이 **둘 다** 있어야 합니다 (다른 사이트의 폼 전송 차단). 하나라도 없으면 `403` + `99` 로 거절합니다.
 
 ### 로그인 · 가입
 
@@ -65,10 +65,20 @@ backend/
 Supabase 클라우드 PostgreSQL을 사용하므로 별도의 로컬 Docker DB 실행이 필요 없습니다.
 
 ```bash
-# 1. backend 폴더로 이동 후 환경변수 복사 및 비밀번호 설정 (최초 1회)
+# 1. backend 폴더로 이동 후 환경변수 파일 만들기 (최초 1회)
 cd backend
-cp .env.example .env    # .env 파일에 DB_PASSWORD=<Supabase DB 비밀번호> 입력
+cp .env.example .env
+```
 
+`.env` 에 값을 채웁니다.
+
+| 키 | 필수 | 없으면 |
+| :--- | :--- | :--- |
+| `DB_PASSWORD` | ✅ | DB 접속 실패 |
+| `PINMATE_SIGNUP_CODE` | ✅ | **회원가입 불가** — 가입 화면에서 `11`(가입 코드 불일치) |
+| `NAVER_SEARCH_CLIENT_ID` / `NAVER_SEARCH_CLIENT_SECRET` | 선택 | 상호명 검색만 503, 주소 검색은 정상 |
+
+```bash
 # 2. 서버 실행 (포트 8080, local 프로파일)
 ./mvnw spring-boot:run  # Windows CMD/PowerShell: mvnw.cmd spring-boot:run
 
@@ -76,6 +86,8 @@ cp .env.example .env    # .env 파일에 DB_PASSWORD=<Supabase DB 비밀번호> 
 curl http://localhost:8080/api/health
 ```
 
+- `PINMATE_SIGNUP_CODE` 는 **팀 초대 코드와 다른 값**입니다. 서비스 전체에서 하나만 쓰는 가입용 코드이고, 비어 있으면 아무도 가입할 수 없습니다.
+- 구조가 바뀐 브랜치를 pull 받은 뒤에는 `./mvnw clean` 을 한 번 실행하세요. `target/` 에 옛 매퍼·클래스가 남아 있으면 같은 경로가 두 번 등록돼 기동이 실패합니다.
 - 서버가 시작될 때 Flyway가 Supabase의 마이그레이션 적용 상태를 자동 검증합니다.
 
 ---
