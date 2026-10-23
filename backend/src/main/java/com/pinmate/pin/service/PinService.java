@@ -3,6 +3,7 @@ package com.pinmate.pin.service;
 import com.pinmate.pin.dto.CreatePinRequest;
 import com.pinmate.pin.dto.PinResponse;
 import com.pinmate.pin.dto.RecommendResponse;
+import com.pinmate.pin.dto.UpdatePinRequest;
 
 import java.util.List;
 
@@ -25,4 +26,10 @@ public interface PinService {
 
     /** 방문 토글 (방문 ↔ 방문 취소). userId 는 로그인 세션에서 가져온다 */
     PinResponse toggleVisit(Long placeId, Long userId);
+
+    /** 핀 수정 (이름·카테고리·추천평). 등록자 본인 또는 팀 owner 만 가능하다 */
+    PinResponse updatePin(Long placeId, UpdatePinRequest request, Long userId);
+
+    /** 핀 삭제. 등록자 본인 또는 팀 owner 만 가능하다 */
+    void deletePin(Long placeId, Long userId);
 }

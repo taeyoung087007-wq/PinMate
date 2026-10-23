@@ -178,3 +178,69 @@
   flex: 1;
   padding: 11px;
 }
+
+/* ── 수정 / 삭제 ─────────────────────────────────── */
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.iconBtn {
+  color: var(--text-muted);
+}
+.iconBtn:hover {
+  color: var(--primary-light);
+}
+.deleteBtn:hover {
+  color: var(--danger);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fieldLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.catGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.catChip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-base);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.catChip:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.catChipActive {
+  background: var(--primary-glow);
+  border-color: rgba(108, 99, 255, 0.4);
+  color: var(--primary-light);
+}
+
+.memoInput {
+  resize: none;
+  line-height: 1.5;
+}

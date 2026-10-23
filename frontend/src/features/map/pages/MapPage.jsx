@@ -10,7 +10,9 @@ import {
   fetchPins,
   createPinApi,
   toggleRecommendationApi,
-  toggleVisitApi
+  toggleVisitApi,
+  updatePinApi,
+  deletePinApi
 } from '../api'
 import { fetchTeams, createTeamApi, joinTeamApi } from '../../teams/api'
 import MapCanvas from '../components/MapCanvas'
@@ -165,6 +167,30 @@ export default function MapPage({ initialTeamId, onLogout }) {
       setSelectedPin(updated)
     } catch (e) {
       setError(`방문 처리에 실패했습니다: ${e.message}`)
+    }
+  }
+
+  // 장소 수정 핸들러 (성공 여부를 돌려줘 패널이 수정 모드를 닫을 수 있게 한다)
+  const handleUpdatePin = async (pinId, data) => {
+    try {
+      const updated = await updatePinApi(pinId, data)
+      setPins(prev => prev.map(p => (p.id === updated.id ? updated : p)))
+      setSelectedPin(updated)
+      return true
+    } catch (e) {
+      setError(`장소 수정에 실패했습니다: ${e.message}`)
+      return false
+    }
+  }
+
+  // 장소 삭제 핸들러
+  const handleDeletePin = async (pinId) => {
+    try {
+      await deletePinApi(pinId)
+      setPins(prev => prev.filter(p => p.id !== pinId))
+      setSelectedPin(null)
+    } catch (e) {
+      setError(`장소 삭제에 실패했습니다: ${e.message}`)
     }
   }
 
@@ -323,6 +349,8 @@ export default function MapPage({ initialTeamId, onLogout }) {
           onClose={() => setSelectedPin(null)}
           onRecommend={() => handleRecommend(selectedPin.id)}
           onToggleVisit={() => handleToggleVisit(selectedPin.id)}
+          onUpdate={handleUpdatePin}
+          onDelete={handleDeletePin}
         />
       )}
 
