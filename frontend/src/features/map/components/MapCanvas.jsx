@@ -5,6 +5,7 @@ import { describeLocation } from '../geocode'
 import { fetchRoute } from '../api'
 import { searchTransit, loadTransitLines, formatMinutes } from '../transit'
 import TransitRoutes from './TransitRoutes'
+import { useTransitRealtime } from '../useTransitRealtime'
 import { loadKakaoMaps } from '../../../lib/kakaoMaps'
 import styles from './MapCanvas.module.css'
 
@@ -230,6 +231,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
   const routePanelRef = useRef(null) // 경로를 화면에 맞출 때 패널 높이만큼 위를 비운다
   const transitLinesCache = useRef(new Map()) // mapObj -> 노선 모양 (후보를 다시 고를 때 재요청하지 않게)
   const [transit, setTransit] = useState(null) // { options, index, origin, dest }
+  const { arrivals, buses } = useTransitRealtime(transit) // 실시간 도착·버스 위치 (TAGO)
+  const busMarkersRef = useRef([])
   const [route, setRoute] = useState(null) // { name, distance, duration } | { name, loading: true }
   const [routeMode, setRouteMode] = useState('car') // 마지막으로 고른 이동 수단을 다음 길찾기에도 쓴다
   const [status, setStatus] = useState('loading') // loading | ready | nokey | error
@@ -560,6 +563,29 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     }
   }, [transit, drawRouteLines])
 
+  // 8) 고른 대중교통 후보의 실시간 버스 위치를 그린다 (갱신마다 다시 그림)
+  useEffect(() => {
+    const maps = window.kakao?.maps
+    const map = mapRef.current
+    busMarkersRef.current.forEach(marker => marker.setMap(null))
+    busMarkersRef.current = []
+    if (!maps || !map || !transit) return
+
+    busMarkersRef.current = buses.map(bus => {
+      const el = document.createElement('div')
+      el.className = styles.busMarker
+      el.style.background = bus.color
+      el.textContent = `🚌 ${bus.name}`
+      el.title = `${bus.name}번 ${bus.vehicleNo} · ${bus.nodeName} 부근`
+      return new maps.CustomOverlay({
+        position: new maps.LatLng(bus.lat, bus.lng),
+        content: anchorContent(el, 0, 0),
+        map,
+        zIndex: 150,
+      })
+    })
+  }, [buses, transit])
+
   const moveToMyLocation = useCallback(async (level = MY_LOCATION_LEVEL) => {
     const maps = window.kakao?.maps
     const map = mapRef.current
@@ -726,6 +752,7 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
               {route.transit && transit && (
                 <TransitRoutes
                   options={transit.options}
+                  arrivals={arrivals}
                   selectedIndex={transit.index}
                   onSelect={index => setTransit(prev => ({ ...prev, index }))}
                 />

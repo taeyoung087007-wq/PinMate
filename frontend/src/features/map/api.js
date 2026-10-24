@@ -33,3 +33,16 @@ export const fetchRoute = (origin, dest, mode = 'car') => {
   })
   return request(`/route?${params}`)
 }
+
+/**
+ * 정류장 실시간 도착 예정 (백엔드가 TAGO 를 대신 호출). stationId·routeIds 는 ODsay 결과 그대로
+ * @returns {Promise<{ cityCode: string | null, arrivals: Array<{ routeId, routeNo, minutes, stopsAway }> }>}
+ */
+export const fetchArrivals = ({ lat, lng, stationId, routeIds }) => {
+  const params = new URLSearchParams({ lat, lng, nodeId: stationId, routeIds: routeIds.join(',') })
+  return request(`/transit/arrivals?${params}`)
+}
+
+/** 노선의 운행 중 버스 위치 [{ lat, lng, vehicleNo, nodeName }] */
+export const fetchBusLocations = (cityCode, routeId) =>
+  request(`/transit/bus-locations?${new URLSearchParams({ cityCode, routeId })}`)
