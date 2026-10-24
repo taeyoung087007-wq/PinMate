@@ -197,12 +197,14 @@ export function loadSubwayTimetable(stationId) {
 /**
  * 시간표에서 now 이후 열차 n개. [{ minutes, destination }]
  * - 시간표의 Idx 는 시(5~25), list 는 "04(판암) 10(판암)…" 형태
- * - 새벽 3시 전이면 전날 시간표의 24·25시 열차로 본다
- * shortcut: 공휴일은 평일 시간표로 계산한다. 정확해야 하면 공휴일 API 를 붙인다
+ * - 새벽 3시 전이면 전날(운행일) 시간표의 24·25시 열차로 본다
+ * - 운행일이 공휴일(holidays: ["2026-03-02", …])이거나 일요일이면 휴일 시간표
  */
-export function nextTrains(table, wayCode, now = new Date(), count = 2) {
-  const day = now.getDay()
-  const list = day === 6 ? table?.SatList : day === 0 ? table?.SunList : table?.OrdList
+export function nextTrains(table, wayCode, now = new Date(), count = 2, holidays = []) {
+  const serviceDay = now.getHours() < 3 ? new Date(now.getTime() - 24 * 60 * MINUTE) : now
+  const day = serviceDay.getDay()
+  const isHoliday = day === 0 || holidays.includes(localDate(serviceDay))
+  const list = isHoliday ? table?.SunList : day === 6 ? table?.SatList : table?.OrdList
   const times = list?.[wayCode === 1 ? 'up' : 'down']?.time ?? []
   let nowMin = now.getHours() * 60 + now.getMinutes()
   if (now.getHours() < 3) nowMin += 24 * 60
@@ -224,4 +226,10 @@ export const seoulSubwayId = subwayCode => (subwayCode >= 1 && subwayCode <= 9 ?
 
 // ODsay 역 이름 → 서울시 API 역 이름 ("서울역" → "서울", "역삼" 은 그대로)
 export const seoulStationName = name => (name ?? '').replace(/역$/, '')
+
+// 로컬 기준 "2026-03-02" (toISOString 은 UTC 라 새벽에 날짜가 하루 밀린다)
+function localDate(date) {
+  const pad = n => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
 

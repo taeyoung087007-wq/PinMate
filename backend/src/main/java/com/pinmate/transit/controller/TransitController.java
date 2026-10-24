@@ -108,6 +108,28 @@ public class TransitController {
 		}
 	}
 
+	// 공휴일. 예: GET /api/holidays?year=2026
+	@ResponseBody
+	@GetMapping("holidays")
+	public Response holidays(@RequestParam("year") int year) {
+		if (year < 2000 || year > 2100) {
+			return Response.invalid("연도가 올바르지 않습니다.");
+		}
+
+		try {
+			return Response.of(Constants.SUCCESS, transitService.selectHolidays(year));
+		} catch (IllegalStateException ise) {
+			logger.error("공휴일 조회 실패 (키 또는 응답 오류)", ise);
+			return Response.of(Constants.FAIL, "공휴일 정보를 불러오지 못했습니다.", null);
+		} catch (RestClientException rce) {
+			logger.error("공휴일 API 호출 중 오류가 발생했습니다.", rce);
+			return Response.of(Constants.FAIL, "공휴일 정보를 불러오지 못했습니다.", null);
+		} catch (Exception e) {
+			logger.error("공휴일 조회 중 알 수 없는 오류가 발생했습니다.", e);
+			return Response.of(Constants.FAIL, "공휴일 정보를 불러오지 못했습니다.", null);
+		}
+	}
+
 	private static boolean isCoord(double lat, double lng) {
 		return Double.isFinite(lat) && Double.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 	}

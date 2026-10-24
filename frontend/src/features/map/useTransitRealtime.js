@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchArrivals, fetchBusLocations, fetchSubwayArrivals } from './api'
+import { fetchArrivals, fetchBusLocations, fetchSubwayArrivals, fetchHolidays } from './api'
 import { loadSubwayTimetable, nextTrains, seoulSubwayId, seoulStationName } from './transit'
 
 // 갱신 주기. TAGO 개발계정 일일 한도를 고려해 너무 자주 부르지 않는다
@@ -44,6 +44,7 @@ export function useTransitRealtime(transit) {
   const [timetables, setTimetables] = useState({}) // { [odsayStationId]: 시간표 }
   const [subwayLive, setSubwayLive] = useState({}) // { [역 이름]: 실시간 도착 목록 }
   const [now, setNow] = useState(() => new Date()) // 시간표 "n분 후" 를 다시 계산하는 시계
+  const [holidays, setHolidays] = useState([]) // 그해 공휴일 (못 받으면 빈 목록 → 평일·주말 시간표만)
   const options = transit?.options
   const index = transit?.index
 
@@ -121,6 +122,15 @@ export function useTransitRealtime(transit) {
     return { ids: [...ids], names: [...names] }
   }, [options])
 
+  // 공휴일: 지하철 구간이 있을 때 그해 것만 한 번 (해가 바뀌는 1월 1일 새벽은 다음 갱신 때 반영)
+  const hasSubway = subwayStations.ids.length > 0
+  useEffect(() => {
+    if (!hasSubway) return
+    let cancelled = false
+    loadHolidays(new Date().getFullYear()).then(list => { if (!cancelled) setHolidays(list) })
+    return () => { cancelled = true }
+  }, [hasSubway])
+
   // 시간표: 역마다 한 번
   useEffect(() => {
     let cancelled = false
@@ -145,7 +155,7 @@ export function useTransitRealtime(transit) {
   // 실시간이 없는 지역도 시간표 "n분 후" 가 흘러가도록
   usePolling(useMemo(() => () => setNow(new Date()), []), ARRIVAL_REFRESH_MS, subwayStations.ids.length > 0)
 
-  const subway = useMemo(() => ({ timetables, live: subwayLive, now }), [timetables, subwayLive, now])
+  const subway = useMemo(() => ({ timetables, live: subwayLive, now, holidays }), [timetables, subwayLive, now, holidays])
   return { arrivals, buses, subway }
 }
 
@@ -168,7 +178,7 @@ export function nextSubway(subway, leg) {
     }
   }
   const table = subway.timetables[leg.odsayStationId]
-  const [next] = table ? nextTrains(table, leg.wayCode, subway.now) : []
+  const [next] = table ? nextTrains(table, leg.wayCode, subway.now, 1, subway.holidays) : []
   if (!next) return null
   return { live: false, text: `${next.destination}행 ${next.minutes <= 0 ? '곧 출발' : `${next.minutes}분 후`}` }
 }
@@ -202,3 +212,16 @@ function subwayWhen(t) {
   // "[20]번째 전역 (성균관대)" → "20번째 전역", "전역 도착" 은 그대로
   return String(t.message ?? '').replace(/\s*\(.*\)\s*$/, '').replace(/\[(\d+)\]/, '$1')
 }
+
+// 공휴일은 연도마다 한 번만 받는다 (실패하면 다음에 다시 시도)
+const holidayRequests = new Map()
+function loadHolidays(year) {
+  if (!holidayRequests.has(year)) {
+    holidayRequests.set(year, fetchHolidays(year).catch(() => {
+      holidayRequests.delete(year)
+      return []
+    }))
+  }
+  return holidayRequests.get(year)
+}
+

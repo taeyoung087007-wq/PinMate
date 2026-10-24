@@ -48,6 +48,18 @@ class TransitServiceImplTest {
     }
 
     @Test
+    @DisplayName("공휴일: isHoliday=Y 만 yyyy-MM-dd 로 (특일정보 실제 응답 형식)")
+    void parsesHolidays() {
+        Map<String, Object> body = body(List.of(
+                Map.of("dateName", "삼일절", "isHoliday", "Y", "locdate", 20260301),
+                Map.of("dateName", "대체공휴일(삼일절)", "isHoliday", "Y", "locdate", 20260302),
+                Map.of("dateName", "기념일", "isHoliday", "N", "locdate", 20260405)));
+
+        assertThat(TransitServiceImpl.parseHolidays(body)).containsExactly("2026-03-01", "2026-03-02");
+        assertThat(TransitServiceImpl.parseHolidays(body(null))).isEmpty();
+    }
+
+    @Test
     @DisplayName("결과가 1건이면 item 이 객체, 0건이면 items 가 빈 문자열로 온다")
     void handlesSingleAndEmpty() {
         Map<String, Object> one = body(Map.of("gpslati", 36.62, "gpslong", 127.51, "vehicleno", "70자5071", "nodenm", "동부종점"));

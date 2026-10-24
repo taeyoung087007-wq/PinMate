@@ -20,10 +20,15 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service("TransitService")
 public class TransitServiceImpl implements TransitService {
 
-	private static final String BASE_URL = "https://apis.data.go.kr/1613000";
-	private static final String NEARBY_STATIONS = "/BusSttnInfoInqireService/getCrdntPrxmtSttnList";
-	private static final String ARRIVALS = "/ArvlInfoInqireService/getSttnAcctoArvlPrearngeInfoList";
-	private static final String BUS_LOCATIONS = "/BusLcInfoInqireService/getRouteAcctoBusLcList";
+	// 공공데이터포털 (TAGO·특일정보 모두 같은 인증키)
+	private static final String BASE_URL = "https://apis.data.go.kr";
+	private static final String NEARBY_STATIONS = "/1613000/BusSttnInfoInqireService/getCrdntPrxmtSttnList";
+	private static final String ARRIVALS = "/1613000/ArvlInfoInqireService/getSttnAcctoArvlPrearngeInfoList";
+	private static final String BUS_LOCATIONS = "/1613000/BusLcInfoInqireService/getRouteAcctoBusLcList";
+	// 한국천문연구원 특일정보: 공휴일(대체공휴일·선거일 포함)
+	private static final String HOLIDAYS = "/B090041/openapi/service/SpcdeInfoService/getRestDeInfo";
+	// 임시공휴일이 추가될 수 있어 하루만 기억한다
+	private static final long HOLIDAY_TTL_MILLIS = 24 * 60 * 60 * 1000L;
 	// 서울시 실시간 지하철 (서울 열린데이터광장, 키가 경로에 들어간다)
 	private static final String SEOUL_SUBWAY_URL = "http://swopenapi.seoul.go.kr/api/subway/%s/json/realtimeStationArrival/0/30/%s";
 
@@ -36,6 +41,11 @@ public class TransitServiceImpl implements TransitService {
 	private final RestClient restClient = RestClient.create();
 
 	private final Map<String, String> cityCodeByNode = new ConcurrentHashMap<>();
+
+	private record CachedHolidays(List<String> dates, long expiresAt) {
+	}
+
+	private final Map<Integer, CachedHolidays> holidaysByYear = new ConcurrentHashMap<>();
 
 	@Value("${tago.service-key:}")
 	private String serviceKey;
@@ -109,6 +119,29 @@ public class TransitServiceImpl implements TransitService {
 		} catch (NumberFormatException e) {
 			return null;
 		}
+	}
+
+	@Override
+	public List<String> selectHolidays(int year) {
+		CachedHolidays cached = holidaysByYear.get(year);
+		if (cached != null && cached.expiresAt() > System.currentTimeMillis()) {
+			return cached.dates();
+		}
+		List<String> dates = parseHolidays(call(HOLIDAYS, Map.of("solYear", String.valueOf(year))));
+		holidaysByYear.put(year, new CachedHolidays(dates, System.currentTimeMillis() + HOLIDAY_TTL_MILLIS));
+		return dates;
+	}
+
+	// isHoliday 가 Y 인 날짜만 "2026-03-02" 형식으로
+	static List<String> parseHolidays(Map<?, ?> body) {
+		List<String> dates = new ArrayList<>();
+		for (Map<?, ?> item : items(body)) {
+			String day = text(item.get("locdate"));
+			if ("Y".equals(text(item.get("isHoliday"))) && day != null && day.length() == 8) {
+				dates.add(day.substring(0, 4) + "-" + day.substring(4, 6) + "-" + day.substring(6, 8));
+			}
+		}
+		return dates;
 	}
 
 	// 정류장 좌표 근처 정류장 중 nodeid 가 같은 것의 citycode. 없으면(TAGO 미제공 지역) null
