@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import {
-  MapPin, List, Plus, Search, Star, Users,
+  MapPin, List, Star, Users,
   ChevronDown, X, Sparkles
 } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
@@ -16,6 +16,7 @@ import {
 } from '../api'
 import { fetchTeams, createTeamApi, joinTeamApi } from '../../teams/api'
 import MapCanvas from '../components/MapCanvas'
+import TopSearch from '../components/TopSearch'
 import PinDetailPanel from '../components/PinDetailPanel'
 import AddPinModal from '../components/AddPinModal'
 import PlaceListPanel from '../components/PlaceListPanel'
@@ -66,7 +67,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
   const [activeCategory, setActiveCategory] = useState('all')
   const [activeMember, setActiveMember] = useState('all')
   const [showOnlyApproved, setShowOnlyApproved] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [focusPlace, setFocusPlace] = useState(null) // 상단 검색에서 고른 장소 (지도에 말풍선)
 
   // 1. 내 모임 목록 로드
   useEffect(() => {
@@ -102,15 +103,9 @@ export default function MapPage({ initialTeamId, onLogout }) {
       if (activeCategory !== 'all' && pin.category !== activeCategory) return false
       if (activeMember !== 'all' && !pin.recommenders.includes(activeMember)) return false
       if (showOnlyApproved && !pin.isAllApproved) return false
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase()
-        const matchesName = pin.name?.toLowerCase().includes(q)
-        const matchesAddr = pin.address?.toLowerCase().includes(q)
-        if (!matchesName && !matchesAddr) return false
-      }
       return true
     })
-  }, [pins, activeCategory, activeMember, showOnlyApproved, searchQuery])
+  }, [pins, activeCategory, activeMember, showOnlyApproved])
 
   // 현재 모임 정보
   const currentTeam = teams.find(t => String(t.id) === String(selectedTeamId)) || teamDetail
@@ -223,6 +218,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
           selectedPin={selectedPin}
           onAddAtLocation={place => { setPickedPlace(place); setShowAddPinModal(true) }}
           onRouteTo={place => { setRouteTarget(place); setSelectedPin(null); setShowListPanel(false) }}
+          focusPlace={focusPlace}
           routeTarget={routeTarget}
           onClearRoute={() => setRouteTarget(null)}
         />
@@ -244,21 +240,23 @@ export default function MapPage({ initialTeamId, onLogout }) {
             <ChevronDown size={14} className={styles.teamArrow} />
           </button>
 
-          {/* 인라인 검색창 */}
-          <div className={styles.searchBox}>
-            <Search size={14} className={styles.searchIcon} />
-            <input
-              className={styles.searchInput}
-              placeholder="장소명, 주소 검색..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && (
-              <button className={styles.searchClear} onClick={() => setSearchQuery('')}>
-                <X size={12} />
-              </button>
-            )}
-          </div>
+          {/* 검색: 우리 모임 장소 + 상호명·주소 */}
+          <TopSearch
+            pins={pins}
+            onSelectPin={pin => { setSelectedPin(pin); setShowListPanel(false) }}
+            onPickPlace={place => { setSelectedPin(null); setFocusPlace({ ...place, key: Date.now() }) }}
+          />
+
+          {/* 장소 목록 */}
+          <button
+            className={styles.listBtn}
+            onClick={() => setShowListPanel(p => !p)}
+            title="장소 목록 보기"
+            aria-label="장소 목록 보기"
+            aria-pressed={showListPanel}
+          >
+            <List size={18} />
+          </button>
         </div>
 
         {/* 가로 스크롤 카테고리 & 멤버 칩 */}
@@ -323,27 +321,6 @@ export default function MapPage({ initialTeamId, onLogout }) {
           <button onClick={() => setError('')} className={styles.errorClose}><X size={12} /></button>
         </div>
       )}
-
-      {/* 3. 우측 플로팅 액션 버튼 (FAB & 목록). 핀 상세가 열려 있으면 패널 버튼을 가리므로 숨긴다 */}
-      {!selectedPin && <div className={styles.floatingActions}>
-        <button
-          className={styles.listFab}
-          onClick={() => setShowListPanel(p => !p)}
-          title="장소 목록 보기"
-        >
-          <List size={18} />
-          <span>목록</span>
-        </button>
-
-        <button
-          className={styles.addFab}
-          onClick={() => { setPickedPlace(null); setShowAddPinModal(true) }}
-          title="새 장소 추가"
-        >
-          <Plus size={20} strokeWidth={2.6} />
-          <span>장소 추가</span>
-        </button>
-      </div>}
 
       {/* 4. 장소 상세 정보 패널 (하단 바텀시트) */}
       {selectedPin && (

@@ -31,6 +31,8 @@
 }
 
 .topCard {
+  position: relative; /* 검색 결과 목록의 기준 */
+  z-index: 2; /* 결과 목록이 아래 카테고리 칩 위에 오도록 */
   pointer-events: auto;
   display: flex;
   align-items: center;
@@ -46,6 +48,9 @@
 
 /* 모임 전환 버튼 */
 .teamSwitchBtn {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 45%;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -84,60 +89,6 @@
 }
 
 /* 검색창 */
-.searchBox {
-  flex: 1;
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-.searchIcon {
-  position: absolute;
-  left: 10px;
-  color: var(--text-muted);
-  pointer-events: none;
-}
-
-.searchInput {
-  width: 100%;
-  height: 36px;
-  padding: 0 28px 0 32px;
-  border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid transparent;
-  color: var(--text-primary);
-  font-size: 13px;
-  font-family: var(--font-base);
-  outline: none;
-  transition: all var(--transition);
-}
-
-.searchInput:focus {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--primary-light);
-  box-shadow: 0 0 12px var(--primary-glow);
-}
-
-.searchInput::placeholder {
-  color: var(--text-muted);
-}
-
-.searchClear {
-  position: absolute;
-  right: 8px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--border-strong);
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border: none;
-}
-
 /* 가로 스크롤 필터 칩 영역 */
 .chipsScroll {
   pointer-events: auto;
@@ -240,72 +191,35 @@
 }
 
 /* 3. 우측 플로팅 액션 버튼 (FAB) */
-.floatingActions {
-  position: absolute;
-  right: 18px;
-  bottom: 84px; /* 하단 내비게이션 바(64px) 바로 위 */
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 12px;
-  z-index: 25;
-  pointer-events: auto;
-}
-
-.listFab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: var(--radius-full);
-  background: rgba(18, 19, 31, 0.9);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border-strong);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.listFab:hover {
-  background: var(--bg-hover);
-  border-color: var(--primary-light);
-  transform: translateY(-2px);
-}
-
-.listFab:active {
-  transform: scale(0.96);
-}
-
-.addFab {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  border-radius: var(--radius-full);
-  background: linear-gradient(135deg, #6C63FF 0%, #FF6B9D 100%);
-  color: white;
-  font-size: 14px;
-  font-weight: 700;
-  box-shadow: 0 8px 24px var(--primary-glow);
-  border: none;
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.addFab:hover {
-  transform: translateY(-2px) scale(1.03);
-  box-shadow: 0 12px 28px rgba(108, 99, 255, 0.5);
-}
-
-.addFab:active {
-  transform: scale(0.96);
-}
-
 @keyframes fadeIn {
   from { opacity: 0; transform: translate(-50%, -8px); }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
+
+/* 상단바 오른쪽 장소 목록 버튼 */
+.listBtn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.listBtn:hover,
+.listBtn[aria-pressed='true'] {
+  border-color: var(--primary-light);
+  background: var(--bg-hover);
+}
+
+.listBtn:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}
+

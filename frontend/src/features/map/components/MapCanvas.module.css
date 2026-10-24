@@ -485,6 +485,40 @@
   gap: 8px;
 }
 
+.routeSide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.routeSwap {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.routeSwap:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--primary-light);
+}
+
+.routeSwap:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.routeSwap:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}
+
 .routeEnds {
   flex: 1;
   min-width: 0;

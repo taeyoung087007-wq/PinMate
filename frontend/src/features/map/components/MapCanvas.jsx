@@ -5,7 +5,7 @@ import { describeLocation } from '../geocode'
 import { fetchRoute } from '../api'
 import { searchTransit, loadTransitLines, formatMinutes, WALK_COLOR } from '../transit'
 import TransitRoutes from './TransitRoutes'
-import OriginInput from './OriginInput'
+import PlaceInput from './PlaceInput'
 import { useTransitRealtime } from '../useTransitRealtime'
 import { loadKakaoMaps } from '../../../lib/kakaoMaps'
 import styles from './MapCanvas.module.css'
@@ -227,9 +227,10 @@ function createPinOverlay(maps, map, { pin, meta, memberColor, isSelected }) {
  * - 지도 생성·이동·줌은 SDK에 맡기고, 이 컴포넌트는 핀(오버레이)만 그린다
  * - props: pins(필터링된 핀), members(멤버 색상 조회용), onSelectPin, selectedPin,
  *          onAddAtLocation(지도에서 고른 위치로 장소 추가: { name, address, lat, lng }),
- *          onRouteTo(지도에서 고른 장소로 길찾기: { name, lat, lng })
+ *          onRouteTo(지도에서 고른 장소로 길찾기: { name, lat, lng }),
+ *          focusPlace(상단 검색에서 고른 장소: 지도를 옮기고 말풍선을 띄운다)
  */
-export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onAddAtLocation, onRouteTo, routeTarget, onClearRoute }) {
+export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onAddAtLocation, onRouteTo, routeTarget, onClearRoute, focusPlace }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef(new Map()) // pinId -> { marker, pin, meta, memberColor }
@@ -269,8 +270,9 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     pickedMarkerRef.current = null
   }, [])
 
-  // 지도 빈 곳을 누르면 그 자리에 우리 마커를 찍고 주소를 붙인다
-  const pickLocation = useCallback((maps, map, coord) => {
+  // 지도 빈 곳을 누르면 그 자리에 우리 마커를 찍고 주소를 붙인다.
+  // known 이 있으면(상단 검색에서 고른 장소) 조회 없이 그 정보를 쓴다
+  const pickLocation = useCallback((maps, map, coord, known = null) => {
     clearPick()
     let place = { name: '', address: '', lat: coord.getLat(), lng: coord.getLng() }
     const { el, card, setInfo } = createPickedElement({
@@ -301,7 +303,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
       ((bounds.getNorthEast().getLat() - bounds.getSouthWest().getLat()) * 111_320) / height
     const tapMeters = Math.min(80, Math.max(10, TAP_RADIUS_PX * metersPerPx))
 
-    describeLocation(place.lat, place.lng, { tapMeters })
+    const lookup = known ? Promise.resolve(known) : describeLocation(place.lat, place.lng, { tapMeters })
+    lookup
       .then(info => {
         if (!isCurrent()) return
         place = { name: info.name || '', address: info.address || '', lat: info.lat, lng: info.lng }
@@ -459,6 +462,23 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
   // 4) 핀 전체 보기는 우측 하단 버튼(resetView)으로만 한다.
   //    첫 진입은 항상 내 위치(없으면 서울)로 열어야 해서 자동 fitBounds 는 하지 않는다.
 
+  // 상단 검색에서 장소를 고르면 그 자리로 이동해 말풍선(길찾기·장소 추가)을 띄운다
+  useEffect(() => {
+    const maps = window.kakao?.maps
+    const map = mapRef.current
+    if (!maps || !map || !focusPlace || status !== 'ready') return
+    const position = new maps.LatLng(focusPlace.lat, focusPlace.lng)
+    if (map.getLevel() > MY_LOCATION_LEVEL) map.setLevel(MY_LOCATION_LEVEL)
+    map.setCenter(position)
+    pickLocation(maps, map, position, {
+      name: focusPlace.name,
+      category: focusPlace.category ?? '',
+      address: focusPlace.address ?? '',
+      lat: focusPlace.lat,
+      lng: focusPlace.lng,
+    })
+  }, [focusPlace, status, pickLocation])
+
   // 5) 목록 패널 등에서 고른 핀이 화면 밖이면 그쪽으로 이동
   useEffect(() => {
     const maps = window.kakao?.maps
@@ -502,34 +522,50 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
   }, [clearRouteLines])
 
   // 내 위치를 출발지로. 위치를 못 받으면 출발지를 비우고 이유를 남긴다 (직접 입력하게)
-  const locateOrigin = useCallback(async () => {
+  // 내 위치 { name: '내 위치', lat, lng, mine } 또는 { error } (위치 권한 거부 등)
+  const getHere = useCallback(async () => {
     const maps = window.kakao?.maps
-    setOriginLocating(true)
     let here = myLocationRef.current
     if (!here) {
       const result = await getMyLocation(true)
-      if (result.ok && maps) {
-        here = new maps.LatLng(result.lat, result.lng)
-        myLocationRef.current = here
-      } else {
-        setOriginNote(result.ok ? '' : `${locationErrorMessage(result.code).split('.')[0]} · 출발지를 입력하세요`)
-      }
+      if (!result.ok || !maps) return { error: locationErrorMessage(result.code).split('.')[0] }
+      here = new maps.LatLng(result.lat, result.lng)
+      myLocationRef.current = here
     }
-    setOriginLocating(false)
-    if (here) {
-      setOriginNote('')
-      setRouteOrigin({ name: '내 위치', lat: here.getLat(), lng: here.getLng(), mine: true })
-    } else {
-      setRouteOrigin(null)
-    }
+    return { name: '내 위치', lat: here.getLat(), lng: here.getLng(), mine: true }
   }, [])
 
-  // 새 목적지로 길찾기를 시작하면 출발지는 내 위치부터 시도한다
+  const locateOrigin = useCallback(async () => {
+    setOriginLocating(true)
+    const here = await getHere()
+    setOriginLocating(false)
+    setOriginNote(here.error ? `${here.error} · 출발지를 입력하세요` : '')
+    setRouteOrigin(here.error ? null : here)
+  }, [getHere])
+
+  // 도착지를 내 위치로 (📍)
+  const destToMyLocation = useCallback(async () => {
+    const here = await getHere()
+    if (here.error) setLocateError(here.error)
+    else onRouteToRef.current?.(here)
+  }, [getHere])
+
+  // 출발 ⇄ 도착 바꾸기 (출발지가 비어 있으면 바꿀 수 없다)
+  const swapEnds = () => {
+    if (!routeOrigin || !routeTarget) return
+    const { name, lat, lng, mine } = routeTarget
+    onRouteToRef.current?.(routeOrigin)
+    setRouteOrigin({ name, lat, lng, mine: Boolean(mine) })
+  }
+
+  // 길찾기를 처음 열 때만 출발지를 내 위치로 시도한다.
+  // 열린 상태에서 도착지를 바꾸거나 출발·도착을 바꿀 때는 출발지를 그대로 둔다
+  const routeOpen = Boolean(routeTarget)
   useEffect(() => {
     setRouteOrigin(null)
     setOriginNote('')
-    if (routeTarget && status === 'ready') locateOrigin()
-  }, [routeTarget, status, locateOrigin])
+    if (routeOpen && status === 'ready') locateOrigin()
+  }, [routeOpen, status, locateOrigin])
 
   // 6) 길찾기: 출발지 → routeTarget 까지 routeMode 경로를 찾는다. routeTarget 이 없어지면 지운다
   useEffect(() => {
@@ -775,7 +811,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
                 <div className={styles.routeEnds}>
                   <div className={styles.routeEnd}>
                     <span className={styles.routeEndLabel}>출발</span>
-                    <OriginInput
+                    <PlaceInput
+                      label="출발지"
                       value={routeOrigin}
                       onChange={setRouteOrigin}
                       onUseMyLocation={locateOrigin}
@@ -785,17 +822,34 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
                   </div>
                   <div className={styles.routeEnd}>
                     <span className={styles.routeEndLabel}>도착</span>
-                    <span className={styles.routeName}>{route.name}</span>
+                    <PlaceInput
+                      label="도착지"
+                      value={routeTarget}
+                      onChange={place => onRouteToRef.current?.(place)}
+                      onUseMyLocation={destToMyLocation}
+                    />
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className={styles.routeClose}
-                  onClick={() => onClearRoute?.()}
-                  aria-label="길찾기 닫기"
-                >
-                  ×
-                </button>
+                <div className={styles.routeSide}>
+                  <button
+                    type="button"
+                    className={styles.routeClose}
+                    onClick={() => onClearRoute?.()}
+                    aria-label="길찾기 닫기"
+                  >
+                    ×
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.routeSwap}
+                    onClick={swapEnds}
+                    disabled={!routeOrigin}
+                    aria-label="출발지와 도착지 바꾸기"
+                    title="출발지와 도착지 바꾸기"
+                  >
+                    ⇅
+                  </button>
+                </div>
               </div>
               <div className={styles.routeBody}>
                 <div className={styles.routeTabs} role="tablist" aria-label="이동 수단">

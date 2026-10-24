@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react'
 import { searchPlaces } from '../places'
 import { geocode } from '../geocode'
-import styles from './OriginInput.module.css'
+import styles from './PlaceInput.module.css'
 
 // 입력이 멈추고 이만큼 지나면 검색한다 (글자마다 검색하지 않게)
 const SEARCH_DELAY_MS = 300
 
 /**
- * 길찾기 출발지 입력
- * - GPS 를 허용했으면 "내 위치" 가 들어 있고, 허용 안 했으면 비어 있다
- * - 눌러서 장소명·주소로 검색해 바꿀 수 있고, 📍 로 다시 내 위치로 돌아간다
+ * 길찾기 출발지·도착지 입력
+ * - 눌러서 장소명·주소로 검색해 바꿀 수 있고, 📍 로 내 위치를 넣는다
+ * - 출발지는 GPS 를 허용했으면 "내 위치" 가 들어 있고, 허용 안 했으면 비어 있다
  * @param {{ name, lat, lng, mine?: boolean } | null} value
  */
-export default function OriginInput({ value, onChange, onUseMyLocation, locating, note }) {
+export default function PlaceInput({ value, onChange, onUseMyLocation, locating, note, label = '출발지' }) {
   const [editing, setEditing] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
@@ -64,12 +64,12 @@ export default function OriginInput({ value, onChange, onUseMyLocation, locating
           onKeyDown={e => e.key === 'Escape' && setEditing(false)}
           // 결과를 누를 시간을 주고 닫는다
           onBlur={() => setTimeout(() => setEditing(false), 150)}
-          placeholder="출발지 장소명·주소 검색"
-          aria-label="출발지 검색"
+          placeholder={`${label} 장소명·주소 검색`}
+          aria-label={`${label} 검색`}
         />
       ) : (
         <button type="button" className={`${styles.input} ${styles.display}`} onClick={startEditing}>
-          {value ? value.name : <span className={styles.placeholder}>{note || '출발지를 입력하세요'}</span>}
+          {value ? value.name : <span className={styles.placeholder}>{note || `${label}를 입력하세요`}</span>}
         </button>
       )}
 
@@ -78,14 +78,14 @@ export default function OriginInput({ value, onChange, onUseMyLocation, locating
         className={`${styles.myLocation} ${value?.mine ? styles.myLocationOn : ''}`}
         onClick={onUseMyLocation}
         disabled={locating}
-        aria-label="내 위치를 출발지로"
-        title="내 위치를 출발지로"
+        aria-label={`내 위치를 ${label}로`}
+        title={`내 위치를 ${label}로`}
       >
         {locating ? '…' : '📍'}
       </button>
 
       {editing && query.trim() && (
-        <ul className={styles.results} role="listbox" aria-label="출발지 검색 결과">
+        <ul className={styles.results} role="listbox" aria-label={`${label} 검색 결과`}>
           {searching && results.length === 0 && <li className={styles.empty}>검색 중…</li>}
           {!searching && results.length === 0 && <li className={styles.empty}>결과가 없어요</li>}
           {results.map((place, i) => (
