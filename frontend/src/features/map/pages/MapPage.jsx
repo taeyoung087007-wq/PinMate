@@ -222,6 +222,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
           onSelectPin={setSelectedPin}
           selectedPin={selectedPin}
           onAddAtLocation={place => { setPickedPlace(place); setShowAddPinModal(true) }}
+          onRouteTo={place => { setRouteTarget(place); setSelectedPin(null); setShowListPanel(false) }}
           routeTarget={routeTarget}
           onClearRoute={() => setRouteTarget(null)}
         />

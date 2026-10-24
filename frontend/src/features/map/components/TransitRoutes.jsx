@@ -8,7 +8,7 @@ import styles from './TransitRoutes.module.css'
  * - 고른 카드는 세로 타임라인으로 펼친다 (승차·하차 정류장, 방면, 출구, 환승, 실시간 도착)
  * - 도착 정보: 버스는 TAGO 실시간, 지하철은 수도권 실시간(없으면 시간표)
  */
-export default function TransitRoutes({ options, selectedIndex, onSelect, arrivals = {}, subway, destName = '도착' }) {
+export default function TransitRoutes({ options, selectedIndex, onSelect, arrivals = {}, subway, originName = '내 위치', destName = '도착' }) {
   return (
     <ul className={styles.list}>
       {options.map((option, index) => {
@@ -33,7 +33,7 @@ export default function TransitRoutes({ options, selectedIndex, onSelect, arriva
               {firstRide && <Arrival info={legArrival(firstRide, arrivals, subway)} />}
             </button>
 
-            {selected && <Timeline legs={option.legs} arrivals={arrivals} subway={subway} destName={destName} />}
+            {selected && <Timeline legs={option.legs} arrivals={arrivals} subway={subway} originName={originName} destName={destName} />}
           </li>
         )
       })}
@@ -70,14 +70,14 @@ function SegmentBar({ legs, total }) {
 }
 
 /** 세로 타임라인: 출발 → (도보 → 승차 → n개 정류장 → 하차)… → 도착 */
-function Timeline({ legs, arrivals, subway, destName }) {
+function Timeline({ legs, arrivals, subway, originName, destName }) {
   const firstRide = legs.findIndex(leg => leg.kind !== 'walk')
   const lastRide = legs.findLastIndex(leg => leg.kind !== 'walk')
   return (
     <ol className={styles.timeline}>
       <li className={styles.node}>
         <span className={styles.nodeDot} aria-hidden="true" />
-        <span className={styles.nodeTitle}>출발 · 내 위치</span>
+        <span className={styles.nodeTitle}>출발 · {originName}</span>
       </li>
 
       {legs.map((leg, i) => {

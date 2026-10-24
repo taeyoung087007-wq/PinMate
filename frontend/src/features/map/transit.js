@@ -5,6 +5,9 @@
  */
 const BASE_URL = 'https://api.odsay.com/v1/api'
 
+// 도보 구간 색. 도보 길찾기와 대중교통 안의 도보 구간을 같은 색(청록 점선)으로 그린다
+export const WALK_COLOR = '#14B8A6'
+
 // ODsay 오류 코드 → 사용자 문구
 const ERROR_MESSAGE = {
   '-98': '출발지와 도착지가 700m 이내라 대중교통 경로가 없어요. 도보를 이용해 보세요.',

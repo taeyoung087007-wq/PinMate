@@ -16,7 +16,7 @@ import org.springframework.web.client.RestClientException;
 import java.util.Map;
 
 // 길찾기. 로그인 필요(/api/** 인터셉터). 예: GET /api/route?mode=walk&originLat=..&originLng=..&destLat=..&destLng=..
-// mode: car(기본), walk
+// mode: car(기본), walk, bike (자전거는 공개 API 가 없어 도보 경로 + 자전거 속도로 시간을 추정한다)
 @RequestMapping(value = "/api/")
 @Controller
 public class RouteController {
@@ -37,7 +37,8 @@ public class RouteController {
 		if (!isCoord(originLat, originLng) || !isCoord(destLat, destLng)) {
 			return Response.invalid("좌표가 올바르지 않습니다.");
 		}
-		boolean walk = "walk".equals(mode);
+		boolean bike = "bike".equals(mode);
+		boolean walk = "walk".equals(mode) || bike;
 		if (!walk && !"car".equals(mode)) {
 			return Response.invalid("지원하지 않는 이동 수단입니다.");
 		}
@@ -48,6 +49,10 @@ public class RouteController {
 			Map<String, Object> data = walk
 					? routeService.selectWalkRoute(originLat, originLng, destLat, destLng)
 					: routeService.selectCarRoute(originLat, originLng, destLat, destLng);
+			if (bike && data != null) {
+				data.put("duration", bikeSeconds(((Number) data.get("distance")).intValue()));
+				data.put("estimated", true);
+			}
 			result = (data == null)
 					? Response.of(Constants.NOT_FOUND, "경로를 찾지 못했습니다. 출발지와 도착지가 너무 가깝거나 갈 수 있는 길이 없습니다.", null)
 					: Response.of(Constants.SUCCESS, data);
@@ -63,6 +68,11 @@ public class RouteController {
 		}
 
 		return result;
+	}
+
+	// shortcut: 자전거 시간은 도보 경로 거리를 시속 15km 로 나눈 추정값. 자전거 길찾기 API 가 생기면 바꾼다
+	static int bikeSeconds(int meters) {
+		return (int) Math.round(meters / (15_000d / 3600));
 	}
 
 	private static boolean isCoord(double lat, double lng) {
