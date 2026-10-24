@@ -65,8 +65,27 @@ function toLeg(sub) {
     // 실시간 도착(TAGO)에 쓰는 공공 ID
     stationId: sub.startLocalStationID ?? null,
     routeIds: isBus ? lanes.map(l => l.busLocalBlID).filter(Boolean) : [],
+    // 네이버 지도식 상세 안내용
+    // 막대·배지에는 방면을 뺀 번호만 ("1003(반석역방면)" → "1003")
+    badge: isBus ? (lanes[0]?.busNo ?? '').replace(/\s*\(.*\)\s*$/, '') : subwayBadge(lanes[0]?.name),
+    way: sub.way ?? null, // 지하철 방면 (예: "충무로")
+    startExit: validExit(sub.startExitNo),
+    endExit: validExit(sub.endExitNo),
+    interval: sub.intervalTime ?? null, // 배차 간격(분)
+    stopNo: sub.startArsID ?? null, // 버스 정류장 번호 (예: "02151")
   }
 }
+
+// "수도권 4호선" → "4", "수도권 신분당선" → "신분당"
+function subwayBadge(name) {
+  if (!name) return ''
+  const line = name.match(/(\d+)호선/)
+  if (line) return line[1]
+  return name.replace(/^(수도권|대전|대구|부산|광주)\s*/, '').replace(/선$/, '')
+}
+
+// ODsay 는 출구가 없으면 "null" 문자열을 주기도 한다
+const validExit = no => (no && no !== 'null' ? no : null)
 
 /**
  * 대중교통 경로 후보 (ODsay 추천 순서 그대로)

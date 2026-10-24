@@ -6,16 +6,17 @@
   flex-direction: column;
   gap: 6px;
   /* 지도가 너무 가려지지 않게 목록 높이를 제한한다 */
-  max-height: min(34vh, 340px);
+  max-height: min(42vh, 420px);
   overflow-y: auto;
 }
 
+/* ── 경로 카드 ── */
 .card {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 9px 10px;
+  gap: 5px;
+  padding: 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-elevated);
@@ -43,14 +44,18 @@
 
 .summary {
   display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
-  gap: 2px 8px;
+  gap: 8px;
 }
 
 .time {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.arriveAt {
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .meta {
@@ -58,59 +63,194 @@
   color: var(--text-secondary);
 }
 
-.chips {
+/* 구간별 시간 비율 막대 */
+.bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  align-items: center;
+  gap: 2px;
+  margin-top: 3px;
 }
 
-.chip {
-  padding: 2px 8px;
+.barWalk,
+.barRide {
+  min-width: 10px;
   border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.barWalk {
+  height: 6px;
+  background: repeating-linear-gradient(90deg, var(--text-muted) 0 3px, transparent 3px 6px);
+  opacity: 0.7;
+}
+
+.barRide {
+  min-width: 22px;
+  height: 20px;
+  gap: 3px;
+  padding: 0 2px;
   color: #fff;
+}
+
+.barBadge {
+  flex-shrink: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: var(--radius-full);
+  background: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+}
+
+.barText {
+  min-width: 0;
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.more {
-  font-weight: 500;
-  opacity: 0.85;
+.barLabel {
+  flex-shrink: 0;
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
-.steps {
+/* ── 펼친 상세: 세로 타임라인 ── */
+.timeline {
   list-style: none;
-  margin: 6px 0 2px;
-  padding: 0 4px 0 6px;
+  margin: 8px 0 4px;
+  padding: 0 4px 0 2px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
-}
-
-.step {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
   font-size: 12px;
   line-height: 1.45;
   color: var(--text-primary);
 }
 
-.stepDot {
-  width: 8px;
-  height: 8px;
-  margin-top: 5px;
+.node {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.nodeDot {
+  width: 12px;
+  height: 12px;
+  margin-left: 4px;
   border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.25);
   flex-shrink: 0;
 }
 
-.stepText {
+.nodeDotEnd {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.25);
+}
+
+.nodeTitle {
+  font-weight: 700;
+  word-break: keep-all;
+}
+
+/* 도보 구간: 점선 세로줄 */
+.walk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+}
+
+.walkLine {
+  align-self: stretch;
+  width: 0;
+  margin-left: 9px;
+  margin-right: 5px;
+  border-left: 2px dotted var(--text-muted);
+  flex-shrink: 0;
+}
+
+.walkText {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.transfer {
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 186, 8, 0.18);
+  color: var(--warning);
+  font-size: 11px;
+}
+
+/* 탈것 구간: 노선 색 세로줄 (--line 은 인라인으로 넣는다) */
+.ride {
+  display: flex;
+  flex-direction: column;
+}
+
+.rideStop {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.rideBadge {
+  flex-shrink: 0;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+}
+
+.rideEndDot {
+  width: 12px;
+  height: 12px;
+  margin: 3px 4px 0;
+  border: 3px solid;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  flex-shrink: 0;
+}
+
+.rideTitle {
   min-width: 0;
   word-break: keep-all;
 }
 
-.stepSub {
+.rideBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 9px;
+  padding: 6px 0 6px 15px;
+  border-left: 4px solid var(--line, var(--primary));
+}
+
+.rideLine {
+  font-weight: 700;
+}
+
+.sub {
   color: var(--text-muted);
+  font-weight: 400;
 }
 
 /* 실시간 도착 (TAGO) */
@@ -121,10 +261,6 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--success);
-}
-
-.step .live {
-  margin-top: 2px;
 }
 
 .liveDot {
@@ -142,4 +278,3 @@
 @media (prefers-reduced-motion: reduce) {
   .liveDot { animation: none; }
 }
-

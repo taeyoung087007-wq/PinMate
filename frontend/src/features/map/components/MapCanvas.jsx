@@ -753,6 +753,7 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
                 <TransitRoutes
                   options={transit.options}
                   arrivals={arrivals}
+                  destName={route.name}
                   selectedIndex={transit.index}
                   onSelect={index => setTransit(prev => ({ ...prev, index }))}
                 />
