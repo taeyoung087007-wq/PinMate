@@ -30,3 +30,7 @@ kakao:
 # TMAP 앱 키 (도보 길찾기). 없으면 도보 길찾기만 실패한다
 tmap:
   app-key: ${TMAP_APP_KEY:}
+
+# 공공데이터포털 인증키 Decoding 값 (실시간 버스 도착·위치). 없으면 실시간 정보만 안 나온다
+tago:
+  service-key: ${TAGO_SERVICE_KEY:}
