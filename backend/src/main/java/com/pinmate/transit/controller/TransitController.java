@@ -29,6 +29,8 @@ public class TransitController {
 	// TAGO ID 형식 (예: CJB270000636, 33010). 그대로 외부 API 쿼리에 들어가므로 형식을 제한한다
 	private static final Pattern ID = Pattern.compile("[A-Za-z0-9]{1,30}");
 	private static final int MAX_ROUTES = 10;
+	// 역 이름: 한글·영문·숫자·괄호·점·가운뎃점만 (예: "총신대입구(이수)", "디지털미디어시티")
+	private static final Pattern STATION_NAME = Pattern.compile("[가-힣A-Za-z0-9().·]+");
 
 	@Resource(name = "TransitService")
 	private TransitService transitService;
@@ -80,6 +82,29 @@ public class TransitController {
 		} catch (Exception e) {
 			logger.error("버스 위치 조회 중 알 수 없는 오류가 발생했습니다.", e);
 			return Response.of(Constants.FAIL, "버스 위치를 불러오지 못했습니다.", null);
+		}
+	}
+
+	// 수도권 지하철 실시간 도착. 예: GET /api/transit/subway-arrivals?station=서울
+	@ResponseBody
+	@GetMapping("transit/subway-arrivals")
+	public Response subwayArrivals(@RequestParam("station") String station) {
+		String name = station.trim();
+		if (name.isEmpty() || name.length() > 30 || !STATION_NAME.matcher(name).matches()) {
+			return Response.invalid("역 이름이 올바르지 않습니다.");
+		}
+
+		try {
+			return Response.of(Constants.SUCCESS, transitService.selectSubwayArrivals(name));
+		} catch (IllegalStateException ise) {
+			logger.error("지하철 실시간 도착 조회 실패 (키 또는 응답 오류)", ise);
+			return Response.of(Constants.FAIL, "지하철 실시간 도착 정보를 불러오지 못했습니다.", null);
+		} catch (RestClientException rce) {
+			logger.error("지하철 실시간 도착 API 호출 중 오류가 발생했습니다.", rce);
+			return Response.of(Constants.FAIL, "지하철 실시간 도착 정보를 불러오지 못했습니다.", null);
+		} catch (Exception e) {
+			logger.error("지하철 실시간 도착 조회 중 알 수 없는 오류가 발생했습니다.", e);
+			return Response.of(Constants.FAIL, "지하철 실시간 도착 정보를 불러오지 못했습니다.", null);
 		}
 	}
 

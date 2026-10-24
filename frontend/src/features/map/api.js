@@ -46,3 +46,7 @@ export const fetchArrivals = ({ lat, lng, stationId, routeIds }) => {
 /** 노선의 운행 중 버스 위치 [{ lat, lng, vehicleNo, nodeName }] */
 export const fetchBusLocations = (cityCode, routeId) =>
   request(`/transit/bus-locations?${new URLSearchParams({ cityCode, routeId })}`)
+
+/** 수도권 지하철 역 실시간 도착 [{ subwayId, direction, destination, seconds, message, express }] */
+export const fetchSubwayArrivals = (station) =>
+  request(`/transit/subway-arrivals?${new URLSearchParams({ station })}`)

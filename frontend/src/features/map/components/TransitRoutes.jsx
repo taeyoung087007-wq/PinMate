@@ -1,18 +1,19 @@
 import { formatMinutes } from '../transit'
-import { nextArrival, formatArrival } from '../useTransitRealtime'
+import { nextArrival, formatArrival, nextSubway } from '../useTransitRealtime'
 import styles from './TransitRoutes.module.css'
 
 /**
  * 대중교통 경로 후보 목록 (길찾기 패널 안). 네이버 지도처럼
  * - 카드: 총 시간 · 도착 예정 시각, 환승 · 요금 · 도보, 구간별 시간 비율 막대
  * - 고른 카드는 세로 타임라인으로 펼친다 (승차·하차 정류장, 방면, 출구, 환승, 실시간 도착)
+ * - 도착 정보: 버스는 TAGO 실시간, 지하철은 수도권 실시간(없으면 시간표)
  */
-export default function TransitRoutes({ options, selectedIndex, onSelect, arrivals = {}, destName = '도착' }) {
+export default function TransitRoutes({ options, selectedIndex, onSelect, arrivals = {}, subway, destName = '도착' }) {
   return (
     <ul className={styles.list}>
       {options.map((option, index) => {
         const selected = index === selectedIndex
-        const firstBus = option.legs.find(leg => leg.kind === 'bus')
+        const firstRide = option.legs.find(leg => leg.kind !== 'walk')
         return (
           <li key={`${option.mapObj}-${index}`}>
             <button
@@ -29,10 +30,10 @@ export default function TransitRoutes({ options, selectedIndex, onSelect, arriva
                 {option.transfers > 0 ? `환승 ${option.transfers}회` : '환승 없음'} · {option.payment.toLocaleString()}원 · 도보 {option.walkMinutes}분
               </span>
               <SegmentBar legs={option.legs} total={option.totalMinutes} />
-              {firstBus && <LiveArrival arrival={nextArrival(arrivals, firstBus)} />}
+              {firstRide && <Arrival info={legArrival(firstRide, arrivals, subway)} />}
             </button>
 
-            {selected && <Timeline legs={option.legs} arrivals={arrivals} destName={destName} />}
+            {selected && <Timeline legs={option.legs} arrivals={arrivals} subway={subway} destName={destName} />}
           </li>
         )
       })}
@@ -69,7 +70,7 @@ function SegmentBar({ legs, total }) {
 }
 
 /** 세로 타임라인: 출발 → (도보 → 승차 → n개 정류장 → 하차)… → 도착 */
-function Timeline({ legs, arrivals, destName }) {
+function Timeline({ legs, arrivals, subway, destName }) {
   const firstRide = legs.findIndex(leg => leg.kind !== 'walk')
   const lastRide = legs.findLastIndex(leg => leg.kind !== 'walk')
   return (
@@ -95,7 +96,6 @@ function Timeline({ legs, arrivals, destName }) {
           )
         }
 
-        const arrival = leg.kind === 'bus' ? nextArrival(arrivals, leg) : null
         return (
           <li key={i} className={styles.ride} style={{ '--line': leg.color }}>
             <div className={styles.rideStop}>
@@ -120,7 +120,7 @@ function Timeline({ legs, arrivals, destName }) {
                 {leg.stationCount}{leg.kind === 'subway' ? '개 역' : '개 정류장'} · {leg.minutes}분
                 {leg.interval ? ` · 배차 ${leg.interval}분` : ''}
               </span>
-              <LiveArrival arrival={arrival} />
+              <Arrival info={legArrival(leg, arrivals, subway)} />
             </div>
 
             <div className={styles.rideStop}>
@@ -143,13 +143,25 @@ function Timeline({ legs, arrivals, destName }) {
   )
 }
 
-/** 실시간 도착 한 줄 ("509번 3분 후 · 2정거장 전"). 정보가 없으면 그리지 않는다 */
-function LiveArrival({ arrival }) {
-  if (!arrival) return null
+/** 구간의 다음 도착 { live, text }. 버스는 TAGO 실시간, 지하철은 실시간 또는 시간표 */
+function legArrival(leg, arrivals, subway) {
+  if (leg.kind === 'bus') {
+    const arrival = nextArrival(arrivals, leg)
+    return arrival && { live: true, text: `${arrival.routeNo}번 ${formatArrival(arrival)}` }
+  }
+  return subway ? nextSubway(subway, leg) : null
+}
+
+/** 도착 한 줄. 실시간은 깜빡이는 초록 점, 시간표는 회색 시계로 구분한다 */
+function Arrival({ info }) {
+  if (!info) return null
   return (
-    <span className={styles.live}>
-      <span className={styles.liveDot} aria-hidden="true" />
-      {arrival.routeNo}번 {formatArrival(arrival)}
+    <span className={info.live ? styles.live : styles.scheduled}>
+      {info.live
+        ? <span className={styles.liveDot} aria-hidden="true" />
+        : <span className={styles.clock} aria-hidden="true">🕒</span>}
+      {info.text}
+      {!info.live && <span className={styles.scheduledTag}>시간표</span>}
     </span>
   )
 }

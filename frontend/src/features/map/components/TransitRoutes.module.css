@@ -278,3 +278,28 @@
 @media (prefers-reduced-motion: reduce) {
   .liveDot { animation: none; }
 }
+
+/* 시간표 기준 도착 (실시간이 아님) */
+.scheduled {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.clock {
+  font-size: 11px;
+  filter: grayscale(1);
+}
+
+.scheduledTag {
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+

@@ -24,6 +24,8 @@ public class TransitServiceImpl implements TransitService {
 	private static final String NEARBY_STATIONS = "/BusSttnInfoInqireService/getCrdntPrxmtSttnList";
 	private static final String ARRIVALS = "/ArvlInfoInqireService/getSttnAcctoArvlPrearngeInfoList";
 	private static final String BUS_LOCATIONS = "/BusLcInfoInqireService/getRouteAcctoBusLcList";
+	// 서울시 실시간 지하철 (서울 열린데이터광장, 키가 경로에 들어간다)
+	private static final String SEOUL_SUBWAY_URL = "http://swopenapi.seoul.go.kr/api/subway/%s/json/realtimeStationArrival/0/30/%s";
 
 	// 정류장 도시코드는 바뀌지 않아서 기억해 둔다 (폴링마다 근접 정류장 조회를 하지 않게)
 	private static final int CITY_CACHE_MAX = 2000;
@@ -37,6 +39,9 @@ public class TransitServiceImpl implements TransitService {
 
 	@Value("${tago.service-key:}")
 	private String serviceKey;
+
+	@Value("${seoul.subway-key:}")
+	private String seoulSubwayKey;
 
 	@Override
 	public Map<String, Object> selectArrivals(double lat, double lng, String nodeId, List<String> routeIds) {
@@ -52,6 +57,58 @@ public class TransitServiceImpl implements TransitService {
 	@Override
 	public List<Map<String, Object>> selectBusLocations(String cityCode, String routeId) {
 		return parseBusLocations(call(BUS_LOCATIONS, Map.of("cityCode", cityCode, "routeId", routeId)));
+	}
+
+	@Override
+	public List<Map<String, Object>> selectSubwayArrivals(String stationName) {
+		if (seoulSubwayKey == null || seoulSubwayKey.isBlank()) {
+			throw new IllegalStateException("SEOUL_SUBWAY_KEY 가 없습니다.");
+		}
+		URI uri = URI.create(String.format(SEOUL_SUBWAY_URL,
+				encode(seoulSubwayKey).replace("+", "%20"), encode(stationName).replace("+", "%20")));
+		String raw = restClient.get().uri(uri).retrieve().body(String.class);
+		if (raw == null || raw.isBlank() || !raw.trim().startsWith("{")) {
+			throw new IllegalStateException("서울 지하철 응답 오류");
+		}
+		return parseSubwayArrivals(MAPPER.readValue(raw, Map.class));
+	}
+
+	// realtimeArrivalList → 필요한 값만. 역이 없거나 운행 종료면 목록 없이 status/code 만 온다
+	static List<Map<String, Object>> parseSubwayArrivals(Map<?, ?> body) {
+		List<Map<String, Object>> list = new ArrayList<>();
+		if (body == null || !(body.get("realtimeArrivalList") instanceof List<?> items)) {
+			return list;
+		}
+		for (Object o : items) {
+			if (!(o instanceof Map<?, ?> item)) {
+				continue;
+			}
+			Map<String, Object> train = new HashMap<>();
+			train.put("subwayId", text(item.get("subwayId")));
+			train.put("direction", text(item.get("updnLine")));
+			// "당고개행 - 회현방면" → "당고개행"
+			String line = text(item.get("trainLineNm"));
+			train.put("destination", line == null ? null : line.split(" - ")[0].trim());
+			train.put("seconds", parseInt(item.get("barvlDt")));
+			train.put("message", text(item.get("arvlMsg2"))); // "4분 후 (삼각지)", "전역 도착", "[20]번째 전역 (성균관대)" 등
+			// 도착 코드: 0 진입, 1 도착, 2 출발, 3 전역출발, 4 전역진입, 5 전역도착, 99 운행중.
+			// barvlDt 는 멀리 있는 열차도 0 으로 오는 경우가 많아서 순서를 정할 때 이 값이 필요하다
+			train.put("code", parseInt(item.get("arvlCd")));
+			train.put("express", "급행".equals(text(item.get("btrainSttus"))));
+			list.add(train);
+		}
+		return list;
+	}
+
+	private static Integer parseInt(Object value) {
+		if (value instanceof Number n) {
+			return n.intValue();
+		}
+		try {
+			return value == null ? null : Integer.valueOf(String.valueOf(value).trim());
+		} catch (NumberFormatException e) {
+			return null;
+		}
 	}
 
 	// 정류장 좌표 근처 정류장 중 nodeid 가 같은 것의 citycode. 없으면(TAGO 미제공 지역) null

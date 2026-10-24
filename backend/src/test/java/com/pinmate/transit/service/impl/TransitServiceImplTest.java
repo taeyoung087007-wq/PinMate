@@ -31,6 +31,23 @@ class TransitServiceImplTest {
     }
 
     @Test
+    @DisplayName("서울 지하철: 행선지는 ' - ' 앞만, barvlDt 는 문자열이어도 숫자로, 목록이 없으면 빈 목록")
+    void parsesSubwayArrivals() {
+        Map<String, Object> body = Map.of("realtimeArrivalList", List.of(
+                Map.of("subwayId", "1004", "updnLine", "상행", "trainLineNm", "진접행 - 회현방면",
+                        "barvlDt", "180", "arvlMsg2", "3분 후", "btrainSttus", "일반", "arvlCd", "99"),
+                Map.of("subwayId", "1001", "updnLine", "하행", "trainLineNm", "인천행 - 남영방면",
+                        "barvlDt", 0, "arvlMsg2", "전역 출발", "btrainSttus", "급행")));
+
+        List<Map<String, Object>> trains = TransitServiceImpl.parseSubwayArrivals(body);
+
+        assertThat(trains.get(0)).containsEntry("destination", "진접행").containsEntry("seconds", 180).containsEntry("code", 99)
+                .containsEntry("direction", "상행").containsEntry("express", false);
+        assertThat(trains.get(1)).containsEntry("express", true).containsEntry("message", "전역 출발");
+        assertThat(TransitServiceImpl.parseSubwayArrivals(Map.of("status", 500))).isEmpty();
+    }
+
+    @Test
     @DisplayName("결과가 1건이면 item 이 객체, 0건이면 items 가 빈 문자열로 온다")
     void handlesSingleAndEmpty() {
         Map<String, Object> one = body(Map.of("gpslati", 36.62, "gpslong", 127.51, "vehicleno", "70자5071", "nodenm", "동부종점"));

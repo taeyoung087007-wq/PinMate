@@ -34,3 +34,7 @@ tmap:
 # 공공데이터포털 인증키 Decoding 값 (실시간 버스 도착·위치). 없으면 실시간 정보만 안 나온다
 tago:
   service-key: ${TAGO_SERVICE_KEY:}
+
+# 서울시 실시간 지하철 인증키 (서울 열린데이터광장). 없으면 수도권 지하철도 시간표 기준으로만 나온다
+seoul:
+  subway-key: ${SEOUL_SUBWAY_KEY:}

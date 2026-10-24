@@ -73,6 +73,10 @@ function toLeg(sub) {
     endExit: validExit(sub.endExitNo),
     interval: sub.intervalTime ?? null, // 배차 간격(분)
     stopNo: sub.startArsID ?? null, // 버스 정류장 번호 (예: "02151")
+    // 지하철 다음 열차(시간표·실시간)에 쓰는 값
+    odsayStationId: isBus ? null : sub.startID ?? null,
+    wayCode: isBus ? null : sub.wayCode ?? null, // 1 상행, 2 하행
+    subwayCode: isBus ? null : lanes[0]?.subwayCode ?? null,
   }
 }
 
@@ -123,3 +127,50 @@ export async function loadTransitLines(mapObj) {
 
 export const formatMinutes = minutes =>
   minutes >= 60 ? `${Math.floor(minutes / 60)}시간 ${minutes % 60}분` : `${minutes}분`
+
+// 지하철 시간표는 바뀌지 않아서 역마다 한 번만 받는다
+const timetableCache = new Map()
+
+/** ODsay 지하철 역 시간표 (평일·토·휴일, 상행·하행) */
+export function loadSubwayTimetable(stationId) {
+  if (!timetableCache.has(stationId)) {
+    const request = call('subwayTimeTable', { stationID: stationId }).catch(error => {
+      timetableCache.delete(stationId) // 실패는 다음에 다시 시도
+      throw error
+    })
+    timetableCache.set(stationId, request)
+  }
+  return timetableCache.get(stationId)
+}
+
+/**
+ * 시간표에서 now 이후 열차 n개. [{ minutes, destination }]
+ * - 시간표의 Idx 는 시(5~25), list 는 "04(판암) 10(판암)…" 형태
+ * - 새벽 3시 전이면 전날 시간표의 24·25시 열차로 본다
+ * shortcut: 공휴일은 평일 시간표로 계산한다. 정확해야 하면 공휴일 API 를 붙인다
+ */
+export function nextTrains(table, wayCode, now = new Date(), count = 2) {
+  const day = now.getDay()
+  const list = day === 6 ? table?.SatList : day === 0 ? table?.SunList : table?.OrdList
+  const times = list?.[wayCode === 1 ? 'up' : 'down']?.time ?? []
+  let nowMin = now.getHours() * 60 + now.getMinutes()
+  if (now.getHours() < 3) nowMin += 24 * 60
+
+  const trains = []
+  for (const { Idx, list: entries } of times) {
+    for (const token of String(entries ?? '').split(/\s+/)) {
+      const m = token.match(/^(\d{1,2})\(([^)]*)\)/)
+      if (!m) continue
+      const at = Number(Idx) * 60 + Number(m[1])
+      if (at >= nowMin) trains.push({ minutes: at - nowMin, destination: m[2] })
+    }
+  }
+  return trains.sort((a, b) => a.minutes - b.minutes).slice(0, count)
+}
+
+// 서울시 실시간 API 의 노선 ID (1~9호선만 확실하다. 나머지 노선은 시간표로 대신한다)
+export const seoulSubwayId = subwayCode => (subwayCode >= 1 && subwayCode <= 9 ? String(1000 + subwayCode) : null)
+
+// ODsay 역 이름 → 서울시 API 역 이름 ("서울역" → "서울", "역삼" 은 그대로)
+export const seoulStationName = name => (name ?? '').replace(/역$/, '')
+

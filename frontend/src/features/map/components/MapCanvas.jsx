@@ -231,7 +231,7 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
   const routePanelRef = useRef(null) // 경로를 화면에 맞출 때 패널 높이만큼 위를 비운다
   const transitLinesCache = useRef(new Map()) // mapObj -> 노선 모양 (후보를 다시 고를 때 재요청하지 않게)
   const [transit, setTransit] = useState(null) // { options, index, origin, dest }
-  const { arrivals, buses } = useTransitRealtime(transit) // 실시간 도착·버스 위치 (TAGO)
+  const { arrivals, buses, subway } = useTransitRealtime(transit) // 실시간 도착·버스 위치(TAGO), 지하철 다음 열차
   const busMarkersRef = useRef([])
   const [route, setRoute] = useState(null) // { name, distance, duration } | { name, loading: true }
   const [routeMode, setRouteMode] = useState('car') // 마지막으로 고른 이동 수단을 다음 길찾기에도 쓴다
@@ -753,6 +753,7 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
                 <TransitRoutes
                   options={transit.options}
                   arrivals={arrivals}
+                  subway={subway}
                   destName={route.name}
                   selectedIndex={transit.index}
                   onSelect={index => setTransit(prev => ({ ...prev, index }))}
