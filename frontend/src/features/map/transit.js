@@ -30,6 +30,64 @@ const DEFAULT_SUBWAY_COLOR = '#6C63FF'
 const busColor = type => BUS_COLORS[type] ?? DEFAULT_BUS_COLOR
 const subwayColor = code => SUBWAY_COLORS[code] ?? DEFAULT_SUBWAY_COLOR
 
+// ODsay 무료 플랜은 일일 호출 한도가 작아서 결과를 저장해 두고 다시 쓴다
+// - 경로 검색: 탭 세션(sessionStorage) 10분 — 배차·상황이 바뀌므로 짧게
+// - 노선 모양·지하철 시간표: 브라우저(localStorage) 1일 — 거의 바뀌지 않음
+const CACHE_PREFIX = 'odsay:'
+const MINUTE = 60_000
+const SEARCH_TTL = 10 * MINUTE
+const STATIC_TTL = 24 * 60 * MINUTE
+
+// 같은 요청이 동시에 여러 번 나가지 않게 (개발 모드의 effect 2번 실행, 빠른 연속 클릭)
+const inflight = new Map()
+
+function readCache(storage, key) {
+  try {
+    const entry = JSON.parse(storage.getItem(CACHE_PREFIX + key))
+    if (entry && entry.expires > Date.now()) return entry.value
+    if (entry) storage.removeItem(CACHE_PREFIX + key)
+  } catch {
+    // 저장소를 못 쓰는 환경(사생활 보호 모드 등)이면 캐시 없이 동작
+  }
+  return undefined
+}
+
+function writeCache(storage, key, value, ttl) {
+  const item = JSON.stringify({ value, expires: Date.now() + ttl })
+  try {
+    storage.setItem(CACHE_PREFIX + key, item)
+  } catch {
+    // 용량이 차면 우리 캐시만 비우고 한 번 더 시도
+    try {
+      Object.keys(storage).filter(k => k.startsWith(CACHE_PREFIX)).forEach(k => storage.removeItem(k))
+      storage.setItem(CACHE_PREFIX + key, item)
+    } catch {
+      // 그래도 안 되면 저장하지 않는다
+    }
+  }
+}
+
+/** call() 결과를 저장소에 ttl 동안 저장해 두고 다시 쓴다. 실패한 응답은 저장하지 않는다 */
+function cachedCall(path, params, { storage, ttl }) {
+  const key = `${path}?${new URLSearchParams(params)}`
+  const cached = readCache(storage, key)
+  if (cached !== undefined) return Promise.resolve(cached)
+  if (!inflight.has(key)) {
+    inflight.set(key, call(path, params)
+      .then(result => {
+        writeCache(storage, key, result, ttl)
+        return result
+      })
+      .finally(() => inflight.delete(key)))
+  }
+  return inflight.get(key)
+}
+
+// 좌표를 약 50m 격자로 맞춘다. GPS 가 몇 m 흔들려도 같은 검색으로 보고 캐시를 쓰게
+// (대중교통은 가까운 정류장을 찾는 것이라 이 정도 차이는 결과에 영향이 없다)
+const GRID = 0.0005
+const snap = value => (Math.round(value / GRID) * GRID).toFixed(4)
+
 async function call(path, params) {
   const apiKey = import.meta.env.VITE_ODSAY_API_KEY?.trim()
   if (!apiKey) {
@@ -99,9 +157,9 @@ const validExit = no => (no && no !== 'null' ? no : null)
  * @returns {Promise<Array<{ totalMinutes, payment, transfers, walkMinutes, mapObj, legs }>>}
  */
 export async function searchTransit(origin, dest) {
-  const result = await call('searchPubTransPathT', {
-    SX: origin.lng, SY: origin.lat, EX: dest.lng, EY: dest.lat,
-  })
+  const result = await cachedCall('searchPubTransPathT', {
+    SX: snap(origin.lng), SY: snap(origin.lat), EX: snap(dest.lng), EY: snap(dest.lat),
+  }, { storage: sessionStorage, ttl: SEARCH_TTL })
   return (result?.path ?? []).map(path => {
     const legs = (path.subPath ?? []).map(toLeg)
     return {
@@ -120,7 +178,7 @@ export async function searchTransit(origin, dest) {
  * @returns {Promise<Array<{ color: string, path: Array<[number, number]> }>>}
  */
 export async function loadTransitLines(mapObj) {
-  const result = await call('loadLane', { mapObject: `0:0@${mapObj}` })
+  const result = await cachedCall('loadLane', { mapObject: `0:0@${mapObj}` }, { storage: localStorage, ttl: STATIC_TTL })
   return (result?.lane ?? []).map(lane => ({
     // class 1 = 버스, 2 = 지하철
     color: lane.class === 2 ? subwayColor(lane.type) : busColor(lane.type),
@@ -131,19 +189,9 @@ export async function loadTransitLines(mapObj) {
 export const formatMinutes = minutes =>
   minutes >= 60 ? `${Math.floor(minutes / 60)}시간 ${minutes % 60}분` : `${minutes}분`
 
-// 지하철 시간표는 바뀌지 않아서 역마다 한 번만 받는다
-const timetableCache = new Map()
-
-/** ODsay 지하철 역 시간표 (평일·토·휴일, 상행·하행) */
+/** ODsay 지하철 역 시간표 (평일·토·휴일, 상행·하행). 거의 바뀌지 않아 하루 동안 저장해 둔다 */
 export function loadSubwayTimetable(stationId) {
-  if (!timetableCache.has(stationId)) {
-    const request = call('subwayTimeTable', { stationID: stationId }).catch(error => {
-      timetableCache.delete(stationId) // 실패는 다음에 다시 시도
-      throw error
-    })
-    timetableCache.set(stationId, request)
-  }
-  return timetableCache.get(stationId)
+  return cachedCall('subwayTimeTable', { stationID: stationId }, { storage: localStorage, ttl: STATIC_TTL })
 }
 
 /**

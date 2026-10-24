@@ -242,7 +242,6 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
   const onRouteToRef = useRef(onRouteTo)
   const routeLinesRef = useRef([]) // 길찾기 경로 선들 (대중교통은 구간마다 한 줄)
   const routePanelRef = useRef(null) // 경로를 화면에 맞출 때 패널 높이만큼 위를 비운다
-  const transitLinesCache = useRef(new Map()) // mapObj -> 노선 모양 (후보를 다시 고를 때 재요청하지 않게)
   const walkPathCache = useRef(new Map()) // 'lat,lng>lat,lng' -> 실제 도보 경로 (대중교통 안의 도보 구간)
   const [transit, setTransit] = useState(null) // { options, index, origin, dest }
   const { arrivals, buses, subway } = useTransitRealtime(transit) // 실시간 도착·버스 위치(TAGO), 지하철 다음 열차
@@ -600,13 +599,7 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     const option = transit.options[transit.index]
     let cancelled = false
 
-    const cache = transitLinesCache.current
-    const load = cache.has(option.mapObj)
-      ? Promise.resolve(cache.get(option.mapObj))
-      : loadTransitLines(option.mapObj).then(lines => {
-          cache.set(option.mapObj, lines)
-          return lines
-        })
+    const load = loadTransitLines(option.mapObj) // transit.js 가 하루 동안 저장해 둔다
 
     const rides = option.legs.filter(leg => leg.kind !== 'walk')
     // 출발 → 첫 승차, 하차 → 다음 승차(환승), 마지막 하차 → 도착
