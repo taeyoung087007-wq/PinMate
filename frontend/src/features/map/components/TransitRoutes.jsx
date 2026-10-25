@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { formatMinutes } from '../transit'
 import { nextArrival, formatArrival, nextSubway } from '../useTransitRealtime'
 import styles from './TransitRoutes.module.css'
@@ -7,37 +8,46 @@ import styles from './TransitRoutes.module.css'
  * - 카드: 총 시간 · 도착 예정 시각, 환승 · 요금 · 도보, 구간별 시간 비율 막대
  * - 고른 카드는 세로 타임라인으로 펼친다 (승차·하차 정류장, 방면, 출구, 환승, 실시간 도착)
  * - 도착 정보: 버스는 TAGO 실시간, 지하철은 수도권 실시간(없으면 시간표)
+ * - 목록은 접을 수 있다 (휴대폰에서 지도가 가리지 않게)
  */
 export default function TransitRoutes({ options, selectedIndex, onSelect, arrivals = {}, subway, originName = '내 위치', destName = '도착' }) {
+  const [collapsed, setCollapsed] = useState(false)
   return (
-    <ul className={styles.list}>
-      {options.map((option, index) => {
-        const selected = index === selectedIndex
-        const firstRide = option.legs.find(leg => leg.kind !== 'walk')
-        return (
-          <li key={`${option.mapObj}-${index}`}>
-            <button
-              type="button"
-              className={`${styles.card} ${selected ? styles.cardSelected : ''}`}
-              onClick={() => onSelect(index)}
-              aria-pressed={selected}
-            >
-              <div className={styles.summary}>
-                <strong className={styles.time}>{formatMinutes(option.totalMinutes)}</strong>
-                <span className={styles.arriveAt}>{arrivalClock(option.totalMinutes)} 도착</span>
-              </div>
-              <span className={styles.meta}>
-                {option.transfers > 0 ? `환승 ${option.transfers}회` : '환승 없음'} · {option.payment.toLocaleString()}원 · 도보 {option.walkMinutes}분
-              </span>
-              <SegmentBar legs={option.legs} total={option.totalMinutes} />
-              {firstRide && <Arrival info={legArrival(firstRide, arrivals, subway)} />}
-            </button>
+    <>
+      <button type="button" className={styles.toggle} onClick={() => setCollapsed(c => !c)} aria-expanded={!collapsed}>
+        {collapsed ? `경로 ${options.length}개 펼치기 ▾` : '목록 접기 ▴'}
+      </button>
+      {!collapsed && (
+        <ul className={styles.list}>
+          {options.map((option, index) => {
+            const selected = index === selectedIndex
+            const firstRide = option.legs.find(leg => leg.kind !== 'walk')
+            return (
+              <li key={`${option.mapObj}-${index}`}>
+                <button
+                  type="button"
+                  className={`${styles.card} ${selected ? styles.cardSelected : ''}`}
+                  onClick={() => onSelect(index)}
+                  aria-pressed={selected}
+                >
+                  <div className={styles.summary}>
+                    <strong className={styles.time}>{formatMinutes(option.totalMinutes)}</strong>
+                    <span className={styles.arriveAt}>{arrivalClock(option.totalMinutes)} 도착</span>
+                  </div>
+                  <span className={styles.meta}>
+                    {option.transfers > 0 ? `환승 ${option.transfers}회` : '환승 없음'} · {option.payment.toLocaleString()}원 · 도보 {option.walkMinutes}분
+                  </span>
+                  <SegmentBar legs={option.legs} total={option.totalMinutes} />
+                  {firstRide && <Arrival info={legArrival(firstRide, arrivals, subway)} />}
+                </button>
 
-            {selected && <Timeline legs={option.legs} arrivals={arrivals} subway={subway} originName={originName} destName={destName} />}
-          </li>
-        )
-      })}
-    </ul>
+                {selected && <Timeline legs={option.legs} arrivals={arrivals} subway={subway} originName={originName} destName={destName} />}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </>
   )
 }
 

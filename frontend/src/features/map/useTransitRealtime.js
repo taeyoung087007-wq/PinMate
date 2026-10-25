@@ -166,10 +166,8 @@ export function useTransitRealtime(transit) {
 export function nextSubway(subway, leg) {
   const subwayId = seoulSubwayId(leg.subwayCode)
   if (subwayId) {
-    // 상행(1)은 상행·내선, 하행(2)은 하행·외선 (2호선은 내선/외선)
-    const directions = leg.wayCode === 1 ? ['상행', '내선'] : ['하행', '외선']
     const trains = (subway.live[seoulStationName(leg.startName)] ?? [])
-      .filter(t => t.subwayId === subwayId && directions.includes(t.direction) && t.code !== 2) // 2 = 이미 출발
+      .filter(t => t.subwayId === subwayId && sameDirection(t, leg) && t.code !== 2) // 2 = 이미 출발
       .map(t => ({ ...t, rank: subwayRank(t) }))
       .sort((a, b) => a.rank - b.rank)
     if (trains.length) {
@@ -181,6 +179,15 @@ export function nextSubway(subway, leg) {
   const [next] = table ? nextTrains(table, leg.wayCode, subway.now, 1, subway.holidays) : []
   if (!next) return null
   return { live: false, text: `${next.destination}행 ${next.minutes <= 0 ? '곧 출발' : `${next.minutes}분 후`}` }
+}
+
+// 실시간 열차가 이 구간 방향인지. 다음 역(서울 "○○방면" ↔ ODsay 경유역 두 번째)으로 맞추고, 없으면 상하행으로.
+// ODsay wayCode 1 은 서울 기준 상행, 2호선은 외선(강남→역삼 쪽)이다
+const stationKey = name => (name ?? '').replace(/\(.*\)/, '').replace(/역$/, '').trim()
+export function sameDirection(train, leg) {
+  if (train.next && leg.nextStop) return stationKey(train.next) === stationKey(leg.nextStop)
+  const up = leg.subwayCode === 2 ? '외선' : '상행'
+  return (train.direction === up) === (leg.wayCode === 1)
 }
 
 /** 구간(leg)에 맞는 가장 빠른 도착 예정. 없으면 null */

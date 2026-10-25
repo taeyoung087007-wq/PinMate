@@ -10,6 +10,30 @@
   overflow-y: auto;
 }
 
+/* 휴대폰은 화면이 작아서 목록을 더 짧게 */
+@media (max-width: 480px) {
+  .list { max-height: 30vh; }
+}
+
+.toggle {
+  display: block;
+  margin: 6px 0 0 auto;
+  padding: 2px 6px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.toggle:hover { color: var(--text-primary); }
+
+.toggle:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}
+
 /* ── 경로 카드 ── */
 .card {
   width: 100%;

@@ -31,7 +31,7 @@ class TransitServiceImplTest {
     }
 
     @Test
-    @DisplayName("서울 지하철: 행선지는 ' - ' 앞만, barvlDt 는 문자열이어도 숫자로, 목록이 없으면 빈 목록")
+    @DisplayName("서울 지하철: 행선지는 ' - ' 앞, 다음 역은 뒤에서 '방면' 뺀 것, barvlDt 는 문자열이어도 숫자로, 목록이 없으면 빈 목록")
     void parsesSubwayArrivals() {
         Map<String, Object> body = Map.of("realtimeArrivalList", List.of(
                 Map.of("subwayId", "1004", "updnLine", "상행", "trainLineNm", "진접행 - 회현방면",
@@ -41,7 +41,7 @@ class TransitServiceImplTest {
 
         List<Map<String, Object>> trains = TransitServiceImpl.parseSubwayArrivals(body);
 
-        assertThat(trains.get(0)).containsEntry("destination", "진접행").containsEntry("seconds", 180).containsEntry("code", 99)
+        assertThat(trains.get(0)).containsEntry("destination", "진접행").containsEntry("next", "회현").containsEntry("seconds", 180).containsEntry("code", 99)
                 .containsEntry("direction", "상행").containsEntry("express", false);
         assertThat(trains.get(1)).containsEntry("express", true).containsEntry("message", "전역 출발");
         assertThat(TransitServiceImpl.parseSubwayArrivals(Map.of("status", 500))).isEmpty();

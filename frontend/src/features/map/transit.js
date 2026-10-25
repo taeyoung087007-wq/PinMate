@@ -137,6 +137,7 @@ function toLeg(sub) {
     // 지하철 다음 열차(시간표·실시간)에 쓰는 값
     odsayStationId: isBus ? null : sub.startID ?? null,
     wayCode: isBus ? null : sub.wayCode ?? null, // 1 상행, 2 하행
+    nextStop: isBus ? null : sub.passStopList?.stations?.[1]?.stationName ?? null, // 바로 다음 역 (way 는 종착 쪽 역일 때가 있다)
     subwayCode: isBus ? null : lanes[0]?.subwayCode ?? null,
   }
 }

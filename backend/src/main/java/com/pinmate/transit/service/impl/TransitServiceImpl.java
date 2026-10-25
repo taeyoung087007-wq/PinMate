@@ -96,9 +96,10 @@ public class TransitServiceImpl implements TransitService {
 			Map<String, Object> train = new HashMap<>();
 			train.put("subwayId", text(item.get("subwayId")));
 			train.put("direction", text(item.get("updnLine")));
-			// "당고개행 - 회현방면" → "당고개행"
-			String line = text(item.get("trainLineNm"));
-			train.put("destination", line == null ? null : line.split(" - ")[0].trim());
+			// "당고개행 - 회현방면" → destination "당고개행", next "회현" (다음 역. 2호선 내선·외선처럼 방향 이름이 헷갈릴 때 이걸로 맞춘다)
+			String[] line = item.get("trainLineNm") == null ? new String[0] : text(item.get("trainLineNm")).split(" - ");
+			train.put("destination", line.length > 0 ? line[0].trim() : null);
+			train.put("next", line.length > 1 ? line[1].replaceAll("방면$", "").trim() : null);
 			train.put("seconds", parseInt(item.get("barvlDt")));
 			train.put("message", text(item.get("arvlMsg2"))); // "4분 후 (삼각지)", "전역 도착", "[20]번째 전역 (성균관대)" 등
 			// 도착 코드: 0 진입, 1 도착, 2 출발, 3 전역출발, 4 전역진입, 5 전역도착, 99 운행중.
