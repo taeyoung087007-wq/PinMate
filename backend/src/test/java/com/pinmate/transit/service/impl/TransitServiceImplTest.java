@@ -31,6 +31,35 @@ class TransitServiceImplTest {
     }
 
     @Test
+    @DisplayName("서울 지하철: 행선지는 ' - ' 앞, 다음 역은 뒤에서 '방면' 뺀 것, barvlDt 는 문자열이어도 숫자로, 목록이 없으면 빈 목록")
+    void parsesSubwayArrivals() {
+        Map<String, Object> body = Map.of("realtimeArrivalList", List.of(
+                Map.of("subwayId", "1004", "updnLine", "상행", "trainLineNm", "진접행 - 회현방면",
+                        "barvlDt", "180", "arvlMsg2", "3분 후", "btrainSttus", "일반", "arvlCd", "99"),
+                Map.of("subwayId", "1001", "updnLine", "하행", "trainLineNm", "인천행 - 남영방면",
+                        "barvlDt", 0, "arvlMsg2", "전역 출발", "btrainSttus", "급행")));
+
+        List<Map<String, Object>> trains = TransitServiceImpl.parseSubwayArrivals(body);
+
+        assertThat(trains.get(0)).containsEntry("destination", "진접행").containsEntry("next", "회현").containsEntry("seconds", 180).containsEntry("code", 99)
+                .containsEntry("direction", "상행").containsEntry("express", false);
+        assertThat(trains.get(1)).containsEntry("express", true).containsEntry("message", "전역 출발");
+        assertThat(TransitServiceImpl.parseSubwayArrivals(Map.of("status", 500))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("공휴일: isHoliday=Y 만 yyyy-MM-dd 로 (특일정보 실제 응답 형식)")
+    void parsesHolidays() {
+        Map<String, Object> body = body(List.of(
+                Map.of("dateName", "삼일절", "isHoliday", "Y", "locdate", 20260301),
+                Map.of("dateName", "대체공휴일(삼일절)", "isHoliday", "Y", "locdate", 20260302),
+                Map.of("dateName", "기념일", "isHoliday", "N", "locdate", 20260405)));
+
+        assertThat(TransitServiceImpl.parseHolidays(body)).containsExactly("2026-03-01", "2026-03-02");
+        assertThat(TransitServiceImpl.parseHolidays(body(null))).isEmpty();
+    }
+
+    @Test
     @DisplayName("결과가 1건이면 item 이 객체, 0건이면 items 가 빈 문자열로 온다")
     void handlesSingleAndEmpty() {
         Map<String, Object> one = body(Map.of("gpslati", 36.62, "gpslong", 127.51, "vehicleno", "70자5071", "nodenm", "동부종점"));

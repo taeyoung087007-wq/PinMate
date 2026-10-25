@@ -14,4 +14,11 @@ public interface TransitService {
 
 	// 노선의 운행 중 버스 위치 [{ lat, lng, vehicleNo, nodeName }]
 	List<Map<String, Object>> selectBusLocations(String cityCode, String routeId);
+
+	// 수도권 지하철 역 실시간 도착 (서울시 실시간 지하철 API). stationName 은 "서울", "충무로" 처럼 '역' 을 뺀 이름
+	// [{ subwayId, direction(상행·하행·내선·외선), destination, next(다음 역), seconds, message, code(arvlCd), express }]. 키가 없으면 IllegalStateException
+	List<Map<String, Object>> selectSubwayArrivals(String stationName);
+
+	// 그해 공휴일 ["2026-01-01", ...] (대체공휴일·선거일 포함, 하루 동안 기억). 지하철 휴일 시간표에 쓴다
+	List<String> selectHolidays(int year);
 }

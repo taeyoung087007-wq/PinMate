@@ -385,8 +385,14 @@
   word-break: keep-all;
 }
 
-.pickAdd {
-  width: 100%;
+.pickActions {
+  display: flex;
+  gap: 6px;
+}
+
+/* 길찾기는 주 버튼, 장소 추가는 보조 버튼 */
+.pickRoute {
+  flex: 1;
   padding: 7px 10px;
   border: none;
   border-radius: var(--radius-sm);
@@ -398,8 +404,31 @@
   cursor: pointer;
 }
 
-.pickAdd:hover {
+.pickRoute:hover {
   background: var(--primary-dark);
+}
+
+.pickRoute:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}
+
+.pickAdd {
+  flex: 1;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pickAdd:hover {
+  background: var(--bg-hover);
 }
 
 .pickClose {
@@ -452,8 +481,65 @@
 
 .routeHeader {
   display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.routeSide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.routeSwap {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.routeSwap:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--primary-light);
+}
+
+.routeSwap:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.routeSwap:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}
+
+.routeEnds {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.routeEnd {
+  display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 30px;
+}
+
+.routeEndLabel {
+  flex-shrink: 0;
+  width: 26px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
 }
 
 .routeBody {
@@ -474,6 +560,7 @@
 
 .routeTabs {
   display: flex;
+  flex-wrap: wrap; /* 탭 4개가 한 줄에 안 들어가는 좁은 화면에선 다음 줄로 */
   gap: 4px;
 }
 
@@ -499,9 +586,22 @@
 }
 
 .routeTabActive {
-  background: var(--primary);
-  border-color: var(--primary);
+  background: var(--mode-color, var(--primary));
+  border-color: var(--mode-color, var(--primary));
   color: #fff;
+}
+
+.modeDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mode-color, var(--primary));
+  flex-shrink: 0;
+}
+
+/* 채워진 탭에서는 점이 배경과 같은 색이라 흰 테두리로 보이게 한다 */
+.routeTabActive .modeDot {
+  box-shadow: 0 0 0 1.5px #fff;
 }
 
 .routeTabActive:hover:not(:disabled) {

@@ -3,8 +3,9 @@ import { Plus, Minus, RotateCcw, LocateFixed } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { describeLocation } from '../geocode'
 import { fetchRoute } from '../api'
-import { searchTransit, loadTransitLines, formatMinutes } from '../transit'
+import { searchTransit, loadTransitLines, formatMinutes, WALK_COLOR } from '../transit'
 import TransitRoutes from './TransitRoutes'
+import PlaceInput from './PlaceInput'
 import { useTransitRealtime } from '../useTransitRealtime'
 import { loadKakaoMaps } from '../../../lib/kakaoMaps'
 import styles from './MapCanvas.module.css'
@@ -95,7 +96,7 @@ const PICK_PIN_SVG = `<svg width="32" height="42" viewBox="0 0 32 42" aria-hidde
  * 지도에서 고른 위치 마커 + 말풍선(상호명, 분류, 주소, 장소 추가 버튼)
  * - 상호명은 describeLocation 이 찾아 주면 채운다 (못 찾으면 주소만)
  */
-function createPickedElement({ onAdd, onClose }) {
+function createPickedElement({ onAdd, onRoute, onClose }) {
   const wrap = document.createElement('div')
   wrap.className = styles.pickWrap
 
@@ -125,13 +126,23 @@ function createPickedElement({ onAdd, onClose }) {
   address.className = styles.pickAddress
   address.textContent = '장소 확인 중…'
 
+  const route = document.createElement('button')
+  route.type = 'button'
+  route.className = styles.pickRoute
+  route.textContent = '길찾기'
+  route.addEventListener('click', onRoute)
+
   const add = document.createElement('button')
   add.type = 'button'
   add.className = styles.pickAdd
-  add.textContent = '이 위치에 장소 추가'
+  add.textContent = '장소 추가'
   add.addEventListener('click', onAdd)
 
-  card.append(close, title, category, address, add)
+  const actions = document.createElement('div')
+  actions.className = styles.pickActions
+  actions.append(route, add)
+
+  card.append(close, title, category, address, actions)
 
   const pin = document.createElement('div')
   pin.className = styles.pickPin
@@ -215,9 +226,11 @@ function createPinOverlay(maps, map, { pin, meta, memberColor, isSelected }) {
  * 카카오 지도 기반 지도 컴포넌트
  * - 지도 생성·이동·줌은 SDK에 맡기고, 이 컴포넌트는 핀(오버레이)만 그린다
  * - props: pins(필터링된 핀), members(멤버 색상 조회용), onSelectPin, selectedPin,
- *          onAddAtLocation(지도에서 고른 위치로 장소 추가: { name, address, lat, lng })
+ *          onAddAtLocation(지도에서 고른 위치로 장소 추가: { name, address, lat, lng }),
+ *          onRouteTo(지도에서 고른 장소로 길찾기: { name, lat, lng }),
+ *          focusPlace(상단 검색에서 고른 장소: 지도를 옮기고 말풍선을 띄운다)
  */
-export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onAddAtLocation, routeTarget, onClearRoute }) {
+export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onAddAtLocation, onRouteTo, routeTarget, onClearRoute, focusPlace }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef(new Map()) // pinId -> { marker, pin, meta, memberColor }
@@ -227,14 +240,18 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
   const pickedMarkerRef = useRef(null) // 지도에서 고른 위치 마커
   const selectedPinRef = useRef(selectedPin)
   const onAddAtLocationRef = useRef(onAddAtLocation)
+  const onRouteToRef = useRef(onRouteTo)
   const routeLinesRef = useRef([]) // 길찾기 경로 선들 (대중교통은 구간마다 한 줄)
   const routePanelRef = useRef(null) // 경로를 화면에 맞출 때 패널 높이만큼 위를 비운다
-  const transitLinesCache = useRef(new Map()) // mapObj -> 노선 모양 (후보를 다시 고를 때 재요청하지 않게)
+  const walkPathCache = useRef(new Map()) // 'lat,lng>lat,lng' -> 실제 도보 경로 (대중교통 안의 도보 구간)
   const [transit, setTransit] = useState(null) // { options, index, origin, dest }
-  const { arrivals, buses } = useTransitRealtime(transit) // 실시간 도착·버스 위치 (TAGO)
+  const { arrivals, buses, subway } = useTransitRealtime(transit) // 실시간 도착·버스 위치(TAGO), 지하철 다음 열차
   const busMarkersRef = useRef([])
   const [route, setRoute] = useState(null) // { name, distance, duration } | { name, loading: true }
   const [routeMode, setRouteMode] = useState('car') // 마지막으로 고른 이동 수단을 다음 길찾기에도 쓴다
+  const [routeOrigin, setRouteOrigin] = useState(null) // { name, lat, lng, mine } | null (null 이면 직접 입력해야 함)
+  const [originLocating, setOriginLocating] = useState(false)
+  const [originNote, setOriginNote] = useState('') // 출발지가 비어 있는 이유 (위치 권한 등)
   const [status, setStatus] = useState('loading') // loading | ready | nokey | error
   const [errorMessage, setErrorMessage] = useState('')
   const [locateError, setLocateError] = useState('')
@@ -245,20 +262,26 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     onSelectRef.current = onSelectPin
     selectedPinRef.current = selectedPin
     onAddAtLocationRef.current = onAddAtLocation
-  }, [onSelectPin, selectedPin, onAddAtLocation])
+    onRouteToRef.current = onRouteTo
+  }, [onSelectPin, selectedPin, onAddAtLocation, onRouteTo])
 
   const clearPick = useCallback(() => {
     pickedMarkerRef.current?.setMap(null)
     pickedMarkerRef.current = null
   }, [])
 
-  // 지도 빈 곳을 누르면 그 자리에 우리 마커를 찍고 주소를 붙인다
-  const pickLocation = useCallback((maps, map, coord) => {
+  // 지도 빈 곳을 누르면 그 자리에 우리 마커를 찍고 주소를 붙인다.
+  // known 이 있으면(상단 검색에서 고른 장소) 조회 없이 그 정보를 쓴다
+  const pickLocation = useCallback((maps, map, coord, known = null) => {
     clearPick()
     let place = { name: '', address: '', lat: coord.getLat(), lng: coord.getLng() }
     const { el, card, setInfo } = createPickedElement({
       onAdd: () => {
         onAddAtLocationRef.current?.({ ...place, name: place.name || place.address })
+        clearPick()
+      },
+      onRoute: () => {
+        onRouteToRef.current?.({ name: place.name || place.address || '선택한 위치', lat: place.lat, lng: place.lng })
         clearPick()
       },
       onClose: clearPick,
@@ -280,7 +303,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
       ((bounds.getNorthEast().getLat() - bounds.getSouthWest().getLat()) * 111_320) / height
     const tapMeters = Math.min(80, Math.max(10, TAP_RADIUS_PX * metersPerPx))
 
-    describeLocation(place.lat, place.lng, { tapMeters })
+    const lookup = known ? Promise.resolve(known) : describeLocation(place.lat, place.lng, { tapMeters })
+    lookup
       .then(info => {
         if (!isCurrent()) return
         place = { name: info.name || '', address: info.address || '', lat: info.lat, lng: info.lng }
@@ -438,6 +462,23 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
   // 4) 핀 전체 보기는 우측 하단 버튼(resetView)으로만 한다.
   //    첫 진입은 항상 내 위치(없으면 서울)로 열어야 해서 자동 fitBounds 는 하지 않는다.
 
+  // 상단 검색에서 장소를 고르면 그 자리로 이동해 말풍선(길찾기·장소 추가)을 띄운다
+  useEffect(() => {
+    const maps = window.kakao?.maps
+    const map = mapRef.current
+    if (!maps || !map || !focusPlace || status !== 'ready') return
+    const position = new maps.LatLng(focusPlace.lat, focusPlace.lng)
+    if (map.getLevel() > MY_LOCATION_LEVEL) map.setLevel(MY_LOCATION_LEVEL)
+    map.setCenter(position)
+    pickLocation(maps, map, position, {
+      name: focusPlace.name,
+      category: focusPlace.category ?? '',
+      address: focusPlace.address ?? '',
+      lat: focusPlace.lat,
+      lng: focusPlace.lng,
+    })
+  }, [focusPlace, status, pickLocation])
+
   // 5) 목록 패널 등에서 고른 핀이 화면 밖이면 그쪽으로 이동
   useEffect(() => {
     const maps = window.kakao?.maps
@@ -480,7 +521,53 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     if (routeLinesRef.current.length) map.setBounds(bounds, top, 40, 120, 40)
   }, [clearRouteLines])
 
-  // 6) 길찾기: 내 위치 → routeTarget 핀까지 routeMode 경로를 찾는다. routeTarget 이 없어지면 지운다
+  // 내 위치를 출발지로. 위치를 못 받으면 출발지를 비우고 이유를 남긴다 (직접 입력하게)
+  // 내 위치 { name: '내 위치', lat, lng, mine } 또는 { error } (위치 권한 거부 등)
+  const getHere = useCallback(async () => {
+    const maps = window.kakao?.maps
+    let here = myLocationRef.current
+    if (!here) {
+      const result = await getMyLocation(true)
+      if (!result.ok || !maps) return { error: locationErrorMessage(result.code).split('.')[0] }
+      here = new maps.LatLng(result.lat, result.lng)
+      myLocationRef.current = here
+    }
+    return { name: '내 위치', lat: here.getLat(), lng: here.getLng(), mine: true }
+  }, [])
+
+  const locateOrigin = useCallback(async () => {
+    setOriginLocating(true)
+    const here = await getHere()
+    setOriginLocating(false)
+    setOriginNote(here.error ? `${here.error} · 출발지를 입력하세요` : '')
+    setRouteOrigin(here.error ? null : here)
+  }, [getHere])
+
+  // 도착지를 내 위치로 (📍)
+  const destToMyLocation = useCallback(async () => {
+    const here = await getHere()
+    if (here.error) setLocateError(here.error)
+    else onRouteToRef.current?.(here)
+  }, [getHere])
+
+  // 출발 ⇄ 도착 바꾸기 (출발지가 비어 있으면 바꿀 수 없다)
+  const swapEnds = () => {
+    if (!routeOrigin || !routeTarget) return
+    const { name, lat, lng, mine } = routeTarget
+    onRouteToRef.current?.(routeOrigin)
+    setRouteOrigin({ name, lat, lng, mine: Boolean(mine) })
+  }
+
+  // 길찾기를 처음 열 때만 출발지를 내 위치로 시도한다.
+  // 열린 상태에서 도착지를 바꾸거나 출발·도착을 바꿀 때는 출발지를 그대로 둔다
+  const routeOpen = Boolean(routeTarget)
+  useEffect(() => {
+    setRouteOrigin(null)
+    setOriginNote('')
+    if (routeOpen && status === 'ready') locateOrigin()
+  }, [routeOpen, status, locateOrigin])
+
+  // 6) 길찾기: 출발지 → routeTarget 까지 routeMode 경로를 찾는다. routeTarget 이 없어지면 지운다
   useEffect(() => {
     const maps = window.kakao?.maps
     const map = mapRef.current
@@ -488,18 +575,17 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     setRoute(null)
     setTransit(null)
     if (!maps || !map || !routeTarget || status !== 'ready') return
+    if (!routeOrigin) {
+      // 출발지를 아직 모르거나(위치 확인 중) 직접 입력해야 한다
+      setRoute({ name: routeTarget.name, needOrigin: true })
+      return
+    }
 
     let cancelled = false
     setRoute({ name: routeTarget.name, loading: true })
 
     const run = async () => {
-      let origin = myLocationRef.current
-      if (!origin) {
-        const here = await getMyLocation(true)
-        if (!here.ok) throw new Error(locationErrorMessage(here.code))
-        origin = new maps.LatLng(here.lat, here.lng)
-      }
-      const from = { lat: origin.getLat(), lng: origin.getLng() }
+      const from = { lat: routeOrigin.lat, lng: routeOrigin.lng }
       const to = { lat: routeTarget.lat, lng: routeTarget.lng }
 
       if (routeMode === 'transit') {
@@ -513,8 +599,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
 
       const data = await fetchRoute(from, to, routeMode)
       if (cancelled) return
-      drawRouteLines([{ path: data.path, color: '#6C63FF', style: ROUTE_MODES[routeMode].strokeStyle }])
-      setRoute({ name: routeTarget.name, distance: data.distance, duration: data.duration })
+      drawRouteLines([{ path: data.path, color: ROUTE_MODES[routeMode].color, style: ROUTE_MODES[routeMode].strokeStyle }])
+      setRoute({ name: routeTarget.name, distance: data.distance, duration: data.duration, estimated: Boolean(data.estimated) })
     }
 
     run().catch(error => {
@@ -526,33 +612,45 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     return () => {
       cancelled = true
     }
-  }, [routeTarget, status, routeMode, clearRouteLines, drawRouteLines])
+  }, [routeTarget, routeOrigin, status, routeMode, clearRouteLines, drawRouteLines])
 
-  // 7) 대중교통: 고른 후보의 버스·지하철 노선은 실제 모양으로, 도보·환승 구간은 점선 직선으로 그린다
+  // 대중교통 안의 도보 구간 실제 경로. 아주 가깝거나(같은 정류장 환승 등) 실패하면 직선으로 대신한다
+  const walkPath = useCallback(async (from, to) => {
+    const straight = [[from.lat, from.lng], [to.lat, to.lng]]
+    if (distanceMeters(from, to) < WALK_PATH_MIN_METERS) return straight
+    const key = `${from.lat},${from.lng}>${to.lat},${to.lng}`
+    const cache = walkPathCache.current
+    if (!cache.has(key)) {
+      cache.set(key, fetchRoute(from, to, 'walk').then(data => data.path).catch(() => {
+        cache.delete(key)
+        return straight
+      }))
+    }
+    return cache.get(key)
+  }, [])
+
+  // 7) 대중교통: 버스·지하철은 노선 색 실제 모양, 도보·환승 구간은 실제 걷는 길(TMAP)을 도보 색 점선으로 그린다
   useEffect(() => {
     if (!transit) return
     const option = transit.options[transit.index]
     let cancelled = false
 
-    const cache = transitLinesCache.current
-    const load = cache.has(option.mapObj)
-      ? Promise.resolve(cache.get(option.mapObj))
-      : loadTransitLines(option.mapObj).then(lines => {
-          cache.set(option.mapObj, lines)
-          return lines
-        })
+    const load = loadTransitLines(option.mapObj) // transit.js 가 하루 동안 저장해 둔다
 
-    load
-      .then(lines => {
+    const rides = option.legs.filter(leg => leg.kind !== 'walk')
+    // 출발 → 첫 승차, 하차 → 다음 승차(환승), 마지막 하차 → 도착
+    const stops = [transit.origin, ...rides.flatMap(leg => [leg.start, leg.end]), transit.dest]
+    const walkPairs = []
+    for (let i = 0; i + 1 < stops.length; i += 2) walkPairs.push([stops[i], stops[i + 1]])
+
+    Promise.all([load, Promise.all(walkPairs.map(([from, to]) => walkPath(from, to)))])
+      .then(([lines, walks]) => {
         if (cancelled) return
-        const rides = option.legs.filter(leg => leg.kind !== 'walk')
-        // 출발 → 첫 승차, 하차 → 다음 승차(환승), 마지막 하차 → 도착
-        const stops = [transit.origin, ...rides.flatMap(leg => [leg.start, leg.end]), transit.dest]
-        const walks = []
-        for (let i = 0; i + 1 < stops.length; i += 2) {
-          walks.push({ path: [[stops[i].lat, stops[i].lng], [stops[i + 1].lat, stops[i + 1].lng]], color: '#9B9BB8', style: 'shortdash' })
-        }
-        drawRouteLines([...walks, ...lines.map(line => ({ ...line, style: 'solid' }))])
+        // 탈것 노선을 나중에 그려서 위에 오게 한다
+        drawRouteLines([
+          ...walks.map(path => ({ path, color: WALK_COLOR, style: 'shortdash' })),
+          ...lines.map(line => ({ ...line, style: 'solid' })),
+        ])
       })
       .catch(error => {
         if (!cancelled) setRoute(prev => (prev ? { ...prev, error: error.message } : prev))
@@ -561,7 +659,7 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     return () => {
       cancelled = true
     }
-  }, [transit, drawRouteLines])
+  }, [transit, drawRouteLines, walkPath])
 
   // 8) 고른 대중교통 후보의 실시간 버스 위치를 그린다 (갱신마다 다시 그림)
   useEffect(() => {
@@ -710,15 +808,48 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
           {route && (
             <div className={styles.routePanel} ref={routePanelRef}>
               <div className={styles.routeHeader}>
-                <span className={styles.routeName}>{route.name}</span>
-                <button
-                  type="button"
-                  className={styles.routeClose}
-                  onClick={() => onClearRoute?.()}
-                  aria-label="길찾기 닫기"
-                >
-                  ×
-                </button>
+                <div className={styles.routeEnds}>
+                  <div className={styles.routeEnd}>
+                    <span className={styles.routeEndLabel}>출발</span>
+                    <PlaceInput
+                      label="출발지"
+                      value={routeOrigin}
+                      onChange={setRouteOrigin}
+                      onUseMyLocation={locateOrigin}
+                      locating={originLocating}
+                      note={originLocating ? '내 위치 확인 중…' : originNote}
+                    />
+                  </div>
+                  <div className={styles.routeEnd}>
+                    <span className={styles.routeEndLabel}>도착</span>
+                    <PlaceInput
+                      label="도착지"
+                      value={routeTarget}
+                      onChange={place => onRouteToRef.current?.(place)}
+                      onUseMyLocation={destToMyLocation}
+                    />
+                  </div>
+                </div>
+                <div className={styles.routeSide}>
+                  <button
+                    type="button"
+                    className={styles.routeClose}
+                    onClick={() => onClearRoute?.()}
+                    aria-label="길찾기 닫기"
+                  >
+                    ×
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.routeSwap}
+                    onClick={swapEnds}
+                    disabled={!routeOrigin}
+                    aria-label="출발지와 도착지 바꾸기"
+                    title="출발지와 도착지 바꾸기"
+                  >
+                    ⇅
+                  </button>
+                </div>
               </div>
               <div className={styles.routeBody}>
                 <div className={styles.routeTabs} role="tablist" aria-label="이동 수단">
@@ -729,23 +860,27 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
                       role="tab"
                       aria-selected={routeMode === key}
                       className={`${styles.routeTab} ${routeMode === key ? styles.routeTabActive : ''}`}
+                      style={{ '--mode-color': meta.color ?? 'var(--primary)' }}
                       onClick={() => setRouteMode(key)}
-                      disabled={meta.disabled}
-                      title={meta.disabled ? '곧 지원' : meta.label}
+                      title={meta.label}
                     >
+                      {/* 지도 선 색과 같은 점 (범례 역할) */}
+                      <span className={styles.modeDot} aria-hidden="true" />
                       <span aria-hidden="true">{meta.icon}</span>
                       {meta.label}
                     </button>
                   ))}
                 </div>
                 <span className={styles.routeInfo} role="status">
-                  {route.loading
+                  {route.needOrigin
+                    ? ''
+                    : route.loading
                     ? '경로 찾는 중…'
                     : route.error
                       ? ''
                       : route.transit && transit
                         ? `${formatMinutes(transit.options[transit.index].totalMinutes)} · ${transit.options[transit.index].payment.toLocaleString()}원`
-                        : `${formatDistance(route.distance)} · ${formatDuration(route.duration)}`}
+                        : `${formatDistance(route.distance)} · ${formatDuration(route.duration)}${route.estimated ? ' (추정)' : ''}`}
                 </span>
               </div>
               {route.error && <p className={styles.routeError} role="alert">{route.error}</p>}
@@ -753,6 +888,9 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
                 <TransitRoutes
                   options={transit.options}
                   arrivals={arrivals}
+                  subway={subway}
+                  originName={routeOrigin?.name}
+                  destName={route.name}
                   selectedIndex={transit.index}
                   onSelect={index => setTransit(prev => ({ ...prev, index }))}
                 />
@@ -779,9 +917,21 @@ const formatDuration = seconds => {
 }
 
 // 이동 수단 탭. 자동차·도보는 백엔드(/api/route), 대중교통은 ODsay(프론트)
+// color 는 지도 선 색이자 탭의 점 색. 대중교통은 노선마다 색이 달라 대표색(버스 파랑)만 둔다
 const ROUTE_MODES = {
-  car: { label: '자동차', icon: '🚗', strokeStyle: 'solid' },
-  walk: { label: '도보', icon: '🚶', strokeStyle: 'shortdash' },
-  transit: { label: '대중교통', icon: '🚌', strokeStyle: 'solid' },
+  car: { label: '자동차', icon: '🚗', color: '#6C63FF', strokeStyle: 'solid' },
+  walk: { label: '도보', icon: '🚶', color: WALK_COLOR, strokeStyle: 'shortdash' },
+  bike: { label: '자전거', icon: '🚲', color: '#F97316', strokeStyle: 'solid' },
+  transit: { label: '대중교통', icon: '🚌', color: '#3D5BAB', strokeStyle: 'solid' },
+}
+
+// 이보다 짧은 도보 구간은 경로 API 를 부르지 않고 직선으로 그린다
+const WALK_PATH_MIN_METERS = 40
+
+// 수백 m 범위라 평면 근사로 충분하다
+function distanceMeters(a, b) {
+  const dy = (b.lat - a.lat) * 111_320
+  const dx = (b.lng - a.lng) * 111_320 * Math.cos((a.lat * Math.PI) / 180)
+  return Math.hypot(dx, dy)
 }
 
