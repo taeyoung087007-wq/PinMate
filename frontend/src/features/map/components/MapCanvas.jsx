@@ -516,8 +516,9 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     })
     // 위쪽 길찾기 패널·아래쪽 컨트롤에 가리지 않게 여백을 둔다 (상, 우, 하, 좌). 패널은 대중교통 목록이면 길어진다
     const panelBottom = routePanelRef.current?.getBoundingClientRect().bottom ?? 0
-    const mapTop = containerRef.current?.getBoundingClientRect().top ?? 0
-    const top = Math.max(180, panelBottom - mapTop + 24)
+    const mapRect = containerRef.current?.getBoundingClientRect() ?? { top: 0, height: 0 }
+    // 여백 합이 지도 높이를 넘으면 카카오가 맞추지 못하고 최대로 축소해 버린다. 패널이 길어도 경로 칸(160px)은 남긴다
+    const top = Math.max(40, Math.min(Math.max(180, panelBottom - mapRect.top + 24), mapRect.height - 120 - 160))
     if (routeLinesRef.current.length) map.setBounds(bounds, top, 40, 120, 40)
   }, [clearRouteLines])
 

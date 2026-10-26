@@ -161,11 +161,17 @@ export async function searchTransit(origin, dest) {
   const result = await cachedCall('searchPubTransPathT', {
     SX: snap(origin.lng), SY: snap(origin.lat), EX: snap(dest.lng), EY: snap(dest.lat),
   }, { storage: sessionStorage, ttl: SEARCH_TTL })
-  return (result?.path ?? []).map(path => {
+  const paths = result?.path ?? []
+  // 먼 거리면 기차·고속·시외버스(구간 trafficType 4~7) 경로만 온다. 노선 모양(mapObj)·요금 필드가 달라서 시내 경로만 쓴다
+  const cityPaths = paths.filter(path => path.info?.mapObj && (path.subPath ?? []).every(sub => sub.trafficType <= 3))
+  if (paths.length > 0 && cityPaths.length === 0) {
+    throw new Error('거리가 멀어 기차·고속버스 경로만 있어요. 시외 이동은 아직 지원하지 않아요.')
+  }
+  return cityPaths.map(path => {
     const legs = (path.subPath ?? []).map(toLeg)
     return {
       totalMinutes: path.info.totalTime,
-      payment: path.info.payment,
+      payment: path.info.payment ?? 0,
       transfers: Math.max(0, (path.info.busTransitCount ?? 0) + (path.info.subwayTransitCount ?? 0) - 1),
       walkMinutes: legs.filter(l => l.kind === 'walk').reduce((sum, l) => sum + l.minutes, 0),
       mapObj: path.info.mapObj,
