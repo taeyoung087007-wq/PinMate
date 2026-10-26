@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 
 import java.util.Map;
@@ -60,14 +61,23 @@ public class RouteController {
 			logger.error("길찾기 키가 설정되지 않았습니다.", ise);
 			result = Response.of(Constants.FAIL, "길찾기를 사용할 수 없습니다. 서버에 " + (walk ? "TMAP" : "카카오 REST") + " 키가 없습니다.", null);
 		} catch (RestClientException rce) {
-			logger.error("길찾기 API 호출 중 오류가 발생했습니다.", rce);
-			result = Response.of(Constants.FAIL, "길찾기 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.", null);
+			if (walk && isWalkUnreachable(rce)) {
+				result = Response.of(Constants.NOT_FOUND, "거리가 너무 멀어 " + (bike ? "자전거" : "도보") + " 경로를 계산할 수 없어요.", null);
+			} else {
+				logger.error("길찾기 API 호출 중 오류가 발생했습니다.", rce);
+				result = Response.of(Constants.FAIL, "길찾기 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.", null);
+			}
 		} catch (Exception e) {
 			logger.error("길찾기 중 알 수 없는 오류가 발생했습니다.", e);
 			result = Response.of(Constants.FAIL, "길찾기 중 오류가 발생했습니다.", null);
 		}
 
 		return result;
+	}
+
+	// TMAP 3102 "지원되지 않는 구간": 걷는 길이 이어지지 않는 두 지점 (먼 지역끼리, 섬 등). 오류가 아니라 경로 없음이다
+	static boolean isWalkUnreachable(RestClientException e) {
+		return e instanceof HttpClientErrorException hce && hce.getResponseBodyAsString().contains("\"3102\"");
 	}
 
 	// shortcut: 자전거 시간은 도보 경로 거리를 시속 15km 로 나눈 추정값. 자전거 길찾기 API 가 생기면 바꾼다
