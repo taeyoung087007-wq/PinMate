@@ -69,6 +69,7 @@ public class PinServiceImpl implements PinService {
 	@Override
 	@Transactional
 	public Map<String, Object> toggleRecommendation(Long placeId, Long userId) throws Exception {
+		pinDAO.lockPin(placeId);   // 같은 핀의 추천 토글은 하나씩 처리한다 (동시 취소 시 마지막 추천 판정 경합 방지)
 		Map<String, Object> pin = selectMemberPin(placeId, userId);
 		if (pin == null) return null;
 
@@ -77,6 +78,10 @@ public class PinServiceImpl implements PinService {
 		Map<String, Object> key = ParamUtil.map("placeId", placeId, "userId", userId);
 		if (pinDAO.countRecommendation(key) > 0) {
 			pinDAO.deleteRecommendation(key);
+			// 마지막 추천자가 취소하면 장소도 지운다 (F-38)
+			if (pinDAO.deletePinIfNoRecommendation(placeId) > 0) {
+				return ParamUtil.map("pin", null, "deleted", true, "reachedAllApproved", false);
+			}
 		} else {
 			pinDAO.insertRecommendation(ParamUtil.map("placeId", placeId, "userId", userId, "comment", null));
 		}
@@ -85,6 +90,7 @@ public class PinServiceImpl implements PinService {
 
 		Map<String, Object> result = new HashMap<>();
 		result.put("pin", toItem(pinDAO.selectPinById(placeId)));
+		result.put("deleted", false);
 		result.put("reachedAllApproved", !previouslyAchieved && currentAchieved);   // 이번 추천으로 처음 달성했을 때만 true
 		return result;
 	}

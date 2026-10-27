@@ -151,6 +151,18 @@
 		 WHERE place_id = #{placeId}
 	</delete>
 
+	<!-- 추천이 하나도 남지 않은 핀 삭제 (F-38). 떠난 멤버의 추천도 남은 추천으로 본다. 추천이 남아 있으면 0건. 방문 기록은 CASCADE -->
+	<delete id="deletePinIfNoRecommendation" parameterType="long">
+		DELETE FROM places p
+		 WHERE p.place_id = #{placeId}
+		   AND NOT EXISTS (SELECT 1 FROM recommendations r WHERE r.place_id = p.place_id)
+	</delete>
+
+	<!-- 핀 행 잠금. 같은 핀의 추천 토글을 한 줄로 세워, 동시에 취소해도 '마지막 추천' 판정이 어긋나지 않게 한다 -->
+	<select id="lockPin" parameterType="long" resultType="long">
+		SELECT place_id FROM places WHERE place_id = #{placeId} FOR UPDATE
+	</select>
+
 	<!-- param: placeId, userId -->
 	<delete id="deleteVisit" parameterType="map">
 		DELETE FROM place_visits

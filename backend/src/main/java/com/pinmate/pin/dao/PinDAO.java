@@ -84,6 +84,16 @@ public class PinDAO {
 		return sqlSession.delete(PinDAO.SQL_PATH + ".deletePin", placeId);
 	}
 
+	//추천이 남지 않은 핀 삭제. 지웠으면 1
+	public int deletePinIfNoRecommendation(Long placeId) {
+		return sqlSession.delete(PinDAO.SQL_PATH + ".deletePinIfNoRecommendation", placeId);
+	}
+
+	//핀 행 잠금 (트랜잭션 안에서만 의미 있음). 핀이 없으면 null
+	public Long lockPin(Long placeId) {
+		return sqlSession.selectOne(PinDAO.SQL_PATH + ".lockPin", placeId);
+	}
+
 	//내 방문 여부 (param: placeId, userId)
 	public int countVisit(Map<String, Object> param) {
 		return sqlSession.selectOne(PinDAO.SQL_PATH + ".countVisit", param);

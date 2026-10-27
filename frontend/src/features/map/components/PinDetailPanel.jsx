@@ -281,7 +281,11 @@ export default function PinDetailPanel({
           <div className={styles.actions}>
             <button
               className={`btn ${isMeRecommended ? 'btn-danger' : 'btn-primary'} ${styles.recommendBtn}`}
-              onClick={onRecommend}
+              onClick={() => {
+                const isLast = isMeRecommended && pin.recommenders.length === 1
+                if (isLast && !window.confirm('마지막 추천을 취소하면 이 장소가 삭제됩니다. 계속할까요?')) return
+                onRecommend()
+              }}
             >
               <Star size={15} fill={isMeRecommended ? 'var(--danger)' : 'white'} />
               {isMeRecommended ? '추천 취소' : '나도 추천하기!'}
