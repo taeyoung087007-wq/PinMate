@@ -2,7 +2,9 @@ package com.pinmate.pin.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.pinmate.cmmn.util.Constants;
@@ -120,5 +122,20 @@ class PinServiceImplPermissionTest {
         // drink 는 DB CHECK 값인 bar 로 변환되어 저장된다
         verify(pinDAO).updatePin(Map.of("placeId", PLACE_ID, "name", "새 이름", "category", "bar"));
         verify(pinDAO).updateRecommendationComment(Map.of("placeId", PLACE_ID, "userId", CREATOR_ID, "comment", "여기 좋아요"));
+    }
+
+    @Test
+    @DisplayName("마지막 추천자가 취소하면 장소가 삭제되고 모두 인정 재판정은 하지 않는다 (F-38)")
+    void lastRecommenderCancelDeletesPin() throws Exception {
+        given(pinDAO.selectPinById(PLACE_ID)).willReturn(existingPin());
+        given(teamDAO.isTeamMember(TEAM_ID, CREATOR_ID)).willReturn(true);
+        given(pinDAO.countRecommendation(anyMap())).willReturn(1);
+        given(pinDAO.deletePinIfNoRecommendation(PLACE_ID)).willReturn(1);
+
+        Map<String, Object> result = service.toggleRecommendation(PLACE_ID, CREATOR_ID);
+
+        assertThat(result.get("deleted")).isEqualTo(true);
+        verify(pinDAO).lockPin(PLACE_ID);
+        verify(teamDAO, never()).selectTeamById(anyLong());
     }
 }

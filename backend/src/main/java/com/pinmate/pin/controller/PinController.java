@@ -22,7 +22,9 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 // 장소(핀). 로그인 필요(/api/** 인터셉터). 등록자·추천인은 요청 값이 아니라 세션에서 가져온다.
 // 요청자가 속하지 않은 팀의 핀은 없는 것과 같이 NOT_FOUND(91)로 응답한다.
@@ -34,9 +36,11 @@ public class PinController {
 
 	// 길이 제한은 places, recommendations.comment 컬럼과 맞춘다
 	private static final int NAME_MAX = 100;
-	private static final int CATEGORY_MAX = 20;
 	private static final int ADDRESS_MAX = 200;
 	private static final int MEMO_MAX = 100;
+
+	// 프론트 카테고리 키 (frontend categories.js 의 CATEGORY_META). 빈 값은 서비스에서 etc 로 저장한다
+	private static final Set<String> CATEGORIES = Set.of("food", "cafe", "drink", "stay", "sight", "play", "etc");
 
 	@Resource(name = "PinService")
 	private PinService pinService;
@@ -85,7 +89,7 @@ public class PinController {
 		if (name.isEmpty() || name.length() > NAME_MAX) {
 			return Response.invalid("장소 이름은 100자 이하로 입력해주세요.");
 		}
-		if (category.length() > CATEGORY_MAX) {
+		if (!isValidCategory(category)) {
 			return Response.invalid("카테고리 값이 올바르지 않습니다.");
 		}
 		if (address.length() > ADDRESS_MAX || roadAddress.length() > ADDRESS_MAX) {
@@ -187,7 +191,7 @@ public class PinController {
 		if (name.isEmpty() || name.length() > NAME_MAX) {
 			return Response.invalid("장소 이름은 100자 이하로 입력해주세요.");
 		}
-		if (category.length() > CATEGORY_MAX) {
+		if (!isValidCategory(category)) {
 			return Response.invalid("카테고리 값이 올바르지 않습니다.");
 		}
 		Map<String, Object> pin = ParamUtil.map("name", name, "category", category);
@@ -252,5 +256,10 @@ public class PinController {
 
 	private String editFailMessage(String code) {
 		return Constants.NO_PERMISSION.equals(code) ? "이 장소를 수정할 권한이 없습니다." : "장소를 찾을 수 없습니다.";
+	}
+
+	// 순수 함수라 테스트에서 직접 호출한다
+	static boolean isValidCategory(String category) {
+		return category.isEmpty() || CATEGORIES.contains(category.toLowerCase(Locale.ROOT));
 	}
 }

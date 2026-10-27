@@ -144,7 +144,13 @@ export default function MapPage({ initialTeamId, onLogout }) {
   // 추천 토글 핸들러
   const handleRecommend = async (pinId) => {
     try {
-      const { pin, reachedAllApproved } = await toggleRecommendationApi(pinId, currentUser.id)
+      const { pin, deleted, reachedAllApproved } = await toggleRecommendationApi(pinId, currentUser.id)
+      // 마지막 추천자가 취소하면 서버가 장소를 지운다
+      if (deleted) {
+        setPins(prev => prev.filter(p => p.id !== pinId))
+        setSelectedPin(null)
+        return
+      }
       setPins(prev => prev.map(p => p.id === pin.id ? pin : p))
       setSelectedPin(pin)
       if (reachedAllApproved) {

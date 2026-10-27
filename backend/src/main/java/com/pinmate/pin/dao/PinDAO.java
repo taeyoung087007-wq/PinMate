@@ -39,6 +39,16 @@ public class PinDAO {
 		return sqlSession.selectList(PinDAO.SQL_PATH + ".selectVisitorIds", placeId);
 	}
 
+	//팀 핀 전체의 추천인 (place_id, login_id)
+	public List<Map<String, Object>> selectRecommendersByTeamId(Long teamId) {
+		return sqlSession.selectList(PinDAO.SQL_PATH + ".selectRecommendersByTeamId", teamId);
+	}
+
+	//팀 핀 전체의 방문자 (place_id, login_id)
+	public List<Map<String, Object>> selectVisitorsByTeamId(Long teamId) {
+		return sqlSession.selectList(PinDAO.SQL_PATH + ".selectVisitorsByTeamId", teamId);
+	}
+
 	//핀 등록. 실행 후 param.placeId 에 생성된 키가 들어간다
 	public int insertPin(Map<String, Object> param) {
 		return sqlSession.insert(PinDAO.SQL_PATH + ".insertPin", param);
@@ -82,6 +92,16 @@ public class PinDAO {
 	//핀 삭제 (추천·방문 기록은 CASCADE)
 	public int deletePin(Long placeId) {
 		return sqlSession.delete(PinDAO.SQL_PATH + ".deletePin", placeId);
+	}
+
+	//추천이 남지 않은 핀 삭제. 지웠으면 1
+	public int deletePinIfNoRecommendation(Long placeId) {
+		return sqlSession.delete(PinDAO.SQL_PATH + ".deletePinIfNoRecommendation", placeId);
+	}
+
+	//핀 행 잠금 (트랜잭션 안에서만 의미 있음). 핀이 없으면 null
+	public Long lockPin(Long placeId) {
+		return sqlSession.selectOne(PinDAO.SQL_PATH + ".lockPin", placeId);
 	}
 
 	//내 방문 여부 (param: placeId, userId)

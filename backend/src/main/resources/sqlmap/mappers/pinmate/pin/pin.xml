@@ -59,6 +59,28 @@
 		 ORDER BY v.visited_at ASC
 	</select>
 
+	<!-- 팀 핀 전체의 추천인 (place_id, login_id). 핀 목록에서 핀마다 조회하지 않고 한 번에 읽는다. 핀 안 순서는 selectRecommenderIds 와 같다 -->
+	<select id="selectRecommendersByTeamId" parameterType="long" resultType="java.util.HashMap">
+		SELECT r.place_id,
+		       COALESCE(u.login_id, r.user_id::text) AS login_id
+		  FROM recommendations r
+		  JOIN places p ON p.place_id = r.place_id
+		  LEFT JOIN users u ON r.user_id = u.user_id
+		 WHERE p.team_id = #{teamId}
+		 ORDER BY r.place_id, r.created_at ASC
+	</select>
+
+	<!-- 팀 핀 전체의 방문자 (place_id, login_id). 핀 안 순서는 selectVisitorIds 와 같다 -->
+	<select id="selectVisitorsByTeamId" parameterType="long" resultType="java.util.HashMap">
+		SELECT v.place_id,
+		       COALESCE(u.login_id, v.user_id::text) AS login_id
+		  FROM place_visits v
+		  JOIN places p ON p.place_id = v.place_id
+		  LEFT JOIN users u ON v.user_id = u.user_id
+		 WHERE p.team_id = #{teamId}
+		 ORDER BY v.place_id, v.visited_at ASC
+	</select>
+
 	<!-- param: teamId, name, category, roadAddress, address, latitude, longitude, source(search/manual), createdBy. 실행 후 param.placeId 에 생성된 키가 들어간다 -->
 	<insert id="insertPin" parameterType="map" useGeneratedKeys="true" keyProperty="placeId" keyColumn="place_id">
 		INSERT INTO places (team_id, name, category, road_address, address,
@@ -150,6 +172,18 @@
 		DELETE FROM places
 		 WHERE place_id = #{placeId}
 	</delete>
+
+	<!-- 추천이 하나도 남지 않은 핀 삭제 (F-38). 떠난 멤버의 추천도 남은 추천으로 본다. 추천이 남아 있으면 0건. 방문 기록은 CASCADE -->
+	<delete id="deletePinIfNoRecommendation" parameterType="long">
+		DELETE FROM places p
+		 WHERE p.place_id = #{placeId}
+		   AND NOT EXISTS (SELECT 1 FROM recommendations r WHERE r.place_id = p.place_id)
+	</delete>
+
+	<!-- 핀 행 잠금. 같은 핀의 추천 토글을 한 줄로 세워, 동시에 취소해도 '마지막 추천' 판정이 어긋나지 않게 한다 -->
+	<select id="lockPin" parameterType="long" resultType="long">
+		SELECT place_id FROM places WHERE place_id = #{placeId} FOR UPDATE
+	</select>
 
 	<!-- param: placeId, userId -->
 	<delete id="deleteVisit" parameterType="map">
