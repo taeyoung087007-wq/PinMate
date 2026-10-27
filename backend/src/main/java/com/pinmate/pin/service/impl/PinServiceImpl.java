@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service("PinService")
 public class PinServiceImpl implements PinService {
@@ -30,9 +31,14 @@ public class PinServiceImpl implements PinService {
 	public List<Map<String, Object>> selectPinList(Long teamId, Long userId) throws Exception {
 		if (!teamDAO.isTeamMember(teamId, userId)) return null;
 
+		// 추천인·방문자는 팀 단위로 한 번에 읽는다 (핀마다 조회하면 핀 수만큼 DB 왕복이 늘어난다)
+		Map<Long, List<String>> recommenders = groupByPlace(pinDAO.selectRecommendersByTeamId(teamId));
+		Map<Long, List<String>> visitors = groupByPlace(pinDAO.selectVisitorsByTeamId(teamId));
+
 		List<Map<String, Object>> list = new ArrayList<>();
 		for (Map<String, Object> row : pinDAO.selectPinsByTeamId(teamId)) {
-			list.add(toItem(row));
+			Long placeId = (Long) row.get("place_id");
+			list.add(toItem(row, recommenders.getOrDefault(placeId, List.of()), visitors.getOrDefault(placeId, List.of())));
 		}
 		return list;
 	}
@@ -178,8 +184,21 @@ public class PinServiceImpl implements PinService {
 		return achieved;
 	}
 
-	// 화면이 그대로 쓸 수 있는 형태로 변환
+	// 핀 한 개 변환 (등록·수정·추천 응답). 추천인·방문자를 이 핀만 조회한다
 	private Map<String, Object> toItem(Map<String, Object> row) {
+		Long placeId = (Long) row.get("place_id");
+		return toItem(row, pinDAO.selectRecommenderIds(placeId), pinDAO.selectVisitorIds(placeId));
+	}
+
+	// (place_id, login_id) 행을 핀별 login_id 목록으로 묶는다. 행 순서(추천·방문 순)는 유지된다
+	private static Map<Long, List<String>> groupByPlace(List<Map<String, Object>> rows) {
+		return rows.stream().collect(Collectors.groupingBy(
+				r -> (Long) r.get("place_id"),
+				Collectors.mapping(r -> (String) r.get("login_id"), Collectors.toList())));
+	}
+
+	// 화면이 그대로 쓸 수 있는 형태로 변환
+	private Map<String, Object> toItem(Map<String, Object> row, List<String> recommenders, List<String> visitors) {
 		Long placeId = (Long) row.get("place_id");
 
 		Map<String, Object> item = new HashMap<>();
@@ -192,8 +211,8 @@ public class PinServiceImpl implements PinService {
 		item.put("lat", toDouble(row.get("latitude")));
 		item.put("lng", toDouble(row.get("longitude")));
 		item.put("addedBy", row.get("created_by_login_id"));
-		item.put("recommenders", pinDAO.selectRecommenderIds(placeId));
-		item.put("visitedBy", pinDAO.selectVisitorIds(placeId));
+		item.put("recommenders", recommenders);
+		item.put("visitedBy", visitors);
 		item.put("memo", row.get("memo"));
 		item.put("isAllApproved", row.get("consensus_achieved_at") != null);
 		item.put("consensusAchievedAt", toIso(row.get("consensus_achieved_at")));

@@ -46,6 +46,20 @@
 		 ORDER BY (CASE WHEN tm.role = 'owner' THEN 0 ELSE 1 END), tm.joined_at ASC
 	</select>
 
+	<!-- 사용자가 속한 모든 팀의 멤버. 팀 목록에서 팀마다 조회하지 않고 한 번에 읽는다. 팀 안 순서는 selectTeamMembers 와 같다 -->
+	<select id="selectTeamMembersByUserId" parameterType="long" resultType="java.util.HashMap">
+		SELECT tm.team_id,
+		       tm.user_id,
+		       COALESCE(u.login_id, tm.user_id::text) AS login_id,
+		       COALESCE(u.nickname, '멤버') AS nickname,
+		       tm.role,
+		       tm.color
+		  FROM team_members tm
+		  LEFT JOIN users u ON tm.user_id = u.user_id
+		 WHERE tm.team_id IN (SELECT my.team_id FROM team_members my WHERE my.user_id = #{userId})
+		 ORDER BY tm.team_id, (CASE WHEN tm.role = 'owner' THEN 0 ELSE 1 END), tm.joined_at ASC
+	</select>
+
 	<!-- 팀 멤버 여부 (param: teamId, userId). 팀 하위 리소스 API 는 모두 이것으로 소속을 확인한다 -->
 	<select id="countTeamMember" parameterType="map" resultType="int">
 		SELECT COUNT(*)

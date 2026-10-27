@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service("TeamService")
 public class TeamServiceImpl implements TeamService {
@@ -32,9 +33,13 @@ public class TeamServiceImpl implements TeamService {
 	@Override
 	@Transactional(readOnly = true)
 	public List<Map<String, Object>> selectTeamList(Long userId) throws Exception {
+		// 멤버는 내 모든 팀 것을 한 번에 읽어 팀별로 나눈다 (팀마다 조회하면 팀 수만큼 DB 왕복이 늘어난다)
+		Map<Long, List<Map<String, Object>>> membersByTeam = teamDAO.selectTeamMembersByUserId(userId).stream()
+				.collect(Collectors.groupingBy(m -> (Long) m.get("team_id")));
+
 		List<Map<String, Object>> list = new ArrayList<>();
 		for (Map<String, Object> team : teamDAO.selectTeamsByUserId(userId)) {
-			list.add(toItem(team, teamDAO.selectTeamMembers((Long) team.get("team_id"))));
+			list.add(toItem(team, membersByTeam.getOrDefault((Long) team.get("team_id"), List.of())));
 		}
 		return list;
 	}
