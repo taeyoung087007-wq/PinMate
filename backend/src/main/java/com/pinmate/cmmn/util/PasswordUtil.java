@@ -51,7 +51,7 @@ public final class PasswordUtil {
 	}
 
 	// 로그인에 성공한 SHA-256 계정은 그 자리에서 BCrypt 로 다시 저장한다
-	// ponytail: 기존 SHA-256 계정이 모두 한 번씩 로그인하면 이 분기와 sha256() 은 지워도 된다
+	// 기존 SHA-256 계정이 모두 한 번씩 로그인하면 이 분기와 sha256() 은 지워도 된다
 	public static boolean isLegacy(String hashedPassword) {
 		return hashedPassword != null && LEGACY_SHA256.matcher(hashedPassword).matches();
 	}
