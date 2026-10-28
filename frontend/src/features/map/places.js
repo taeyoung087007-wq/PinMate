@@ -97,8 +97,8 @@ export function pickNearest(places, lat, lng, maxMeters) {
   return best
 }
 
-// 수백 m 범위라 평면 근사로 충분하다
-function distanceMeters(lat1, lng1, lat2, lng2) {
+// 평면 근사. 수십 km 안쪽은 오차가 1% 정도라 충분하다 (가게 찾기·역까지 거리 어림)
+export function distanceMeters(lat1, lng1, lat2, lng2) {
   const dy = (lat2 - lat1) * 111_320
   const dx = (lng2 - lng1) * 111_320 * Math.cos((lat1 * Math.PI) / 180)
   return Math.hypot(dx, dy)

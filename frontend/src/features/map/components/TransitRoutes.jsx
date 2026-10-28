@@ -7,7 +7,7 @@ import styles from './TransitRoutes.module.css'
  * 대중교통 경로 후보 목록 (길찾기 패널 안). 네이버 지도처럼
  * - 카드: 총 시간 · 도착 예정 시각, 환승 · 요금 · 도보, 구간별 시간 비율 막대
  * - 고른 카드는 세로 타임라인으로 펼친다 (승차·하차 정류장, 방면, 출구, 환승, 실시간 도착)
- * - 도착 정보: 버스는 TAGO 실시간, 지하철은 수도권 실시간(없으면 시간표)
+ * - 도착 정보: 버스는 TAGO 실시간, 지하철은 수도권 실시간(없으면 시간표). 기차·고속·시외버스는 도착 정보 없음
  * - 목록은 접을 수 있다 (휴대폰에서 지도가 가리지 않게)
  */
 export default function TransitRoutes({ options, selectedIndex, onSelect, arrivals = {}, subway, originName = '내 위치', destName = '도착' }) {
@@ -23,7 +23,7 @@ export default function TransitRoutes({ options, selectedIndex, onSelect, arriva
             const selected = index === selectedIndex
             const firstRide = option.legs.find(leg => leg.kind !== 'walk')
             return (
-              <li key={`${option.mapObj}-${index}`}>
+              <li key={`${option.mapObjs.join('|')}-${index}`}>
                 <button
                   type="button"
                   className={`${styles.card} ${selected ? styles.cardSelected : ''}`}
@@ -66,7 +66,7 @@ function SegmentBar({ legs, total }) {
           {leg.kind !== 'walk' && (
             <>
               <span className={styles.barBadge} style={{ color: leg.color }}>
-                {leg.kind === 'subway' ? leg.badge : '🚌'}
+                {leg.kind === 'bus' ? '🚌' : leg.badge}
               </span>
               {/* 지하철은 호선 배지만, 버스는 번호를 붙인다 (막대가 좁으면 번호는 잘린다) */}
               {leg.kind === 'bus' && <span className={styles.barText}>{leg.badge}</span>}
@@ -110,7 +110,7 @@ function Timeline({ legs, arrivals, subway, originName, destName }) {
           <li key={i} className={styles.ride} style={{ '--line': leg.color }}>
             <div className={styles.rideStop}>
               <span className={styles.rideBadge} style={{ background: leg.color }}>
-                {leg.kind === 'subway' ? leg.badge : '버스'}
+                {leg.kind === 'bus' ? '버스' : leg.badge}
               </span>
               <span className={styles.rideTitle}>
                 <strong>{leg.startName}</strong>
@@ -122,12 +122,12 @@ function Timeline({ legs, arrivals, subway, originName, destName }) {
 
             <div className={styles.rideBody}>
               <span className={styles.rideLine}>
-                {leg.kind === 'subway'
-                  ? <>{leg.names[0]}{leg.way && <> · {leg.way} 방면</>}</>
-                  : <>{leg.names.join(', ')}번</>}
+                {leg.kind === 'subway' && <>{leg.names[0]}{leg.way && <> · {leg.way} 방면</>}</>}
+                {leg.kind === 'bus' && <>{leg.names.join(', ')}번</>}
+                {leg.kind === 'intercity' && <>{leg.names[0]} · {leg.payment.toLocaleString()}원</>}
               </span>
               <span className={styles.sub}>
-                {leg.stationCount}{leg.kind === 'subway' ? '개 역' : '개 정류장'} · {leg.minutes}분
+                {leg.kind !== 'intercity' && `${leg.stationCount}${leg.kind === 'subway' ? '개 역' : '개 정류장'} · `}{leg.minutes}분
                 {leg.interval ? ` · 배차 ${leg.interval}분` : ''}
               </span>
               <Arrival info={legArrival(leg, arrivals, subway)} />
@@ -155,6 +155,7 @@ function Timeline({ legs, arrivals, subway, originName, destName }) {
 
 /** 구간의 다음 도착 { live, text }. 버스는 TAGO 실시간, 지하철은 실시간 또는 시간표 */
 function legArrival(leg, arrivals, subway) {
+  if (leg.kind === 'intercity') return null
   if (leg.kind === 'bus') {
     const arrival = nextArrival(arrivals, leg)
     return arrival && { live: true, text: `${arrival.routeNo}번 ${formatArrival(arrival)}` }

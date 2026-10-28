@@ -636,7 +636,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     const option = transit.options[transit.index]
     let cancelled = false
 
-    const load = loadTransitLines(option.mapObj) // transit.js 가 하루 동안 저장해 둔다
+    // transit.js 가 하루 동안 저장해 둔다. 시외 경로는 앞뒤 시내 구간마다 하나씩 있다
+    const load = Promise.all(option.mapObjs.map(loadTransitLines)).then(groups => groups.flat())
 
     const rides = option.legs.filter(leg => leg.kind !== 'walk')
     // 출발 → 첫 승차, 하차 → 다음 승차(환승), 마지막 하차 → 도착
@@ -651,6 +652,10 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
         drawRouteLines([
           ...walks.map(path => ({ path, color: WALK_COLOR, style: 'shortdash' })),
           ...lines.map(line => ({ ...line, style: 'solid' })),
+          // 기차·고속·시외버스는 노선 모양이 없어서 역·터미널 사이를 긴 점선으로 잇는다
+          ...rides.filter(leg => leg.kind === 'intercity').map(leg => ({
+            path: [[leg.start.lat, leg.start.lng], [leg.end.lat, leg.end.lng]], color: leg.color, style: 'longdash',
+          })),
         ])
       })
       .catch(error => {
