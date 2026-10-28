@@ -183,7 +183,8 @@ export function nextSubway(subway, leg) {
 
 // 실시간 열차가 이 구간 방향인지. 다음 역(서울 "○○방면" ↔ ODsay 경유역 두 번째)으로 맞추고, 없으면 상하행으로.
 // ODsay wayCode 1 은 서울 기준 상행, 2호선은 외선(강남→역삼 쪽)이다
-const stationKey = name => (name ?? '').replace(/\(.*\)/, '').replace(/역$/, '').trim()
+// "이수"·"총신대입구(이수)" 처럼 이름이 달라도 같은 역이면 같은 값
+const stationKey = name => seoulStationName(name).replace(/\(.*\)/, '').trim()
 export function sameDirection(train, leg) {
   if (train.next && leg.nextStop) return stationKey(train.next) === stationKey(leg.nextStop)
   const up = leg.subwayCode === 2 ? '외선' : '상행'

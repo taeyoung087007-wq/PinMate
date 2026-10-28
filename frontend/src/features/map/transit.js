@@ -332,8 +332,22 @@ export function nextTrains(table, wayCode, now = new Date(), count = 2, holidays
 // 서울시 실시간 API 의 노선 ID (1~9호선만 확실하다. 나머지 노선은 시간표로 대신한다)
 export const seoulSubwayId = subwayCode => (subwayCode >= 1 && subwayCode <= 9 ? String(1000 + subwayCode) : null)
 
-// ODsay 역 이름 → 서울시 API 역 이름 ("서울역" → "서울", "역삼" 은 그대로)
-export const seoulStationName = name => (name ?? '').replace(/역$/, '')
+// ODsay 는 짧은 이름, 서울시 실시간 API 는 부역명까지 붙은 이름만 받는 역 (2026-10 두 API 로 직접 확인한 것만)
+const SEOUL_FULL_NAMES = {
+  숭실대입구: '숭실대입구(살피재)', 이수: '총신대입구(이수)', 총신대입구: '총신대입구(이수)',
+  대흥: '대흥(서강대앞)', 군자: '군자(능동)', 천호: '천호(풍납토성)', 어린이대공원: '어린이대공원(세종대)',
+  아차산: '아차산(어린이대공원후문)', 광나루: '광나루(장신대)', 몽촌토성: '몽촌토성(평화의문)',
+  월드컵경기장: '월드컵경기장(성산)', 증산: '증산(명지대앞)', 새절: '새절(신사)', 화랑대: '화랑대(서울여대입구)',
+  신정: '신정(은행정)', 오목교: '오목교(목동운동장앞)', 굽은다리: '굽은다리(강동구민회관앞)', 쌍용: '쌍용(나사렛대)',
+  안암: '안암(고대병원앞)', 월곡: '월곡(동덕여대)', 상월곡: '상월곡(한국과학기술연구원)', 공릉: '공릉(서울산업대입구)',
+  응암: '응암순환(상선)',
+}
+
+// ODsay 역 이름 → 서울시 API 역 이름 ("서울역" → "서울", "이수" → "총신대입구(이수)", "역삼" 은 그대로)
+export const seoulStationName = name => {
+  const short = (name ?? '').replace(/역$/, '')
+  return SEOUL_FULL_NAMES[short] ?? short
+}
 
 // 로컬 기준 "2026-03-02" (toISOString 은 UTC 라 새벽에 날짜가 하루 밀린다)
 function localDate(date) {

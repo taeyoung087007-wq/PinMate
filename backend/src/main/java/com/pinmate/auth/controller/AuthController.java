@@ -189,7 +189,8 @@ public class AuthController {
 			} else {
 				authService.insertUser(ParamUtil.map(
 						"loginId", loginId,
-						"email", email.isEmpty() ? loginId + "@pinmate.io" : email,
+						// 이메일을 비우면 NULL (가짜 주소를 넣으면 email UNIQUE·탈퇴 시 NULL 규칙과 맞지 않는다)
+						"email", email.isEmpty() ? null : email,
 						"passwordHash", PasswordUtil.hash(password),
 						"nickname", nickname));
 				logger.info("신규 사용자 {} 가 가입했습니다.", loginId);
