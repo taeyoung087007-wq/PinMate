@@ -14,7 +14,7 @@ public class PresenceServiceImpl implements PresenceService {
 	// 클라이언트 heartbeat 주기(30초)의 3배. 한두 번 놓쳐도 바로 오프라인이 되지 않게 한다
 	private static final Duration ONLINE_WINDOW = Duration.ofSeconds(90);
 
-	// shortcut: 서버 메모리에만 두므로 재시작하면 모두 오프라인이 되고 서버가 2대 이상이면 맞지 않는다. 다중 서버가 되면 Redis 등으로 옮긴다
+	// 서버 메모리에만 두므로 재시작하면 모두 오프라인이 되고 서버가 2대 이상이면 맞지 않는다. 다중 서버가 되면 Redis 등으로 옮긴다
 	private final Map<Long, Instant> lastSeen = new ConcurrentHashMap<>();
 
 	@Override
