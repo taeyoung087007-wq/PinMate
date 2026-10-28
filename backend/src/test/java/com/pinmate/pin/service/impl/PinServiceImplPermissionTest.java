@@ -111,7 +111,6 @@ class PinServiceImplPermissionTest {
     void updateWritesNameCategoryAndCreatorComment() throws Exception {
         given(pinDAO.selectPinById(PLACE_ID)).willReturn(existingPin());
         given(pinDAO.selectRecommenderIds(anyLong())).willReturn(List.of());
-        given(pinDAO.selectVisitorIds(anyLong())).willReturn(List.of());
 
         Map<String, Object> param = new HashMap<>();
         param.put("name", "새 이름");
@@ -125,17 +124,17 @@ class PinServiceImplPermissionTest {
     }
 
     @Test
-    @DisplayName("마지막 추천자가 취소하면 장소가 삭제되고 모두 인정 재판정은 하지 않는다 (F-38)")
-    void lastRecommenderCancelDeletesPin() throws Exception {
+    @DisplayName("마지막 추천자가 취소해도 장소는 남는다 (찍어두기만 한 장소와 같다)")
+    void lastRecommenderCancelKeepsPin() throws Exception {
         given(pinDAO.selectPinById(PLACE_ID)).willReturn(existingPin());
         given(teamDAO.isTeamMember(TEAM_ID, CREATOR_ID)).willReturn(true);
         given(pinDAO.countRecommendation(anyMap())).willReturn(1);
-        given(pinDAO.deletePinIfNoRecommendation(PLACE_ID)).willReturn(1);
 
         Map<String, Object> result = service.toggleRecommendation(PLACE_ID, CREATOR_ID);
 
-        assertThat(result.get("deleted")).isEqualTo(true);
+        assertThat(result.get("pin")).isNotNull();
         verify(pinDAO).lockPin(PLACE_ID);
-        verify(teamDAO, never()).selectTeamById(anyLong());
+        verify(pinDAO).deleteRecommendation(anyMap());
+        verify(pinDAO, never()).deletePin(anyLong());
     }
 }

@@ -9,14 +9,12 @@ public interface PinService {
 	// 팀의 핀 목록
 	List<Map<String, Object>> selectPinList(Long teamId, Long userId) throws Exception;
 
-	// 핀 등록 (등록자를 첫 추천인으로 등록). param: teamId, name, category, address, roadAddress, lat, lng, memo
+	// 핀 등록. recommend 면 등록자를 첫 추천인으로 (memo 는 그 추천평). 같은 팀에 같은 이름·위치(약 50m)가 있으면 { duplicateOf: 기존 장소 }
+	// param: teamId, name, category, address, roadAddress, lat, lng, memo, recommend
 	Map<String, Object> insertPin(Map<String, Object> param, Long userId) throws Exception;
 
 	// 추천 토글 (추천 ↔ 추천 취소). 결과: pin, reachedAllApproved
 	Map<String, Object> toggleRecommendation(Long placeId, Long userId) throws Exception;
-
-	// 방문 토글 (방문 ↔ 방문 취소)
-	Map<String, Object> toggleVisit(Long placeId, Long userId) throws Exception;
 
 	// 팀원 수가 바뀐 뒤 그 팀 핀들의 '모두 인정'을 다시 판정한다. 풀린 핀은 'N명일 때 달성' 기록을 남긴다
 	void updateTeamConsensus(Long teamId) throws Exception;
@@ -27,6 +25,6 @@ public interface PinService {
 	// 핀 수정 (이름·카테고리·등록자 추천평). 권한은 selectEditCode 로 먼저 확인한다. param: name, category, memo
 	Map<String, Object> updatePin(Long placeId, Map<String, Object> param) throws Exception;
 
-	// 핀 삭제 (추천·방문 기록도 함께). 권한은 selectEditCode 로 먼저 확인한다
+	// 핀 삭제 (추천 기록도 함께). 권한은 selectEditCode 로 먼저 확인한다
 	void deletePin(Long placeId) throws Exception;
 }

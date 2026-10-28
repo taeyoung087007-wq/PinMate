@@ -13,6 +13,7 @@ export default function TeamDrawer({
   onSelectTeam,
   onOpenCreate,
   onJoinTeam,
+  onLeftTeam,
   onClose,
   isOpen,
 }) {
@@ -61,6 +62,7 @@ export default function TeamDrawer({
             teamId={detailTeamId}
             onBack={() => setDetailTeamId(null)}
             onEnter={(id) => { onSelectTeam(id); handleClose() }}
+            onLeft={(id) => { setDetailTeamId(null); onLeftTeam?.(id) }}
           />
         ) : (<>
 

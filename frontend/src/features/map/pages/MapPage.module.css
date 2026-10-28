@@ -98,6 +98,7 @@
   overflow-x: auto;
   padding: 2px 2px 6px;
   scrollbar-width: none; /* Firefox */
+  user-select: none; /* 마우스로 끌어 넘길 때 글자가 선택되지 않게 */
 }
 
 .chipsScroll::-webkit-scrollbar {

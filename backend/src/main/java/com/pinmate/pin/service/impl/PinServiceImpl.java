@@ -31,14 +31,13 @@ public class PinServiceImpl implements PinService {
 	public List<Map<String, Object>> selectPinList(Long teamId, Long userId) throws Exception {
 		if (!teamDAO.isTeamMember(teamId, userId)) return null;
 
-		// 추천인·방문자는 팀 단위로 한 번에 읽는다 (핀마다 조회하면 핀 수만큼 DB 왕복이 늘어난다)
+		// 추천인은 팀 단위로 한 번에 읽는다 (핀마다 조회하면 핀 수만큼 DB 왕복이 늘어난다)
 		Map<Long, List<String>> recommenders = groupByPlace(pinDAO.selectRecommendersByTeamId(teamId));
-		Map<Long, List<String>> visitors = groupByPlace(pinDAO.selectVisitorsByTeamId(teamId));
 
 		List<Map<String, Object>> list = new ArrayList<>();
 		for (Map<String, Object> row : pinDAO.selectPinsByTeamId(teamId)) {
 			Long placeId = (Long) row.get("place_id");
-			list.add(toItem(row, recommenders.getOrDefault(placeId, List.of()), visitors.getOrDefault(placeId, List.of())));
+			list.add(toItem(row, recommenders.getOrDefault(placeId, List.of())));
 		}
 		return list;
 	}
@@ -48,6 +47,15 @@ public class PinServiceImpl implements PinService {
 	public Map<String, Object> insertPin(Map<String, Object> param, Long userId) throws Exception {
 		Long teamId = (Long) param.get("teamId");
 		if (!teamDAO.isTeamMember(teamId, userId)) return null;
+
+		// 같은 팀의 등록을 한 줄로 세운 뒤 중복을 본다 (버튼 연타로 두 요청이 동시에 와도 하나만 들어가게)
+		teamDAO.lockTeam(teamId);
+		Map<String, Object> same = ParamUtil.map("teamId", teamId, "name", param.get("name"),
+				"latitude", BigDecimal.valueOf((Double) param.get("lat")), "longitude", BigDecimal.valueOf((Double) param.get("lng")));
+		Long sameId = pinDAO.selectSamePinId(same);
+		if (sameId != null) {
+			return ParamUtil.map("duplicateOf", toItem(pinDAO.selectPinById(sameId)));
+		}
 
 		String address = (String) param.get("address");
 		String roadAddress = (String) param.get("roadAddress");
@@ -65,8 +73,10 @@ public class PinServiceImpl implements PinService {
 		pinDAO.insertPin(pin);                     // useGeneratedKeys → pin.placeId
 		Long placeId = ((Number) pin.get("placeId")).longValue();
 
-		// 등록자를 첫 번째 추천인으로 등록 (한 줄 메모 포함)
-		pinDAO.insertRecommendation(ParamUtil.map("placeId", placeId, "userId", userId, "comment", param.get("memo")));
+		// 다녀와서 추천한다고 체크했을 때만 등록자를 첫 추천인으로 (SNS 에서 보고 찍어두기만 한 곳은 추천 0명). 한 줄 추천평은 이 추천 행에 저장된다
+		if (Boolean.TRUE.equals(param.get("recommend"))) {
+			pinDAO.insertRecommendation(ParamUtil.map("placeId", placeId, "userId", userId, "comment", param.get("memo")));
+		}
 
 		updateConsensus(placeId, teamId, false);
 		return toItem(pinDAO.selectPinById(placeId));
@@ -75,7 +85,7 @@ public class PinServiceImpl implements PinService {
 	@Override
 	@Transactional
 	public Map<String, Object> toggleRecommendation(Long placeId, Long userId) throws Exception {
-		pinDAO.lockPin(placeId);   // 같은 핀의 추천 토글은 하나씩 처리한다 (동시 취소 시 마지막 추천 판정 경합 방지)
+		pinDAO.lockPin(placeId);   // 같은 핀의 추천 토글은 하나씩 처리한다 (동시에 눌러도 모두 인정 판정이 어긋나지 않게)
 		Map<String, Object> pin = selectMemberPin(placeId, userId);
 		if (pin == null) return null;
 
@@ -83,11 +93,7 @@ public class PinServiceImpl implements PinService {
 
 		Map<String, Object> key = ParamUtil.map("placeId", placeId, "userId", userId);
 		if (pinDAO.countRecommendation(key) > 0) {
-			pinDAO.deleteRecommendation(key);
-			// 마지막 추천자가 취소하면 장소도 지운다 (F-38)
-			if (pinDAO.deletePinIfNoRecommendation(placeId) > 0) {
-				return ParamUtil.map("pin", null, "deleted", true, "reachedAllApproved", false);
-			}
+			pinDAO.deleteRecommendation(key);   // 추천이 0명이 돼도 장소는 남는다 (찍어두기만 한 장소와 같다)
 		} else {
 			pinDAO.insertRecommendation(ParamUtil.map("placeId", placeId, "userId", userId, "comment", null));
 		}
@@ -96,23 +102,8 @@ public class PinServiceImpl implements PinService {
 
 		Map<String, Object> result = new HashMap<>();
 		result.put("pin", toItem(pinDAO.selectPinById(placeId)));
-		result.put("deleted", false);
 		result.put("reachedAllApproved", !previouslyAchieved && currentAchieved);   // 이번 추천으로 처음 달성했을 때만 true
 		return result;
-	}
-
-	@Override
-	@Transactional
-	public Map<String, Object> toggleVisit(Long placeId, Long userId) throws Exception {
-		if (selectMemberPin(placeId, userId) == null) return null;
-
-		Map<String, Object> key = ParamUtil.map("placeId", placeId, "userId", userId);
-		if (pinDAO.countVisit(key) > 0) {
-			pinDAO.deleteVisit(key);
-		} else {
-			pinDAO.insertVisit(key);
-		}
-		return toItem(pinDAO.selectPinById(placeId));
 	}
 
 	@Override
@@ -184,13 +175,12 @@ public class PinServiceImpl implements PinService {
 		return achieved;
 	}
 
-	// 핀 한 개 변환 (등록·수정·추천 응답). 추천인·방문자를 이 핀만 조회한다
+	// 핀 한 개 변환 (등록·수정·추천 응답). 추천인을 이 핀만 조회한다
 	private Map<String, Object> toItem(Map<String, Object> row) {
-		Long placeId = (Long) row.get("place_id");
-		return toItem(row, pinDAO.selectRecommenderIds(placeId), pinDAO.selectVisitorIds(placeId));
+		return toItem(row, pinDAO.selectRecommenderIds((Long) row.get("place_id")));
 	}
 
-	// (place_id, login_id) 행을 핀별 login_id 목록으로 묶는다. 행 순서(추천·방문 순)는 유지된다
+	// (place_id, login_id) 행을 핀별 login_id 목록으로 묶는다. 행 순서(추천 순)는 유지된다
 	private static Map<Long, List<String>> groupByPlace(List<Map<String, Object>> rows) {
 		return rows.stream().collect(Collectors.groupingBy(
 				r -> (Long) r.get("place_id"),
@@ -198,7 +188,7 @@ public class PinServiceImpl implements PinService {
 	}
 
 	// 화면이 그대로 쓸 수 있는 형태로 변환
-	private Map<String, Object> toItem(Map<String, Object> row, List<String> recommenders, List<String> visitors) {
+	private Map<String, Object> toItem(Map<String, Object> row, List<String> recommenders) {
 		Long placeId = (Long) row.get("place_id");
 
 		Map<String, Object> item = new HashMap<>();
@@ -212,7 +202,6 @@ public class PinServiceImpl implements PinService {
 		item.put("lng", toDouble(row.get("longitude")));
 		item.put("addedBy", row.get("created_by_login_id"));
 		item.put("recommenders", recommenders);
-		item.put("visitedBy", visitors);
 		item.put("memo", row.get("memo"));
 		item.put("isAllApproved", row.get("consensus_achieved_at") != null);
 		item.put("consensusAchievedAt", toIso(row.get("consensus_achieved_at")));

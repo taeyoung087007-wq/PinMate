@@ -354,3 +354,28 @@
   font-weight: 600;
   color: var(--text-muted);
 }
+
+/* 다녀와서 바로 추천하기 체크 */
+.recommendCheck {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.recommendCheck input {
+  margin-top: 2px;
+  accent-color: var(--primary);
+}
+
+.recommendCheck small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+}

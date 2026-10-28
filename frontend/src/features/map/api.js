@@ -7,12 +7,9 @@ export const fetchPins = (teamId) => request(`/pins?teamId=${encodeURIComponent(
 
 export const createPinApi = (pinData) => post('/pins', pinData)
 
-/** @returns {Promise<{ pin, reachedAllApproved: boolean }>} */
+/** @returns {Promise<{ pin, reachedAllApproved: boolean }>} 추천이 0명이 돼도 장소는 남는다 */
 export const toggleRecommendationApi = (pinId, userId) =>
   post(`/pins/${encodeURIComponent(pinId)}/recommend`, { userId })
-
-export const toggleVisitApi = (pinId, userId) =>
-  post(`/pins/${encodeURIComponent(pinId)}/visit`, { userId })
 
 /** 이름·카테고리·한 줄 추천평 수정 (등록자 또는 팀 owner 만) */
 export const updatePinApi = (pinId, data) =>

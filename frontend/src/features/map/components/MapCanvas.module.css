@@ -232,6 +232,11 @@
 }
 
 /* '모두 인정' 골드 마커 */
+.pinWrapSilver .pinBody {
+  border-color: #e3e8f0;
+  box-shadow: 0 0 0 3px rgba(154, 168, 188, 0.3), 0 3px 12px rgba(154, 168, 188, 0.35);
+}
+
 .pinWrapGold .pinBody {
   border-color: #fff0b3;
   box-shadow: 0 0 0 3px rgba(255, 186, 8, 0.25), 0 3px 12px rgba(255, 186, 8, 0.35);

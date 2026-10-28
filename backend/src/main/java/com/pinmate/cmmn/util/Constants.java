@@ -20,6 +20,9 @@ public class Constants {
 	public static final String INVITE_FAIL    = "21"; // 팀 초대 코드 불일치·만료
 	public static final String INVITE_BLOCKED = "23"; // 팀 초대 코드 연속 실패로 잠시 차단
 
+	// 장소
+	public static final String DUPLICATE_PLACE = "31"; // 같은 모임에 같은 장소가 이미 있음 (data 에 기존 장소)
+
 	// 공통 입력·데이터 결과 코드 (message 에 사용자 문구)
 	public static final String INVALID   = "90"; // 입력 오류
 	public static final String NOT_FOUND = "91"; // 대상 없음(참여하지 않은 모임 포함, 구분하지 않음)

@@ -1,5 +1,6 @@
 package com.pinmate.team.service.impl;
 
+import com.pinmate.cmmn.util.Constants;
 import com.pinmate.cmmn.util.ParamUtil;
 import com.pinmate.pin.service.PinService;
 import com.pinmate.presence.service.PresenceService;
@@ -98,6 +99,48 @@ public class TeamServiceImpl implements TeamService {
 			pinService.updateTeamConsensus(teamId);
 		}
 		return selectTeam(teamId, userId);
+	}
+
+	@Override
+	@Transactional
+	public String deleteTeam(Long teamId, Long userId) throws Exception {
+		Map<String, Object> me = selectMembership(teamId, userId);
+		if (me == null) return Constants.NOT_FOUND;
+		if (!isOwner(me)) return Constants.NO_PERMISSION;
+
+		teamDAO.deleteTeam(teamId);
+		return Constants.SUCCESS;
+	}
+
+	@Override
+	@Transactional
+	public String leaveTeam(Long teamId, Long userId) throws Exception {
+		teamDAO.lockTeam(teamId);   // 둘이 동시에 나가도 owner 넘기기·마지막 인원 판정이 어긋나지 않게
+		Map<String, Object> me = selectMembership(teamId, userId);
+		if (me == null) return Constants.NOT_FOUND;
+
+		teamDAO.deleteTeamMember(ParamUtil.map("teamId", teamId, "userId", userId));
+		if (teamDAO.selectTeamMembers(teamId).isEmpty()) {
+			teamDAO.deleteTeam(teamId);   // 아무도 없는 팀은 남기지 않는다
+			return Constants.SUCCESS;
+		}
+		if (isOwner(me)) {
+			teamDAO.updateOldestMemberToOwner(teamId);
+		}
+		// 기준 인원이 줄었으니 '모두 인정'을 다시 판정한다
+		pinService.updateTeamConsensus(teamId);
+		return Constants.SUCCESS;
+	}
+
+	// 요청자의 팀 멤버 행. 없는 팀이거나 멤버가 아니면 null
+	private Map<String, Object> selectMembership(Long teamId, Long userId) {
+		return teamDAO.selectTeamMembers(teamId).stream()
+				.filter(m -> userId.equals(m.get("user_id")))
+				.findFirst().orElse(null);
+	}
+
+	private boolean isOwner(Map<String, Object> member) {
+		return "owner".equalsIgnoreCase((String) member.get("role"));
 	}
 
 	private boolean isMember(List<Map<String, Object>> members, Long userId) {

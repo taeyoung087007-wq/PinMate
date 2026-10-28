@@ -33,6 +33,8 @@ export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = nul
   const [category, setCategory] = useState('food')
   const [name, setName] = useState(initialPlace?.name ?? '')
   const [memo, setMemo] = useState('')
+  const [recommend, setRecommend] = useState(false) // 다녀와 봤으면 등록하면서 바로 추천 (SNS 에서 보고 찍어두기만 하면 끔)
+  const [adding, setAdding] = useState(false) // 버튼을 연달아 눌러 같은 장소가 두 번 들어가지 않게
 
   // 검색: 상호명(카카오 Places)과 주소(카카오 Geocoder)를 동시에 조회해 합친다
   const handleSearch = async e => {
@@ -123,9 +125,10 @@ export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = nul
     setStep('detail')
   }
 
-  const handleAdd = () => {
-    if (!selected) return
-    onAdd({
+  const handleAdd = async () => {
+    if (!selected || adding) return
+    setAdding(true)
+    await onAdd({
       teamId,
       name: name.trim() || selected.address,
       address: selected.address,
@@ -133,9 +136,11 @@ export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = nul
       lat: selected.lat,
       lng: selected.lng,
       addedBy: CURRENT_USER.id,
-      memo: memo.trim(),
+      memo: recommend ? memo.trim() : '',
+      recommend,
       source,
     })
+    setAdding(false)
   }
 
   return (
@@ -295,28 +300,39 @@ export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = nul
               </div>
             </div>
 
-            <div className={styles.field}>
-              <label className={styles.label}>
-                <FileText size={13} />
-                팀원들에게 남길 한 줄 추천평 (선택)
-              </label>
-              <textarea
-                className={`input ${styles.textarea}`}
-                placeholder="예: 여기 시그니처 라떼가 진짜 맛있어요! 분위기도 조용함"
-                value={memo}
-                onChange={e => setMemo(e.target.value)}
-                rows={2}
-              />
-            </div>
+            <label className={styles.recommendCheck}>
+              <input type="checkbox" checked={recommend} onChange={e => setRecommend(e.target.checked)} />
+              <span>
+                다녀와 봤어요 · 바로 추천하기
+                <small>가보고 싶어서 찍어두는 곳이면 체크하지 마세요. 다녀온 뒤 추천할 수 있어요.</small>
+              </span>
+            </label>
+
+            {recommend && (
+              <div className={styles.field}>
+                <label className={styles.label}>
+                  <FileText size={13} />
+                  팀원들에게 남길 한 줄 추천평 (선택)
+                </label>
+                <textarea
+                  className={`input ${styles.textarea}`}
+                  placeholder="예: 여기 시그니처 라떼가 진짜 맛있어요! 분위기도 조용함"
+                  value={memo}
+                  onChange={e => setMemo(e.target.value)}
+                  maxLength={100}
+                  rows={2}
+                />
+              </div>
+            )}
 
             <div className={styles.actions}>
               <button type="button" className="btn btn-secondary" onClick={() => setStep('search')}>
                 <ArrowLeft size={14} />
                 다시 선택
               </button>
-              <button type="button" className="btn btn-primary" onClick={handleAdd} style={{ flex: 1 }}>
+              <button type="button" className="btn btn-primary" onClick={handleAdd} disabled={adding} style={{ flex: 1 }}>
                 <MapPin size={14} />
-                지도에 핀 꽂기
+                {adding ? '꽂는 중…' : '지도에 핀 꽂기'}
               </button>
             </div>
           </div>

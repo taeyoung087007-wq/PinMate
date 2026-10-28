@@ -18,7 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * 핀 목록 조회. 추천인·방문자를 핀마다 조회하지 않고(N+1) 팀 단위로 한 번에 읽어 핀별로 나눈다.
+ * 핀 목록 조회. 추천인을 핀마다 조회하지 않고(N+1) 팀 단위로 한 번에 읽어 핀별로 나눈다.
  */
 @ExtendWith(MockitoExtension.class)
 class PinServiceImplListTest {
@@ -40,22 +40,18 @@ class PinServiceImplListTest {
     }
 
     @Test
-    @DisplayName("추천인·방문자를 팀 단위로 한 번에 읽어 핀별로 순서대로 나눈다")
-    void groupsRecommendersAndVisitorsByPin() throws Exception {
+    @DisplayName("추천인을 팀 단위로 한 번에 읽어 핀별로 순서대로 나눈다")
+    void groupsRecommendersByPin() throws Exception {
         given(teamDAO.isTeamMember(TEAM_ID, USER_ID)).willReturn(true);
         given(pinDAO.selectPinsByTeamId(TEAM_ID)).willReturn(List.of(
                 Map.<String, Object>of("place_id", 1L, "team_id", TEAM_ID),
                 Map.<String, Object>of("place_id", 2L, "team_id", TEAM_ID)));
         given(pinDAO.selectRecommendersByTeamId(TEAM_ID)).willReturn(List.of(row(1, "minji"), row(1, "junho"), row(2, "junho")));
-        given(pinDAO.selectVisitorsByTeamId(TEAM_ID)).willReturn(List.of(row(2, "minji")));
 
         List<Map<String, Object>> pins = service.selectPinList(TEAM_ID, USER_ID);
 
         assertThat(pins.get(0).get("recommenders")).isEqualTo(List.of("minji", "junho"));
-        assertThat(pins.get(0).get("visitedBy")).isEqualTo(List.of());
         assertThat(pins.get(1).get("recommenders")).isEqualTo(List.of("junho"));
-        assertThat(pins.get(1).get("visitedBy")).isEqualTo(List.of("minji"));
         verify(pinDAO, never()).selectRecommenderIds(anyLong());
-        verify(pinDAO, never()).selectVisitorIds(anyLong());
     }
 }
