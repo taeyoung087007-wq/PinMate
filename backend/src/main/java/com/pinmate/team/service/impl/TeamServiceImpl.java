@@ -79,7 +79,7 @@ public class TeamServiceImpl implements TeamService {
 		if (invite == null) return null;
 
 		Map<String, Object> item = new HashMap<>();
-		item.put("teamId", invite.get("team_id"));
+		item.put("teamId", String.valueOf(invite.get("team_id"))); // 다른 API 처럼 문자열
 		item.put("teamName", invite.get("team_name"));
 		return item;
 	}

@@ -24,10 +24,12 @@ export default function ProfileModal({ isOpen, onClose, onLogout, currentUser })
           </div>
           <div className={styles.userInfo}>
             <div className={styles.nickname}>{currentUser.nickname}</div>
-            <div className={styles.email}>
-              <Mail size={12} />
-              {currentUser.email}
-            </div>
+            {currentUser.email && (
+              <div className={styles.email}>
+                <Mail size={12} />
+                {currentUser.email}
+              </div>
+            )}
           </div>
         </div>
 

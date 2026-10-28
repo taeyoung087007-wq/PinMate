@@ -111,7 +111,6 @@ export default function AuthPage({ onLogin }) {
           password: form.password,
           passwordConfirm: form.passwordConfirm,
           nickname: form.nickname.trim(),
-          email: `${form.id.trim()}@pinmate.io`,
           signupCode: form.signupCode.trim(),
         })
 

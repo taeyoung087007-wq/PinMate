@@ -162,7 +162,7 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 | `password` | string | ✔ | 4자 이상, UTF-8 72바이트 이하 (BCrypt 한도) |
 | `passwordConfirm` | string | ✔ | `password` 와 같아야 함 |
 | `nickname` | string | ✔ | 2~30자, 서비스 전체에서 중복 불가 |
-| `email` | string | | 형식 검사. **비우면 `{loginId}@pinmate.io` 로 저장** |
+| `email` | string | | 형식 검사. 비우면 NULL 로 저장 |
 | `signupCode` | string | ✔ | 서비스 가입 코드 (서버 환경변수 `PINMATE_SIGNUP_CODE`. 비어 있으면 아무도 가입 불가) |
 
 성공 `00` (`data: null`). 가입 후 로그인 화면으로 돌아가며, **자동 로그인·자동 팀 참여는 하지 않습니다.** 팀 참여는 로그인 후 초대 링크로 합니다.
@@ -184,10 +184,8 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 성공 `00`
 
 ```json
-{ "teamId": 1, "teamName": "주말 맛집 원정대" }
+{ "teamId": "1", "teamName": "주말 맛집 원정대" }
 ```
-
-> `teamId` 가 여기서만 **숫자**입니다. → [알려진 불일치](#알려진-불일치)
 
 실패: `21`, `23`, `99`
 
@@ -598,9 +596,7 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 | # | 내용 | 영향 |
 |---|---|---|
 | 1 | 로그인 응답 `id` 는 `user_id`, 모임 멤버·추천인·방문자의 `id` 는 `login_id` | 프론트에서 "나"를 찾을 때 `loginId` 로 비교해야 함 (`PinDetailPanel.jsx` 가 그렇게 함) |
-| 2 | `GET /api/auth/invite/check` 의 `teamId` 만 숫자, 나머지 API는 문자열 | 비교할 때 `String()` 필요 |
 | 3 | DB 정의서는 팀 하위 리소스 경로를 `/teams/{teamId}/places/{placeId}` 로 제안했지만, 구현은 `/pins/{pinId}` + 서비스에서 팀 멤버 확인 | 동작상 문제없음. 경로 규칙을 통일할지 결정 필요 |
 | 4 | 장소 수정·삭제 권한이 owner만. 기획(F-18)·DB 정의서는 owner·admin | admin 지정 API(F-54)가 생길 때 같이 고침 |
 | 5 | 초대 코드가 `team{팀ID}_{16진수 6자리}` 형식. 기획(F-55)은 "추측하기 어려운 무작위 값" | IP당 시도 제한으로 완화 중. F-58 재발급과 함께 고침 |
-| 6 | 가입 시 이메일을 비우면 `{loginId}@pinmate.io` 로 저장 | `users.email` UNIQUE 와 "탈퇴 시 NULL" 규칙과 맞지 않음. 실제 메일이 아님 |
 | 7 | 추천인별 한 줄 평은 저장(`recommendations.comment`)되지만 API는 등록자 것만 내려줌 | F-17 "사람별 한 줄 평" 미완 |
