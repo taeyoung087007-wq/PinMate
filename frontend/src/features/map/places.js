@@ -78,7 +78,7 @@ export async function findNearestPlace(lat, lng, radiusMeters, { building = '' }
   const found = pickNearest(first.flat(), lat, lng, radius)
   if (found) return found
 
-  // shortcut: 2차는 분류 12개를 동시에 호출한다(클릭당 최대 15회). 사용량이 문제 되면 분류를 줄인다
+  // 2차는 분류 12개를 동시에 호출한다(클릭당 최대 15회). 사용량이 문제 되면 분류를 줄인다
   return pickNearest(await search(SECONDARY_CATEGORIES), lat, lng, radius)
 }
 

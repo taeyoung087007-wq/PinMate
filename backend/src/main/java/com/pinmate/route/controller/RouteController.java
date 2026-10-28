@@ -80,7 +80,7 @@ public class RouteController {
 		return e instanceof HttpClientErrorException hce && hce.getResponseBodyAsString().contains("\"3102\"");
 	}
 
-	// shortcut: 자전거 시간은 도보 경로 거리를 시속 15km 로 나눈 추정값. 자전거 길찾기 API 가 생기면 바꾼다
+	// 자전거 시간은 도보 경로 거리를 시속 15km 로 나눈 추정값. 자전거 길찾기 API 가 생기면 바꾼다
 	static int bikeSeconds(int meters) {
 		return (int) Math.round(meters / (15_000d / 3600));
 	}
