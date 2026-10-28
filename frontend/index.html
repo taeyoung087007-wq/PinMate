@@ -6,9 +6,30 @@
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <!-- 홈 화면에 추가했을 때 앱처럼 실행 (아이콘·테마색·시작 경로) -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0D0E1A" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="PinMate" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PinMate — 친구들과 함께 만드는 지도</title>
     <meta name="description" content="친구끼리 팀을 만들어 맛집, 카페, 명소를 하나의 지도에 모아보는 협업형 장소 공유 서비스" />
+
+    <!-- 공유 미리보기 (카카오톡·슬랙·X). og:image 는 절대 URL 이 원칙이라 배포 시 VITE_PUBLIC_URL 을 채운다 -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="PinMate" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:title" content="PinMate — 친구들과 함께 만드는 지도" />
+    <meta property="og:description" content="친구끼리 팀을 만들어 맛집, 카페, 명소를 하나의 지도에 모아보세요." />
+    <meta property="og:image" content="%VITE_PUBLIC_URL%/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="PinMate 로고 — 친구들과 함께 만드는 지도" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="PinMate — 친구들과 함께 만드는 지도" />
+    <meta name="twitter:description" content="친구끼리 팀을 만들어 맛집, 카페, 명소를 하나의 지도에 모아보세요." />
+    <meta name="twitter:image" content="%VITE_PUBLIC_URL%/og-image.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
