@@ -3,6 +3,8 @@
  * - 등록한 도메인(http://localhost:5173 등)에서만 동작하는 키라 브라우저에서 바로 호출한다
  * - 좌표는 모두 { lat, lng } / [lat, lng] 로 바꿔서 돌려준다 (ODsay 는 x=경도, y=위도)
  */
+import { distanceMeters } from './places'
+
 const BASE_URL = 'https://api.odsay.com/v1/api'
 
 // 도보 구간 색. 도보 길찾기와 대중교통 안의 도보 구간을 같은 색(청록 점선)으로 그린다
@@ -26,6 +28,16 @@ const SUBWAY_COLORS = {
   6: '#CD7C2F', 7: '#747F00', 8: '#E6186C', 9: '#BDB092',
 }
 const DEFAULT_SUBWAY_COLOR = '#6C63FF'
+
+// 시외 구간 (ODsay trafficType 4 기차, 5 고속버스, 6 시외버스, 7 항공)
+const INTERCITY = {
+  4: { name: '기차', color: '#2563EB' },
+  5: { name: '고속버스', color: '#7C3AED' },
+  6: { name: '시외버스', color: '#A855F7' },
+  7: { name: '항공', color: '#0EA5E9' },
+}
+// 실제 응답에서 확인한 열차 종류만 (1 고속열차, 3 무궁화, 6 새마을급). 나머지는 '기차'
+const TRAIN_NAMES = { 1: 'KTX', 3: '무궁화', 6: '새마을' }
 
 const busColor = type => BUS_COLORS[type] ?? DEFAULT_BUS_COLOR
 const subwayColor = code => SUBWAY_COLORS[code] ?? DEFAULT_SUBWAY_COLOR
@@ -153,31 +165,120 @@ function subwayBadge(name) {
 // ODsay 는 출구가 없으면 "null" 문자열을 주기도 한다
 const validExit = no => (no && no !== 'null' ? no : null)
 
-/**
- * 대중교통 경로 후보 (ODsay 추천 순서 그대로)
- * @returns {Promise<Array<{ totalMinutes, payment, transfers, walkMinutes, mapObj, legs }>>}
- */
-export async function searchTransit(origin, dest) {
+// 시외 구간 하나 (역·터미널 → 역·터미널). 노선 모양이 없어서 지도에는 직선으로 그린다
+function toIntercityLeg(sub) {
+  const meta = INTERCITY[sub.trafficType] ?? { name: '시외', color: DEFAULT_SUBWAY_COLOR }
+  const isTrain = sub.trafficType === 4
+  // 고속열차 중 SRT 는 수서·동탄·지제에서만 출발한다
+  const name = !isTrain ? meta.name : sub.trainType === 1 && /^(수서|동탄|지제)/.test(sub.startName) ? 'SRT' : TRAIN_NAMES[sub.trainType] ?? meta.name
+  // 기차역은 "서울", "오송" 처럼 '역' 없이 온다
+  const station = n => (isTrain && !n.endsWith('역') ? `${n}역` : n)
+  return {
+    kind: 'intercity',
+    minutes: sub.sectionTime ?? 0,
+    distance: sub.distance ?? 0,
+    names: [name],
+    badge: name,
+    color: meta.color,
+    startName: station(sub.startName ?? ''),
+    endName: station(sub.endName ?? ''),
+    start: { lat: sub.startY, lng: sub.startX },
+    end: { lat: sub.endY, lng: sub.endX },
+    payment: sub.payment ?? 0,
+    interval: sub.intervalTime || null, // 0 이면 배차 정보 없음
+    stationCount: 0,
+    stationId: null,
+    routeIds: [],
+  }
+}
+
+const ODSAY_MIN_METERS = 700 // 이보다 가까우면 ODsay 가 대중교통 경로를 주지 않는다 (-98)
+const WALK_METERS_PER_MIN = 67 // 시속 4km
+
+const sumWalk = legs => legs.filter(l => l.kind === 'walk').reduce((sum, l) => sum + l.minutes, 0)
+
+async function searchPaths(origin, dest) {
   const result = await cachedCall('searchPubTransPathT', {
     SX: snap(origin.lng), SY: snap(origin.lat), EX: snap(dest.lng), EY: snap(dest.lat),
   }, { storage: sessionStorage, ttl: SEARCH_TTL })
-  const paths = result?.path ?? []
-  // 먼 거리면 기차·고속·시외버스(구간 trafficType 4~7) 경로만 온다. 노선 모양(mapObj)·요금 필드가 달라서 시내 경로만 쓴다
-  const cityPaths = paths.filter(path => path.info?.mapObj && (path.subPath ?? []).every(sub => sub.trafficType <= 3))
-  if (paths.length > 0 && cityPaths.length === 0) {
-    throw new Error('거리가 멀어 기차·고속버스 경로만 있어요. 시외 이동은 아직 지원하지 않아요.')
+  return result?.path ?? []
+}
+
+// 시내 경로: 노선 모양(mapObj)이 있고 버스·지하철·도보로만 된 경로
+const isCityPath = path => path.info?.mapObj && (path.subPath ?? []).every(sub => sub.trafficType <= 3)
+
+function toCityOption(path) {
+  const legs = (path.subPath ?? []).map(toLeg)
+  return {
+    totalMinutes: path.info.totalTime,
+    payment: path.info.payment ?? 0,
+    transfers: Math.max(0, (path.info.busTransitCount ?? 0) + (path.info.subwayTransitCount ?? 0) - 1),
+    walkMinutes: sumWalk(legs),
+    mapObjs: [path.info.mapObj],
+    legs,
   }
-  return cityPaths.map(path => {
-    const legs = (path.subPath ?? []).map(toLeg)
+}
+
+// 역·터미널까지(에서) 가는 시내 구간. 가까우면 걸어가고, 아니면 시내 대중교통 첫 추천. 못 찾으면 null
+async function cityPart(from, to) {
+  const meters = distanceMeters(from.lat, from.lng, to.lat, to.lng)
+  if (meters < ODSAY_MIN_METERS) {
+    const minutes = Math.ceil(meters / WALK_METERS_PER_MIN)
+    return { totalMinutes: minutes, payment: 0, mapObjs: [], legs: [{ kind: 'walk', minutes, distance: Math.round(meters) }] }
+  }
+  const paths = await searchPaths(from, to).catch(() => [])
+  const best = paths.find(isCityPath)
+  return best ? toCityOption(best) : null
+}
+
+const MAX_TRAINS = 3
+const MAX_BUSES = 2
+// 역·터미널까지 거리를 시간으로 어림잡을 때 쓰는 속도 (시내 대중교통 평균, 약 시속 18km)
+const ACCESS_METERS_PER_MIN = 300
+
+/**
+ * 먼 거리: ODsay 는 역·터미널 사이(기차·고속·시외버스)만 주므로, 앞뒤에 출발지 → 역, 역 → 도착지 시내 구간을 붙인다
+ * - 기차 3개 + 버스 2개만 만든다 (후보마다 ODsay 를 2번 더 부르므로). 고를 때는 역·터미널까지 거리도 시간으로 어림해 더한다
+ * - 갈아타는 경로(구간 2개 이상)는 건너뛴다. 소요 시간에 열차·버스 대기 시간은 들어 있지 않다
+ */
+async function intercityOptions(paths, origin, dest) {
+  const estimate = ({ subPath: [sub], info }) => info.totalTime
+    + (distanceMeters(origin.lat, origin.lng, sub.startY, sub.startX) + distanceMeters(sub.endY, sub.endX, dest.lat, dest.lng)) / ACCESS_METERS_PER_MIN
+  const single = paths.filter(path => path.subPath?.length === 1).sort((a, b) => estimate(a) - estimate(b))
+  const isTrain = path => path.subPath[0].trafficType === 4
+  const picked = [...single.filter(isTrain).slice(0, MAX_TRAINS), ...single.filter(p => !isTrain(p)).slice(0, MAX_BUSES)]
+
+  const options = await Promise.all(picked.map(async path => {
+    const trunk = toIntercityLeg(path.subPath[0])
+    const [before, after] = await Promise.all([cityPart(origin, trunk.start), cityPart(trunk.end, dest)])
+    if (!before || !after) return null
+    const legs = [...before.legs, trunk, ...after.legs]
     return {
-      totalMinutes: path.info.totalTime,
-      payment: path.info.payment ?? 0,
-      transfers: Math.max(0, (path.info.busTransitCount ?? 0) + (path.info.subwayTransitCount ?? 0) - 1),
-      walkMinutes: legs.filter(l => l.kind === 'walk').reduce((sum, l) => sum + l.minutes, 0),
-      mapObj: path.info.mapObj,
+      totalMinutes: before.totalMinutes + trunk.minutes + after.totalMinutes,
+      payment: before.payment + trunk.payment + after.payment,
+      transfers: legs.filter(l => l.kind !== 'walk').length - 1,
+      walkMinutes: sumWalk(legs),
+      mapObjs: [...before.mapObjs, ...after.mapObjs],
       legs,
+      intercity: true,
     }
-  })
+  }))
+  return options.filter(Boolean).sort((a, b) => a.totalMinutes - b.totalMinutes)
+}
+
+/**
+ * 대중교통 경로 후보. 시내는 ODsay 추천 순서 그대로, 먼 거리는 기차·고속·시외버스 + 앞뒤 시내 구간 (빠른 순)
+ * - mapObjs: 노선 모양을 불러올 값 목록 (시외 경로는 앞뒤 시내 구간 것만 있다)
+ * @returns {Promise<Array<{ totalMinutes, payment, transfers, walkMinutes, mapObjs, legs, intercity? }>>}
+ */
+export async function searchTransit(origin, dest) {
+  const paths = await searchPaths(origin, dest)
+  const cityPaths = paths.filter(isCityPath)
+  // 먼 거리면 기차·고속·시외버스 경로만 온다
+  if (paths.length === 0 || cityPaths.length > 0) return cityPaths.map(toCityOption)
+  const options = await intercityOptions(paths, origin, dest)
+  if (options.length === 0) throw new Error('기차·고속버스 경로는 있지만 역·터미널까지 가는 길을 찾지 못했어요.')
+  return options
 }
 
 /**
