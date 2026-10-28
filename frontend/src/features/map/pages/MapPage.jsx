@@ -16,6 +16,7 @@ import {
 } from '../api'
 import { fetchTeams, createTeamApi, joinTeamApi } from '../../teams/api'
 import MapCanvas from '../components/MapCanvas'
+import ErrorBoundary from '../../../components/ErrorBoundary/ErrorBoundary'
 import TopSearch from '../components/TopSearch'
 import PinDetailPanel from '../components/PinDetailPanel'
 import AddPinModal from '../components/AddPinModal'
@@ -217,17 +218,20 @@ export default function MapPage({ initialTeamId, onLogout }) {
     <div className={styles.appRoot}>
       {/* 1. 전체 화면 메인 지도 */}
       <div className={styles.mapCanvasWrap}>
-        <MapCanvas
-          pins={filteredPins}
-          members={members}
-          onSelectPin={setSelectedPin}
-          selectedPin={selectedPin}
-          onAddAtLocation={place => { setPickedPlace(place); setShowAddPinModal(true) }}
-          onRouteTo={place => { setRouteTarget(place); setSelectedPin(null); setShowListPanel(false) }}
-          focusPlace={focusPlace}
-          routeTarget={routeTarget}
-          onClearRoute={() => setRouteTarget(null)}
-        />
+        {/* 지도에서 에러가 나도 상단바·하단 메뉴는 남긴다. 다시 시도하면 원인일 수 있는 길찾기·검색 상태를 비운다 */}
+        <ErrorBoundary onReset={() => { setRouteTarget(null); setFocusPlace(null) }}>
+          <MapCanvas
+            pins={filteredPins}
+            members={members}
+            onSelectPin={setSelectedPin}
+            selectedPin={selectedPin}
+            onAddAtLocation={place => { setPickedPlace(place); setShowAddPinModal(true) }}
+            onRouteTo={place => { setRouteTarget(place); setSelectedPin(null); setShowListPanel(false) }}
+            focusPlace={focusPlace}
+            routeTarget={routeTarget}
+            onClearRoute={() => setRouteTarget(null)}
+          />
+        </ErrorBoundary>
       </div>
 
       {/* 2. 상단 플로팅 헤더 (팀 선택 + 검색 + 카테고리 바) */}

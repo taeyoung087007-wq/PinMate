@@ -4,6 +4,7 @@ import AuthPage from '../features/auth/pages/AuthPage'
 import MapPage from '../features/map/pages/MapPage'
 import InvitePage from '../features/teams/pages/InvitePage'
 import SplashScreen, { shouldShowSplash } from '../components/SplashScreen/SplashScreen'
+import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary'
 import { post } from '../lib/apiClient'
 import { getCurrentUser, setCurrentUserStorage } from '../lib/currentUser'
 
@@ -80,15 +81,18 @@ export default function App() {
 
   return (
     <>
-      <Routes>
-        <Route path="/login" element={<LoginRoute />} />
-        <Route element={<RequireLogin />}>
-          <Route path="/" element={<MapRoute />} />
-          <Route path="/teams/:teamId" element={<MapRoute />} />
-          <Route path="/teams" element={<Navigate to="/" replace />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      {/* 지도 밖(로그인·초대 화면 등)에서 난 에러도 빈 화면 대신 안내를 보여준다 */}
+      <ErrorBoundary>
+        <Routes>
+          <Route path="/login" element={<LoginRoute />} />
+          <Route element={<RequireLogin />}>
+            <Route path="/" element={<MapRoute />} />
+            <Route path="/teams/:teamId" element={<MapRoute />} />
+            <Route path="/teams" element={<Navigate to="/" replace />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ErrorBoundary>
 
       {/* 앱 화면 위에 덮였다가, 심볼이 위로 올라가며 걷힌다 */}
       {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
