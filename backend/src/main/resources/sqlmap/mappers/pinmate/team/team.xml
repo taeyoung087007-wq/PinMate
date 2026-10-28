@@ -38,6 +38,8 @@
 		SELECT tm.user_id,
 		       COALESCE(u.login_id, tm.user_id::text) AS login_id,
 		       COALESCE(u.nickname, '멤버') AS nickname,
+		       u.avatar_id,
+		       u.avatar_bg,
 		       tm.role,
 		       tm.color
 		  FROM team_members tm
@@ -52,6 +54,8 @@
 		       tm.user_id,
 		       COALESCE(u.login_id, tm.user_id::text) AS login_id,
 		       COALESCE(u.nickname, '멤버') AS nickname,
+		       u.avatar_id,
+		       u.avatar_bg,
 		       tm.role,
 		       tm.color
 		  FROM team_members tm

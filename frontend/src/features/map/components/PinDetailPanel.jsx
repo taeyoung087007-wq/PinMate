@@ -3,6 +3,7 @@ import { X, MapPin, Star, Check, ExternalLink, Clock, Pencil, Trash2, Save, Navi
 import { CATEGORY_META } from '../categories'
 import { isMajority, memberRecommendCount } from '../consensus'
 import { getCurrentUser } from '../../../lib/currentUser'
+import MemberAvatar from '../../../components/MemberAvatar/MemberAvatar'
 import styles from './PinDetailPanel.module.css'
 
 /**
@@ -215,12 +216,7 @@ export default function PinDetailPanel({
                     className={`${styles.recommenderItem} ${!didRecommend ? styles.recommenderInactive : ''}`}
                     title={`${m.nickname} ${didRecommend ? '(추천함)' : '(미추천)'}`}
                   >
-                    <div
-                      className={styles.recommenderAvatar}
-                      style={{ background: didRecommend ? m.avatarColor : 'var(--bg-hover)' }}
-                    >
-                      {m.initials}
-                    </div>
+                    <MemberAvatar member={m} className={styles.recommenderAvatar} muted={!didRecommend} />
                     <span className={styles.recommenderName}>{m.nickname}</span>
                     {didRecommend && <Check size={12} color="var(--success)" />}
                   </div>
@@ -231,12 +227,9 @@ export default function PinDetailPanel({
 
           {/* 최초 등록자 정보 */}
           <div className={styles.addedBy}>
-            <div
-              className={styles.addedByAvatar}
-              style={{ background: addedByMember?.avatarColor || 'var(--primary)' }}
-            >
-              {addedByMember?.initials || '팀'}
-            </div>
+            {addedByMember
+              ? <MemberAvatar member={addedByMember} className={styles.addedByAvatar} />
+              : <div className={styles.addedByAvatar} style={{ background: 'var(--primary)' }}>팀</div>}
             <span>{addedByMember?.nickname || '팀원'}님이 처음 등록</span>
             {createdAtText && (
               <span className={styles.addedByDate}>

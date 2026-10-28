@@ -155,9 +155,12 @@ public class TeamServiceImpl implements TeamService {
 			Map<String, Object> member = new HashMap<>();
 			member.put("id", text(m.get("login_id")));
 			member.put("nickname", nickname);
+			// color·avatarColor: 모임 안에서 겹치지 않는 팀 색 (지도 핀·필터 점). avatarId·avatarBg: 설정에서 고른 프로필 (멤버 동그라미)
 			member.put("color", m.get("color"));
 			member.put("avatarColor", m.get("color"));
 			member.put("initials", nickname.isBlank() ? "P" : nickname.substring(0, 1));
+			member.put("avatarId", m.get("avatar_id"));
+			member.put("avatarBg", m.get("avatar_bg"));
 			member.put("role", m.get("role"));
 			member.put("online", presenceService.isOnline((Long) m.get("user_id")));
 			memberList.add(member);

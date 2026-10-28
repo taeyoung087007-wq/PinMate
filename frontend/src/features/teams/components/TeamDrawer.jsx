@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { X, Plus, Users, MapPin, Star, Link2, Check, ChevronRight } from 'lucide-react'
 import TeamDetailView from './TeamDetailView'
 import { parseInviteCode } from '../api'
+import MemberAvatar from '../../../components/MemberAvatar/MemberAvatar'
 import styles from './TeamDrawer.module.css'
 
 /**
@@ -149,14 +150,7 @@ export default function TeamDrawer({
 
                 <div className={styles.teamMembersPreview}>
                   {(team.members || []).slice(0, 3).map((m) => (
-                    <div
-                      key={m.id}
-                      className={styles.avatar}
-                      style={{ background: m.avatarColor || m.color }}
-                      title={m.nickname}
-                    >
-                      {m.initials}
-                    </div>
+                    <MemberAvatar key={m.id} member={m} className={styles.avatar} title={m.nickname} />
                   ))}
                   <ChevronRight size={16} className={styles.arrow} />
                 </div>

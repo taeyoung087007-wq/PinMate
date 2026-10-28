@@ -1,6 +1,7 @@
 import { X, MapPin, Star, Users, ChevronRight } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { isMajority } from '../consensus'
+import MemberAvatar from '../../../components/MemberAvatar/MemberAvatar'
 import styles from './PlaceListPanel.module.css'
 
 /**
@@ -81,14 +82,7 @@ function PinRow({ pin, members, onClick }) {
           {pin.recommenders.map(uid => {
             const m = members.find(m => m.id === uid)
             return m ? (
-              <div
-                key={uid}
-                className={styles.pinAvatar}
-                style={{ background: m.avatarColor }}
-                title={`${m.nickname} 추천`}
-              >
-                {m.initials}
-              </div>
+              <MemberAvatar key={uid} member={m} className={styles.pinAvatar} title={`${m.nickname} 추천`} />
             ) : null
           })}
         </div>
