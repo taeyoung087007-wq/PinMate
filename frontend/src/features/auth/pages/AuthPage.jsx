@@ -86,8 +86,8 @@ export default function AuthPage({ onLogin }) {
         setError('아이디를 입력해주세요.')
         return
       }
-      if (!form.password || form.password.length < 4) {
-        setError('비밀번호는 4자 이상 입력해주세요.')
+      if (form.password.length < 8 || !/[a-zA-Z]/.test(form.password) || !/[0-9]/.test(form.password)) {
+        setError('비밀번호는 8자 이상, 영문과 숫자를 함께 입력해주세요.')
         return
       }
       if (form.password !== form.passwordConfirm) {

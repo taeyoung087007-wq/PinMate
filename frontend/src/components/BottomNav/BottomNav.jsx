@@ -1,4 +1,4 @@
-import { Map, Users, Star, User } from 'lucide-react'
+import { Map, Users, Star, Settings } from 'lucide-react'
 import styles from './BottomNav.module.css'
 
 /**
@@ -6,14 +6,14 @@ import styles from './BottomNav.module.css'
  * - 지도(메인)
  * - 모임 목록 / 전환
  * - 모두 인정 장소 모아보기
- * - 마이 / 프로필
+ * - 설정
  */
 export default function BottomNav({ activeTab, onTabChange, approvedCount = 0, teamCount = 0 }) {
   const tabs = [
     { id: 'map', label: '지도', icon: Map },
     { id: 'teams', label: '모임', icon: Users, badge: teamCount > 0 ? teamCount : null },
     { id: 'approved', label: '모두인정', icon: Star, badge: approvedCount > 0 ? approvedCount : null },
-    { id: 'profile', label: '마이', icon: User },
+    { id: 'settings', label: '설정', icon: Settings },
   ]
 
   return (

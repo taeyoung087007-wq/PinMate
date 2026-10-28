@@ -61,6 +61,12 @@ function LoginRoute() {
 function MapRoute() {
   const { teamId } = useParams()
   const navigate = useNavigate()
+  // 탈퇴는 서버가 세션을 이미 끝냈으므로 로그아웃 요청 없이 이것만 한다
+  const clearLogin = () => {
+    localStorage.removeItem(LOGIN_KEY)
+    setCurrentUserStorage(null)
+    navigate('/login', { replace: true })
+  }
   const handleLogout = async () => {
     try {
       await post('/auth/logout', {})
@@ -68,11 +74,9 @@ function MapRoute() {
       window.alert(`로그아웃에 실패했습니다: ${error.message}`)
       return
     }
-    localStorage.removeItem(LOGIN_KEY)
-    setCurrentUserStorage(null)
-    navigate('/login', { replace: true })
+    clearLogin()
   }
-  return <MapPage key={teamId || 'default'} initialTeamId={teamId} onLogout={handleLogout} />
+  return <MapPage key={teamId || 'default'} initialTeamId={teamId} onLogout={handleLogout} onWithdrawn={clearLogin} />
 }
 
 export default function App() {

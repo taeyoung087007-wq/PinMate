@@ -2,7 +2,7 @@
  * 인증 및 회원가입 관련 API 클라이언트
  * 서버는 실패 사유를 결과 코드로만 내려주므로, 화면 문구는 여기서 정한다
  */
-import { send, CODE } from '../../lib/apiClient'
+import { send, request, CODE } from '../../lib/apiClient'
 
 const INVITE_MESSAGES = {
   [CODE.INVITE_FAIL]: '유효하지 않거나 만료된 초대 코드입니다.',
@@ -50,3 +50,13 @@ export async function loginApi({ loginId, password }) {
   }
   return res.data
 }
+
+// 내 계정 관리 (로그인 필요). 실패 사유는 서버 message 를 그대로 보여준다
+export const changePasswordApi = ({ currentPassword, newPassword }) =>
+  request('/users/me/password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) })
+
+/** @returns {Promise<{ nickname, initials, avatarId, avatarBg }>} */
+export const updateProfileApi = ({ nickname, avatarId, avatarBg }) =>
+  request('/users/me', { method: 'PATCH', body: JSON.stringify({ nickname, avatarId, avatarBg }) })
+
+export const withdrawApi = () => request('/users/me', { method: 'DELETE' })
