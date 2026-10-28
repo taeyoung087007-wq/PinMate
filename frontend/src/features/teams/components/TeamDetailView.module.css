@@ -261,3 +261,13 @@
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
+
+/* 모임 나가기·삭제 */
+.dangerRow {
+  display: flex;
+  gap: 8px;
+}
+
+.dangerRow > :global(.btn) {
+  flex: 1;
+}

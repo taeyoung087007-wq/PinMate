@@ -59,4 +59,24 @@ public class TeamDAO {
 	public int insertTeamInvite(Map<String, Object> param) {
 		return sqlSession.insert(TeamDAO.SQL_PATH + ".insertTeamInvite", param);
 	}
+
+	//팀 행 잠금 (트랜잭션 안에서만 의미 있음). 같은 팀의 핀 등록·탈퇴를 한 줄로 세운다
+	public Long lockTeam(Long teamId) {
+		return sqlSession.selectOne(TeamDAO.SQL_PATH + ".lockTeam", teamId);
+	}
+
+	//팀 삭제 (멤버·초대·핀·추천은 CASCADE)
+	public int deleteTeam(Long teamId) {
+		return sqlSession.delete(TeamDAO.SQL_PATH + ".deleteTeam", teamId);
+	}
+
+	//팀 탈퇴 (param: teamId, userId)
+	public int deleteTeamMember(Map<String, Object> param) {
+		return sqlSession.delete(TeamDAO.SQL_PATH + ".deleteTeamMember", param);
+	}
+
+	//남은 멤버 중 가장 먼저 들어온 사람을 owner 로
+	public int updateOldestMemberToOwner(Long teamId) {
+		return sqlSession.update(TeamDAO.SQL_PATH + ".updateOldestMemberToOwner", teamId);
+	}
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, MapPin, Star, Check, ExternalLink, Clock, Pencil, Trash2, Save, Navigation } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
+import { isMajority, memberRecommendCount } from '../consensus'
 import { getCurrentUser } from '../../../lib/currentUser'
 import styles from './PinDetailPanel.module.css'
 
@@ -18,8 +19,8 @@ function formatCreatedAt(value) {
 /**
  * 장소 상세 정보 슬라이드업 패널
  * - 장소 이름, 주소, 카테고리
- * - 추천인 목록 및 추천 수
- * - 방문 여부 표시 및 토글
+ * - 추천인 목록 및 추천 수 (추천 = 다녀와 보고 좋았던 곳. 찍어두기만 한 장소는 0명일 수 있다)
+ * - 팀원 과반이 추천하면 과반 인정, 전원이면 모두 인정
  * - 등록자·팀 owner 에게만 수정/삭제 버튼 노출
  */
 export default function PinDetailPanel({
@@ -27,7 +28,6 @@ export default function PinDetailPanel({
   members,
   onClose,
   onRecommend,
-  onToggleVisit,
   onUpdate,
   onDelete,
   onRoute,
@@ -39,8 +39,10 @@ export default function PinDetailPanel({
   const me = getCurrentUser()
   const myMember = members.find(m => m.id === me.loginId)
   const isMeRecommended = pin.recommenders.includes(myMember?.id ?? me.loginId)
-  const isMeVisited = (pin.visitedBy || []).includes(myMember?.id ?? me.loginId)
   const createdAtText = formatCreatedAt(pin.createdAt)
+  const recommendCount = memberRecommendCount(pin, members)
+  // 한 줄 추천평은 등록자의 추천에 붙는다. 등록자가 아직 추천하지 않았으면 고칠 추천평이 없다
+  const creatorRecommended = pin.recommenders.includes(pin.addedBy)
 
   // 등록자 본인 또는 팀 owner 만 수정·삭제할 수 있다 (서버에서도 같은 규칙으로 검사한다)
   const canEdit = Boolean(onUpdate || onDelete) &&
@@ -61,7 +63,7 @@ export default function PinDetailPanel({
     const ok = await onUpdate?.(pin.id, {
       name: draft.name.trim(),
       category: draft.category,
-      memo: draft.memo.trim(),
+      ...(creatorRecommended && { memo: draft.memo.trim() }),
     })
     setSaving(false)
     if (ok !== false) setEditing(false)
@@ -69,7 +71,7 @@ export default function PinDetailPanel({
 
   const handleDelete = () => {
     // 실수로 지우는 것을 막기 위해 한 번 확인한다
-    if (!window.confirm(`'${pin.name}' 장소를 삭제할까요? 추천·방문 기록도 함께 사라집니다.`)) return
+    if (!window.confirm(`'${pin.name}' 장소를 삭제할까요? 추천 기록도 함께 사라집니다.`)) return
     onDelete?.(pin.id)
   }
 
@@ -91,6 +93,9 @@ export default function PinDetailPanel({
             <span className="badge badge-gold">
               ⭐ 모두 인정{pin.consensusMemberCount ? ` · ${pin.consensusMemberCount}명` : ''}
             </span>
+          )}
+          {isMajority(pin, members) && (
+            <span className="badge">👍 과반 인정 · {recommendCount}/{members.length}명</span>
           )}
           {/* 팀원이 늘어 배지가 풀린 경우: 그때 몇 명이 모두 인정했는지 남겨 보여준다 */}
           {!pin.isAllApproved && pin.consensusMemberCount > 0 && (
@@ -153,17 +158,19 @@ export default function PinDetailPanel({
             </div>
           </div>
 
-          <div className={styles.field}>
-            <label className={styles.fieldLabel}>한 줄 추천평</label>
-            <textarea
-              className={`input ${styles.memoInput}`}
-              value={draft.memo}
-              onChange={e => setDraft(prev => ({ ...prev, memo: e.target.value }))}
-              maxLength={100}
-              rows={2}
-              placeholder="예: 여기 시그니처 라떼가 진짜 맛있어요"
-            />
-          </div>
+          {creatorRecommended && (
+            <div className={styles.field}>
+              <label className={styles.fieldLabel}>한 줄 추천평</label>
+              <textarea
+                className={`input ${styles.memoInput}`}
+                value={draft.memo}
+                onChange={e => setDraft(prev => ({ ...prev, memo: e.target.value }))}
+                maxLength={100}
+                rows={2}
+                placeholder="예: 여기 시그니처 라떼가 진짜 맛있어요"
+              />
+            </div>
+          )}
 
           <div className={styles.actions}>
             <button className="btn btn-primary" onClick={handleSave} disabled={saving || !draft.name.trim()}>
@@ -197,7 +204,7 @@ export default function PinDetailPanel({
           <div className={styles.section}>
             <div className={styles.sectionLabel}>
               <Star size={13} />
-              추천한 멤버 ({pin.recommenders.length}/{members.length}명)
+              추천한 멤버 ({recommendCount}/{members.length}명)
             </div>
             <div className={styles.recommenders}>
               {members.map(m => {
@@ -222,44 +229,6 @@ export default function PinDetailPanel({
             </div>
           </div>
 
-          {/* 방문한 멤버 섹션 및 방문 토글 */}
-          <div className={styles.section}>
-            <div className={styles.sectionLabel}>
-              <Check size={13} />
-              방문 현황 ({(pin.visitedBy || []).length}명 다녀감)
-            </div>
-            <div className={styles.visitedRow}>
-              <div className={styles.visitedList}>
-                {(pin.visitedBy || []).length === 0 ? (
-                  <span className={styles.emptyVisited}>아직 방문한 멤버가 없어요</span>
-                ) : (
-                  (pin.visitedBy || []).map(uid => {
-                    const m = members.find(mem => mem.id === uid)
-                    return m ? (
-                      <span
-                        key={uid}
-                        className={styles.visitedBadge}
-                        style={{ borderColor: m.avatarColor + '60', color: m.avatarColor }}
-                      >
-                        {m.initials} {m.nickname}
-                      </span>
-                    ) : null
-                  })
-                )}
-              </div>
-              {onToggleVisit && (
-                <button
-                  className={`btn ${isMeVisited ? 'btn-secondary' : 'btn-ghost'} ${styles.visitCheckBtn}`}
-                  onClick={onToggleVisit}
-                  title="내가 다녀왔는지 체크"
-                >
-                  <Check size={13} color={isMeVisited ? 'var(--success)' : 'currentColor'} />
-                  {isMeVisited ? '방문 완료' : '다녀왔어요'}
-                </button>
-              )}
-            </div>
-          </div>
-
           {/* 최초 등록자 정보 */}
           <div className={styles.addedBy}>
             <div
@@ -281,14 +250,11 @@ export default function PinDetailPanel({
           <div className={styles.actions}>
             <button
               className={`btn ${isMeRecommended ? 'btn-danger' : 'btn-primary'} ${styles.recommendBtn}`}
-              onClick={() => {
-                const isLast = isMeRecommended && pin.recommenders.length === 1
-                if (isLast && !window.confirm('마지막 추천을 취소하면 이 장소가 삭제됩니다. 계속할까요?')) return
-                onRecommend()
-              }}
+              onClick={onRecommend}
+              title="다녀와 보고 좋았으면 추천해 주세요"
             >
               <Star size={15} fill={isMeRecommended ? 'var(--danger)' : 'white'} />
-              {isMeRecommended ? '추천 취소' : '나도 추천하기!'}
+              {isMeRecommended ? '추천 취소' : '다녀왔어요 · 추천하기'}
             </button>
             <button
               className="btn btn-secondary btn-icon"

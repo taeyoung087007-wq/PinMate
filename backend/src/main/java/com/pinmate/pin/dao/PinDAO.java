@@ -34,19 +34,14 @@ public class PinDAO {
 		return sqlSession.selectList(PinDAO.SQL_PATH + ".selectRecommenderIds", placeId);
 	}
 
-	//방문자 login_id 목록
-	public List<String> selectVisitorIds(Long placeId) {
-		return sqlSession.selectList(PinDAO.SQL_PATH + ".selectVisitorIds", placeId);
-	}
-
 	//팀 핀 전체의 추천인 (place_id, login_id)
 	public List<Map<String, Object>> selectRecommendersByTeamId(Long teamId) {
 		return sqlSession.selectList(PinDAO.SQL_PATH + ".selectRecommendersByTeamId", teamId);
 	}
 
-	//팀 핀 전체의 방문자 (place_id, login_id)
-	public List<Map<String, Object>> selectVisitorsByTeamId(Long teamId) {
-		return sqlSession.selectList(PinDAO.SQL_PATH + ".selectVisitorsByTeamId", teamId);
+	//같은 팀에 이름이 같고 약 50m 안에 있는 핀 id. 없으면 null (param: teamId, name, latitude, longitude)
+	public Long selectSamePinId(Map<String, Object> param) {
+		return sqlSession.selectOne(PinDAO.SQL_PATH + ".selectSamePinId", param);
 	}
 
 	//핀 등록. 실행 후 param.placeId 에 생성된 키가 들어간다
@@ -89,33 +84,13 @@ public class PinDAO {
 		return sqlSession.update(PinDAO.SQL_PATH + ".updateRecommendationComment", param);
 	}
 
-	//핀 삭제 (추천·방문 기록은 CASCADE)
+	//핀 삭제 (추천 기록은 CASCADE)
 	public int deletePin(Long placeId) {
 		return sqlSession.delete(PinDAO.SQL_PATH + ".deletePin", placeId);
-	}
-
-	//추천이 남지 않은 핀 삭제. 지웠으면 1
-	public int deletePinIfNoRecommendation(Long placeId) {
-		return sqlSession.delete(PinDAO.SQL_PATH + ".deletePinIfNoRecommendation", placeId);
 	}
 
 	//핀 행 잠금 (트랜잭션 안에서만 의미 있음). 핀이 없으면 null
 	public Long lockPin(Long placeId) {
 		return sqlSession.selectOne(PinDAO.SQL_PATH + ".lockPin", placeId);
-	}
-
-	//내 방문 여부 (param: placeId, userId)
-	public int countVisit(Map<String, Object> param) {
-		return sqlSession.selectOne(PinDAO.SQL_PATH + ".countVisit", param);
-	}
-
-	//방문 등록 (param: placeId, userId)
-	public int insertVisit(Map<String, Object> param) {
-		return sqlSession.insert(PinDAO.SQL_PATH + ".insertVisit", param);
-	}
-
-	//방문 취소 (param: placeId, userId)
-	public int deleteVisit(Map<String, Object> param) {
-		return sqlSession.delete(PinDAO.SQL_PATH + ".deleteVisit", param);
 	}
 }

@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -150,6 +151,56 @@ public class TeamController {
 		} catch (Exception e) {
 			logger.error("모임 참여 중 알 수 없는 오류가 발생했습니다.", e);
 			result = Response.of(Constants.FAIL, "모임 참여 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
+	// 모임 삭제. 모임장만 가능. 장소·추천·초대 코드도 함께 지워진다
+	@ResponseBody
+	@DeleteMapping("teams/{teamId}")
+	public Response deleteTeam(@PathVariable("teamId") Long teamId, HttpSession session) {
+		Response result = null;
+
+		try {
+			String code = teamService.deleteTeam(teamId, SessionUtil.getUserId(session));
+			result = Constants.SUCCESS.equals(code)
+					? Response.of(Constants.SUCCESS)
+					: Response.of(code, Constants.NO_PERMISSION.equals(code) ? "모임장만 모임을 삭제할 수 있습니다." : "모임을 찾을 수 없습니다.", null);
+		} catch (NullPointerException npe) {
+			logger.error("모임 삭제 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "모임 삭제 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("모임 삭제 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "모임 삭제 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("모임 삭제 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "모임 삭제 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
+	// 모임 나가기. 모임장이 나가면 가장 먼저 들어온 멤버가 모임장이 되고, 마지막 한 명이 나가면 모임이 삭제된다
+	@ResponseBody
+	@PostMapping("teams/{teamId}/leave")
+	public Response leaveTeam(@PathVariable("teamId") Long teamId, HttpSession session) {
+		Response result = null;
+
+		try {
+			String code = teamService.leaveTeam(teamId, SessionUtil.getUserId(session));
+			result = Constants.SUCCESS.equals(code)
+					? Response.of(Constants.SUCCESS)
+					: Response.of(code, "모임을 찾을 수 없습니다.", null);
+		} catch (NullPointerException npe) {
+			logger.error("모임 나가기 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "모임 나가기 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("모임 나가기 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "모임 나가기 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("모임 나가기 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "모임 나가기 중 오류가 발생했습니다.", null);
 		}
 
 		return result;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Check, MapPin } from 'lucide-react'
-import { fetchTeam } from '../api'
+import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Check, MapPin, LogOut, Trash2 } from 'lucide-react'
+import { fetchTeam, deleteTeamApi, leaveTeamApi } from '../api'
+import { getCurrentUser } from '../../../lib/currentUser'
 import { buildInviteLink, inviteBase } from '../inviteLink'
 import styles from './TeamDetailView.module.css'
 
@@ -14,13 +15,15 @@ const REFRESH_MS = 30_000
  * - 상단: 초대 링크 (기본 마스킹, 눈 버튼으로 보기, 클릭하면 복사)
  * - 온라인 인원 / 전체 인원
  * - 멤버 목록 (온라인 먼저, 페이지네이션)
+ * - 하단: 모임 나가기 (모임장이면 모임 삭제도). 나가거나 지우면 onLeft(teamId)
  */
-export default function TeamDetailView({ teamId, onBack, onEnter }) {
+export default function TeamDetailView({ teamId, onBack, onEnter, onLeft }) {
   const [team, setTeam] = useState(null)
   const [error, setError] = useState('')
   const [revealed, setRevealed] = useState(false)
   const [copyState, setCopyState] = useState('idle') // 'idle' | 'copied' | 'failed'
   const [page, setPage] = useState(0)
+  const [busy, setBusy] = useState(false) // 나가기·삭제 요청 중
 
   useEffect(() => {
     const load = () => fetchTeam(teamId)
@@ -51,6 +54,34 @@ export default function TeamDetailView({ teamId, onBack, onEnter }) {
   const pageMembers = members.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE)
 
   const inviteLink = buildInviteLink(team.inviteCode)
+  const amOwner = (team.members || []).some(m => m.id === getCurrentUser().loginId && isOwner(m))
+  // 서버 순서(모임장 먼저, 나머지는 들어온 순)에서 나 다음 사람이 새 모임장이 된다
+  const nextOwner = (team.members || []).find(m => m.id !== getCurrentUser().loginId)
+
+  const run = async (action) => {
+    setBusy(true)
+    try {
+      await action(team.id)
+      onLeft?.(team.id)
+    } catch (e) {
+      setError(e.message)
+      setBusy(false)
+    }
+  }
+
+  const handleLeave = () => {
+    let message = `'${team.name}' 모임에서 나갈까요?`
+    if (amOwner) {
+      message = nextOwner
+        ? `모임장이에요. 모임을 없애려면 '모임 삭제'를 눌러 주세요.\n그래도 나가면 모임장은 ${nextOwner.nickname}님에게 넘어가요. 나갈까요?`
+        : '모임장이고 혼자 남은 모임이라, 나가면 모임과 장소가 모두 삭제돼요. 나갈까요?'
+    }
+    if (window.confirm(message)) run(leaveTeamApi)
+  }
+
+  const handleDelete = () => {
+    if (window.confirm(`'${team.name}' 모임을 삭제할까요?\n모든 멤버에게서 모임과 장소·추천 기록이 사라지고 되돌릴 수 없어요.`)) run(deleteTeamApi)
+  }
 
   const handleCopy = async () => {
     try {
@@ -160,6 +191,19 @@ export default function TeamDetailView({ teamId, onBack, onEnter }) {
         <MapPin size={16} />
         이 모임 지도 보기
       </button>
+
+      <div className={styles.dangerRow}>
+        <button type="button" className="btn btn-secondary" onClick={handleLeave} disabled={busy}>
+          <LogOut size={15} />
+          모임 나가기
+        </button>
+        {amOwner && (
+          <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={busy}>
+            <Trash2 size={15} />
+            모임 삭제
+          </button>
+        )}
+      </div>
     </div>
   )
 }

@@ -102,7 +102,7 @@ erDiagram
 | 관계 | 설명 |
 |---|---|
 | `teams` → `team_members`, `team_invites`, `places` | 팀을 지우면 함께 지워짐 (`ON DELETE CASCADE`) |
-| `places` → `recommendations`, `place_visits` | 장소를 지우면 함께 지워짐. 마지막 추천 취소 시 장소 삭제(F-38) |
+| `places` → `recommendations`, `place_visits` | 장소를 지우면 함께 지워짐. 추천이 0명이 돼도 장소는 남음 (`place_visits` 는 지금 쓰지 않음) |
 | `team_members` 행 삭제 | 팀 탈퇴·내보내기. `recommendations`·`place_visits` 는 남음('떠난 멤버') |
 | `users` | 탈퇴해도 행을 지우지 않고 `status = withdrawn` (FK가 깨지지 않게) |
 | `event_logs` | `team_id`·`place_id` 에 FK가 없음. 대상이 지워져도 로그는 남김 (현재 기록 코드 없음) |

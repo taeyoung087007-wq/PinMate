@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, Minus, RotateCcw, LocateFixed } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
+import { isMajority } from '../consensus'
 import { describeLocation } from '../geocode'
 import { fetchRoute } from '../api'
 import { searchTransit, loadTransitLines, formatMinutes, WALK_COLOR } from '../transit'
@@ -22,24 +23,27 @@ const MAX_LEVEL = 14
 
 // 마커 아이콘 기준점: 원형 마커의 중심이 좌표에 오도록
 const PIN_ANCHOR = { x: 17, y: 17 }
+// 과반 인정 핀 색 (모두 인정은 금색)
+const SILVER = '#9AA8BC'
 
 /**
  * 핀 하나를 나타내는 DOM 요소를 만든다.
  * - HTML 문자열 대신 DOM을 쓰는 이유: 장소명이 사용자 입력이라 문자열 조립 시 이스케이프가 필요해진다
  * - 마커는 React 트리 밖에 붙으므로 CSS Module 클래스명을 직접 넘긴다
  */
-function createPinElement({ pin, meta, memberColor, isSelected }) {
+function createPinElement({ pin, meta, memberColor, majority, isSelected }) {
   const isGold = Boolean(pin.isAllApproved)
+  const isSilver = !isGold && majority // 과반 인정
 
   const wrap = document.createElement('div')
-  wrap.className = [styles.pinWrap, isGold && styles.pinWrapGold, isSelected && styles.pinWrapSelected]
+  wrap.className = [styles.pinWrap, isGold && styles.pinWrapGold, isSilver && styles.pinWrapSilver, isSelected && styles.pinWrapSelected]
     .filter(Boolean)
     .join(' ')
   wrap.title = pin.name
 
   const body = document.createElement('div')
   body.className = styles.pinBody
-  body.style.background = isGold ? '#FFBA08' : meta.color
+  body.style.background = isGold ? '#FFBA08' : isSilver ? SILVER : meta.color
   body.textContent = meta.icon
 
   const label = document.createElement('span')
@@ -53,7 +57,7 @@ function createPinElement({ pin, meta, memberColor, isSelected }) {
   if (recommendCount > 1) {
     const badge = document.createElement('span')
     badge.className = styles.pinBadge
-    badge.style.background = isGold ? '#FFBA08' : memberColor
+    badge.style.background = isGold ? '#FFBA08' : isSilver ? SILVER : memberColor
     badge.textContent = String(recommendCount)
     wrap.appendChild(badge)
   }
@@ -207,11 +211,11 @@ function createMyLocationMarker(maps, map, position) {
 }
 
 /** 핀 마커(오버레이)를 만든다 */
-function createPinOverlay(maps, map, { pin, meta, memberColor, isSelected }) {
+function createPinOverlay(maps, map, { pin, meta, memberColor, majority, isSelected }) {
   return new maps.CustomOverlay({
     position: new maps.LatLng(pin.lat, pin.lng),
     content: anchorContent(
-      createPinElement({ pin, meta, memberColor, isSelected }),
+      createPinElement({ pin, meta, memberColor, majority, isSelected }),
       PIN_ANCHOR.x,
       PIN_ANCHOR.y
     ),
@@ -433,10 +437,11 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
       const meta = CATEGORY_META[pin.category] || CATEGORY_META.etc
       const memberColor = members.find(m => m.id === pin.addedBy)?.avatarColor ?? meta.color
 
-      const marker = createPinOverlay(maps, map, { pin, meta, memberColor, isSelected: false })
+      const majority = isMajority(pin, members)
+      const marker = createPinOverlay(maps, map, { pin, meta, memberColor, majority, isSelected: false })
       // 오버레이는 DOM이라 클릭 리스너를 요소에 직접 건다
       marker.getContent().firstChild.addEventListener('click', () => onSelectRef.current(pin))
-      markersRef.current.set(pin.id, { marker, pin, meta, memberColor })
+      markersRef.current.set(pin.id, { marker, pin, meta, memberColor, majority })
     })
   }, [pins, members, status])
 

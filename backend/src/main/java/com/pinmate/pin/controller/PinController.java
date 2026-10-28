@@ -70,7 +70,8 @@ public class PinController {
 		return result;
 	}
 
-	// 핀 등록 (teamId, name, category, address, roadAddress, lat, lng, memo, source: search=키워드 검색 / manual=지도에서 직접 찍음)
+	// 핀 등록 (teamId, name, category, address, roadAddress, lat, lng, memo, source: search=키워드 검색 / manual=지도에서 직접 찍음,
+	// recommend: 다녀와서 추천하면 true → 등록자가 첫 추천인, memo 는 그 추천평)
 	@ResponseBody
 	@PostMapping("pins")
 	public Response insertPin(@RequestBody HashMap<String, Object> param, HttpSession session) {
@@ -81,7 +82,8 @@ public class PinController {
 		String roadAddress = ParamUtil.str(param, "roadAddress");
 		Double lat = ParamUtil.dbl(param, "lat");
 		Double lng = ParamUtil.dbl(param, "lng");
-		String memo = ParamUtil.str(param, "memo");
+		boolean recommend = Boolean.TRUE.equals(param.get("recommend"));
+		String memo = recommend ? ParamUtil.str(param, "memo") : "";   // 추천평은 추천할 때만 남긴다
 
 		if (teamId == null) {
 			return Response.invalid("팀 ID가 필요합니다.");
@@ -114,10 +116,15 @@ public class PinController {
 					"lat", lat,
 					"lng", lng,
 					"memo", memo.isEmpty() ? null : memo,
+					"recommend", recommend,
 					"source", "manual".equals(ParamUtil.str(param, "source")) ? "manual" : "search"), SessionUtil.getUserId(session));
-			result = (data == null)
-					? Response.of(Constants.NOT_FOUND, "모임을 찾을 수 없습니다.", null)
-					: Response.of(Constants.SUCCESS, data);
+			if (data == null) {
+				result = Response.of(Constants.NOT_FOUND, "모임을 찾을 수 없습니다.", null);
+			} else if (data.containsKey("duplicateOf")) {
+				result = Response.of(Constants.DUPLICATE_PLACE, "이미 이 모임에 등록된 장소예요.", data.get("duplicateOf"));
+			} else {
+				result = Response.of(Constants.SUCCESS, data);
+			}
 		} catch (NullPointerException npe) {
 			logger.error("장소 등록 중 NullPointerException이 발생했습니다.", npe);
 			result = Response.of(Constants.FAIL, "장소 등록 중 오류가 발생했습니다.", null);
@@ -152,31 +159,6 @@ public class PinController {
 		} catch (Exception e) {
 			logger.error("추천 처리 중 알 수 없는 오류가 발생했습니다.", e);
 			result = Response.of(Constants.FAIL, "추천 처리 중 오류가 발생했습니다.", null);
-		}
-
-		return result;
-	}
-
-	// 방문 토글
-	@ResponseBody
-	@PostMapping("pins/{pinId}/visit")
-	public Response toggleVisit(@PathVariable("pinId") Long pinId, HttpSession session) {
-		Response result = null;
-
-		try {
-			Map<String, Object> data = pinService.toggleVisit(pinId, SessionUtil.getUserId(session));
-			result = (data == null)
-					? Response.of(Constants.NOT_FOUND, "장소를 찾을 수 없습니다.", null)
-					: Response.of(Constants.SUCCESS, data);
-		} catch (NullPointerException npe) {
-			logger.error("방문 처리 중 NullPointerException이 발생했습니다.", npe);
-			result = Response.of(Constants.FAIL, "방문 처리 중 오류가 발생했습니다.", null);
-		} catch (IllegalArgumentException iae) {
-			logger.error("방문 처리 중 IllegalArgumentException이 발생했습니다.", iae);
-			result = Response.of(Constants.FAIL, "방문 처리 중 오류가 발생했습니다.", null);
-		} catch (Exception e) {
-			logger.error("방문 처리 중 알 수 없는 오류가 발생했습니다.", e);
-			result = Response.of(Constants.FAIL, "방문 처리 중 오류가 발생했습니다.", null);
 		}
 
 		return result;
@@ -226,7 +208,7 @@ public class PinController {
 		return result;
 	}
 
-	// 핀 삭제. 추천·방문 기록도 함께 지워진다. 등록자 또는 팀 owner 만 가능
+	// 핀 삭제. 추천 기록도 함께 지워진다. 등록자 또는 팀 owner 만 가능
 	@ResponseBody
 	@DeleteMapping("pins/{pinId}")
 	public Response deletePin(@PathVariable("pinId") Long pinId, HttpSession session) {

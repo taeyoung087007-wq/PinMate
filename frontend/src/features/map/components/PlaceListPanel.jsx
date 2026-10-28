@@ -1,5 +1,6 @@
 import { X, MapPin, Star, Users, ChevronRight } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
+import { isMajority } from '../consensus'
 import styles from './PlaceListPanel.module.css'
 
 /**
@@ -92,6 +93,7 @@ function PinRow({ pin, members, onClick }) {
           })}
         </div>
         {pin.isAllApproved && <span style={{ fontSize: '14px' }} title="모두 인정">⭐</span>}
+        {isMajority(pin, members) && <span style={{ fontSize: '14px' }} title="과반 인정">👍</span>}
       </div>
     </button>
   )

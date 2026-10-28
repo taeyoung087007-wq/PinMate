@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   MapPin, List, Star, Users,
   ChevronDown, X, Sparkles
@@ -10,11 +10,11 @@ import {
   fetchPins,
   createPinApi,
   toggleRecommendationApi,
-  toggleVisitApi,
   updatePinApi,
   deletePinApi
 } from '../api'
 import { fetchTeams, createTeamApi, joinTeamApi } from '../../teams/api'
+import { distanceMeters } from '../places'
 import MapCanvas from '../components/MapCanvas'
 import ErrorBoundary from '../../../components/ErrorBoundary/ErrorBoundary'
 import TopSearch from '../components/TopSearch'
@@ -69,6 +69,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
   const [activeMember, setActiveMember] = useState('all')
   const [showOnlyApproved, setShowOnlyApproved] = useState(false)
   const [focusPlace, setFocusPlace] = useState(null) // 상단 검색에서 고른 장소 (지도에 말풍선)
+  const chipsRef = useDragScroll()
 
   // 1. 내 모임 목록 로드
   useEffect(() => {
@@ -130,8 +131,15 @@ export default function MapPage({ initialTeamId, onLogout }) {
     return team
   }
 
-  // 핀 추가 핸들러
+  // 핀 추가 핸들러. 이미 있는 장소면 새로 만들지 않고 그 장소를 보여준다 (서버도 한 번 더 막는다)
   const handleAddPin = async (newPinData) => {
+    const same = pins.find(p => isSamePlace(p, newPinData))
+    if (same) {
+      setShowAddPinModal(false)
+      setSelectedPin(same)
+      setError(`'${same.name}'은(는) 이미 이 모임에 등록된 장소예요.`)
+      return
+    }
     try {
       const saved = await createPinApi(newPinData)
       setPins(prev => [saved, ...prev])
@@ -145,13 +153,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
   // 추천 토글 핸들러
   const handleRecommend = async (pinId) => {
     try {
-      const { pin, deleted, reachedAllApproved } = await toggleRecommendationApi(pinId, currentUser.id)
-      // 마지막 추천자가 취소하면 서버가 장소를 지운다
-      if (deleted) {
-        setPins(prev => prev.filter(p => p.id !== pinId))
-        setSelectedPin(null)
-        return
-      }
+      const { pin, reachedAllApproved } = await toggleRecommendationApi(pinId, currentUser.id)
       setPins(prev => prev.map(p => p.id === pin.id ? pin : p))
       setSelectedPin(pin)
       if (reachedAllApproved) {
@@ -162,14 +164,16 @@ export default function MapPage({ initialTeamId, onLogout }) {
     }
   }
 
-  // 방문 토글 핸들러
-  const handleToggleVisit = async (pinId) => {
-    try {
-      const updated = await toggleVisitApi(pinId, currentUser.id)
-      setPins(prev => prev.map(p => p.id === updated.id ? updated : p))
-      setSelectedPin(updated)
-    } catch (e) {
-      setError(`방문 처리에 실패했습니다: ${e.message}`)
+  // 모임을 나가거나 삭제한 뒤: 목록에서 빼고, 보고 있던 모임이면 다른 모임(없으면 빈 지도)으로
+  const handleLeftTeam = (teamId) => {
+    const rest = teams.filter(t => String(t.id) !== String(teamId))
+    setTeams(rest)
+    if (String(selectedTeamId) !== String(teamId)) return
+    setSelectedTeamId(rest[0]?.id ?? null)
+    if (rest.length === 0) {
+      setTeamDetail(null)
+      setPins([])
+      setSelectedPin(null)
     }
   }
 
@@ -270,7 +274,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
         </div>
 
         {/* 가로 스크롤 카테고리 & 멤버 칩 */}
-        <div className={styles.chipsScroll}>
+        <div className={styles.chipsScroll} ref={chipsRef}>
           {/* 모두 인정 빠른 필터 */}
           <button
             className={`${styles.chip} ${showOnlyApproved ? styles.chipApprovedActive : ''}`}
@@ -339,7 +343,6 @@ export default function MapPage({ initialTeamId, onLogout }) {
           members={members}
           onClose={() => setSelectedPin(null)}
           onRecommend={() => handleRecommend(selectedPin.id)}
-          onToggleVisit={() => handleToggleVisit(selectedPin.id)}
           onUpdate={handleUpdatePin}
           onDelete={handleDeletePin}
           onRoute={pin => { setRouteTarget(pin); setSelectedPin(null); setShowListPanel(false) }}
@@ -364,6 +367,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
         onSelectTeam={(tId) => { setSelectedTeamId(tId); setActiveTab('map'); }}
         onOpenCreate={() => { setShowTeamDrawer(false); setShowCreateTeamModal(true); }}
         onJoinTeam={handleJoinTeam}
+        onLeftTeam={handleLeftTeam}
         onClose={() => { setShowTeamDrawer(false); setActiveTab('map'); }}
       />
 
@@ -410,4 +414,67 @@ export default function MapPage({ initialTeamId, onLogout }) {
       />
     </div>
   )
+}
+
+// 같은 장소: 이름이 같고(공백·대소문자 무시) 50m 안. 서버(selectSamePinId)와 같은 기준
+const SAME_PLACE_METERS = 50
+const nameKey = name => (name || '').replace(/\s/g, '').toLowerCase()
+const isSamePlace = (pin, place) =>
+  nameKey(pin.name) === nameKey(place.name) && distanceMeters(pin.lat, pin.lng, place.lat, place.lng) < SAME_PLACE_METERS
+
+/**
+ * 가로로 넘치는 칩 줄을 마우스로도 넘길 수 있게 한다 (터치는 브라우저가 원래 스크롤한다)
+ * - 끌어서 넘기기. 끈 뒤 손을 떼면 칩이 눌리지 않게 클릭을 막는다
+ * - 세로 휠을 가로 스크롤로
+ */
+function useDragScroll() {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let startX = 0
+    let startLeft = 0
+    let dragging = false
+    let moved = false
+
+    const onDown = e => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return
+      dragging = true
+      moved = false
+      startX = e.clientX
+      startLeft = el.scrollLeft
+    }
+    const onMove = e => {
+      if (!dragging) return
+      const dx = e.clientX - startX
+      if (Math.abs(dx) > 5) moved = true
+      if (moved) el.scrollLeft = startLeft - dx
+    }
+    const onUp = () => { dragging = false }
+    const onClick = e => {
+      if (!moved) return
+      e.stopPropagation()
+      e.preventDefault()
+      moved = false
+    }
+    const onWheel = e => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || el.scrollWidth <= el.clientWidth) return
+      el.scrollLeft += e.deltaY
+      e.preventDefault()
+    }
+
+    el.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    el.addEventListener('click', onClick, true)
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      el.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      el.removeEventListener('click', onClick, true)
+      el.removeEventListener('wheel', onWheel)
+    }
+  }, [])
+  return ref
 }
