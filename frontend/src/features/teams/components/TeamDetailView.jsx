@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Check, MapPin, LogOut, Tras
 import { fetchTeam, deleteTeamApi, leaveTeamApi } from '../api'
 import { getCurrentUser } from '../../../lib/currentUser'
 import { buildInviteLink, inviteBase } from '../inviteLink'
+import MemberAvatar from '../../../components/MemberAvatar/MemberAvatar'
 import styles from './TeamDetailView.module.css'
 
 // 한 페이지 인원. 작은 휴대폰에서도 바텀시트(최대 85vh) 안에 하단 버튼까지 스크롤 없이 들어오는 정도
@@ -149,7 +150,7 @@ export default function TeamDetailView({ teamId, onBack, onEnter, onLeft }) {
         {pageMembers.map(m => (
           <li key={m.id} className={styles.memberRow}>
             <div className={styles.avatarWrap}>
-              <div className={styles.avatar} style={{ background: m.avatarColor || m.color }}>{m.initials}</div>
+              <MemberAvatar member={m} className={styles.avatar} />
               <span className={`${styles.statusDot} ${m.online ? styles.statusOnline : ''}`} aria-hidden="true" />
             </div>
             <span className={styles.memberName}>{m.nickname}</span>

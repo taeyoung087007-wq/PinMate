@@ -41,16 +41,25 @@ const CATEGORIES = ['all', 'food', 'cafe', 'drink', 'stay', 'sight', 'play', 'et
 export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   // 사용자 상태 (설정에서 프로필을 바꾸면 저장소와 함께 갱신)
   const [currentUser, setCurrentUser] = useState(getCurrentUser)
-  const updateCurrentUser = user => {
-    setCurrentUserStorage(user)
-    setCurrentUser(user)
-  }
 
   // 모임 목록 상태
   const [teams, setTeams] = useState([])
   const [selectedTeamId, setSelectedTeamId] = useState(initialTeamId || null)
   const [teamDetail, setTeamDetail] = useState(null)
   const members = teamDetail?.members ?? []
+
+  // 프로필을 저장하면 모임 목록·상세의 내 멤버 정보도 새로고침 없이 바꾼다 (팀 색은 그대로)
+  const updateCurrentUser = user => {
+    setCurrentUserStorage(user)
+    setCurrentUser(user)
+    const { nickname, initials, avatarId, avatarBg } = user
+    const patchMembers = team => team && {
+      ...team,
+      members: team.members?.map(m => m.id === user.loginId ? { ...m, nickname, initials, avatarId, avatarBg } : m),
+    }
+    setTeams(prev => prev.map(patchMembers))
+    setTeamDetail(patchMembers)
+  }
 
   // 핀 상태
   const [pins, setPins] = useState([])
