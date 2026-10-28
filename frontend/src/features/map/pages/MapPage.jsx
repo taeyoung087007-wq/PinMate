@@ -4,7 +4,7 @@ import {
   ChevronDown, X, Sparkles
 } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
-import { getCurrentUser } from '../../../lib/currentUser'
+import { getCurrentUser, setCurrentUserStorage } from '../../../lib/currentUser'
 import {
   fetchTeam,
   fetchPins,
@@ -25,7 +25,7 @@ import CelebrationModal from '../components/CelebrationModal'
 import BottomNav from '../../../components/BottomNav/BottomNav'
 import TeamDrawer from '../../teams/components/TeamDrawer'
 import TeamCreateModal from '../../teams/components/TeamCreateModal'
-import ProfileModal from '../../auth/components/ProfileModal'
+import SettingsPage from '../../auth/pages/SettingsPage'
 import styles from './MapPage.module.css'
 
 /** 카테고리 필터 목록 */
@@ -36,11 +36,15 @@ const CATEGORIES = ['all', 'food', 'cafe', 'drink', 'stay', 'sight', 'play', 'et
  * - 전체 화면 캔버스 지도 메인
  * - 상단 플로팅 바 (모임 전환 드롭다운 + 검색창 + 카테고리/팀원 칩)
  * - 우측 플로팅 액션 버튼 (장소 추가 FAB, 모두 인정 토글, 목록 토글)
- * - 하단 고정 내비게이션 바 (지도, 모임, 모두인정, 마이)
+ * - 하단 고정 내비게이션 바 (지도, 모임, 모두인정, 설정)
  */
-export default function MapPage({ initialTeamId, onLogout }) {
-  // 사용자 상태
-  const [currentUser] = useState(getCurrentUser)
+export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
+  // 사용자 상태 (설정에서 프로필을 바꾸면 저장소와 함께 갱신)
+  const [currentUser, setCurrentUser] = useState(getCurrentUser)
+  const updateCurrentUser = user => {
+    setCurrentUserStorage(user)
+    setCurrentUser(user)
+  }
 
   // 모임 목록 상태
   const [teams, setTeams] = useState([])
@@ -50,6 +54,7 @@ export default function MapPage({ initialTeamId, onLogout }) {
 
   // 핀 상태
   const [pins, setPins] = useState([])
+  const [pinLoadState, setPinLoadState] = useState({ teamId: null, status: 'loading' })
   const [selectedPin, setSelectedPin] = useState(null)
   const [error, setError] = useState('')
 
@@ -61,7 +66,6 @@ export default function MapPage({ initialTeamId, onLogout }) {
   const [pickedPlace, setPickedPlace] = useState(null) // 메인 지도에서 고른 위치로 장소 추가할 때
   const [routeTarget, setRouteTarget] = useState(null) // 길찾기 도착지 핀
   const [showListPanel, setShowListPanel] = useState(false)
-  const [showProfileModal, setShowProfileModal] = useState(false)
   const [celebrationPin, setCelebrationPin] = useState(null)
 
   // 필터 상태
@@ -90,13 +94,21 @@ export default function MapPage({ initialTeamId, onLogout }) {
   // 2. 선택된 모임의 상세 정보 및 핀 목록 로드
   useEffect(() => {
     if (!selectedTeamId) return
+    let cancelled = false
     Promise.all([fetchTeam(selectedTeamId), fetchPins(selectedTeamId)])
       .then(([tData, pData]) => {
+        if (cancelled) return
+        setPinLoadState({ teamId: selectedTeamId, status: 'ready' })
         setTeamDetail(tData)
         setPins(pData)
         setSelectedPin(null) // 모임 변경 시 선택 핀 해제
       })
-      .catch(e => setError(`지도 데이터를 불러오지 못했습니다: ${e.message}`))
+      .catch(e => {
+        if (cancelled) return
+        setPinLoadState({ teamId: selectedTeamId, status: 'error' })
+        setError(`지도 데이터를 불러오지 못했습니다: ${e.message}`)
+      })
+    return () => { cancelled = true }
   }, [selectedTeamId])
 
   // 필터링된 핀 목록
@@ -207,19 +219,23 @@ export default function MapPage({ initialTeamId, onLogout }) {
     if (tabId === 'map') {
       setShowTeamDrawer(false)
       setShowListPanel(false)
-      setShowProfileModal(false)
     } else if (tabId === 'teams') {
+      setShowListPanel(false)
       setShowTeamDrawer(true)
     } else if (tabId === 'approved') {
+      setShowTeamDrawer(false)
       setShowOnlyApproved(true)
       setShowListPanel(true)
-    } else if (tabId === 'profile') {
-      setShowProfileModal(true)
+    } else if (tabId === 'settings') {
+      setShowTeamDrawer(false)
+      setShowListPanel(false)
+      setSelectedPin(null)
     }
   }
 
   return (
     <div className={styles.appRoot}>
+      <div inert={activeTab === 'settings'} aria-hidden={activeTab === 'settings'} style={{ visibility: activeTab === 'settings' ? 'hidden' : undefined }}>
       {/* 1. 전체 화면 메인 지도 */}
       <div className={styles.mapCanvasWrap}>
         {/* 지도에서 에러가 나도 상단바·하단 메뉴는 남긴다. 다시 시도하면 원인일 수 있는 길찾기·검색 상태를 비운다 */}
@@ -397,13 +413,28 @@ export default function MapPage({ initialTeamId, onLogout }) {
         />
       )}
 
-      {/* 10. 프로필 / 사용자 전환 모달 */}
-      <ProfileModal
-        isOpen={showProfileModal}
-        currentUser={currentUser}
-        onLogout={onLogout}
-        onClose={() => { setShowProfileModal(false); setActiveTab('map'); }}
-      />
+      </div>
+
+      {activeTab === 'settings' && (
+        <SettingsPage
+          currentUser={currentUser}
+          onLogout={onLogout}
+          onUserUpdate={updateCurrentUser}
+          onWithdrawn={onWithdrawn}
+          places={pins.filter(pin => pin.recommenders?.includes(currentUser.loginId))}
+          teamName={currentTeam?.name}
+          categories={CATEGORY_META}
+          placesStatus={!selectedTeamId ? (error ? 'error' : 'ready') : pinLoadState.teamId !== selectedTeamId ? 'loading' : pinLoadState.status}
+          onExplore={() => handleTabChange('map')}
+          onViewPlace={pin => {
+            setShowOnlyApproved(false)
+            setActiveCategory('all')
+            setActiveMember('all')
+            handleTabChange('map')
+            setSelectedPin(pin)
+          }}
+        />
+      )}
 
       {/* 11. 하단 고정 내비게이션 바 */}
       <BottomNav

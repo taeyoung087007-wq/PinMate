@@ -4,9 +4,10 @@
 <mapper namespace="com.pinmate.auth.dao.AuthDAO">
 
 	<select id="selectUserByLoginId" parameterType="string" resultType="java.util.HashMap">
-		SELECT user_id, login_id, email, password_hash, nickname
+		SELECT user_id, login_id, email, password_hash, nickname, avatar_id, avatar_bg
 		  FROM users
 		 WHERE login_id = #{loginId}
+		   AND status = 'active'
 	</select>
 
 	<select id="selectUserByNickname" parameterType="string" resultType="java.util.HashMap">
@@ -24,6 +25,51 @@
 	<!-- param: userId, passwordHash -->
 	<update id="updatePasswordHash" parameterType="map">
 		UPDATE users SET password_hash = #{passwordHash} WHERE user_id = #{userId}
+	</update>
+
+	<!-- 비밀번호 변경 시 현재 비밀번호 확인용. 탈퇴했거나 없으면 null -->
+	<select id="selectPasswordHash" parameterType="long" resultType="string">
+		SELECT password_hash
+		  FROM users
+		 WHERE user_id = #{userId}
+		   AND status = 'active'
+	</select>
+
+	<!-- param: userId, nickname, avatarId, avatarBg -->
+	<update id="updateProfile" parameterType="map">
+		UPDATE users
+		   SET nickname = #{nickname},
+		       avatar_id = #{avatarId},
+		       avatar_bg = #{avatarBg}
+		 WHERE user_id = #{userId}
+		   AND status = 'active'
+	</update>
+
+	<!-- 내가 owner 인 모임 수. owner 는 모임을 두고 탈퇴할 수 없다 -->
+	<select id="countOwnedTeams" parameterType="long" resultType="int">
+		SELECT COUNT(*)
+		  FROM team_members
+		 WHERE user_id = #{userId}
+		   AND role = 'owner'
+	</select>
+
+	<delete id="deleteTeamMemberships" parameterType="long">
+		DELETE FROM team_members WHERE user_id = #{userId}
+	</delete>
+
+	<!-- 탈퇴. 추천·방문 기록이 users 를 참조하므로 행은 남기고 개인정보만 비운다(UNIQUE 컬럼도 비워 같은 아이디·닉네임으로 재가입 가능) -->
+	<update id="withdrawUser" parameterType="long">
+		UPDATE users
+		   SET login_id = NULL,
+		       email = NULL,
+		       nickname = NULL,
+		       password_hash = NULL,
+		       avatar_id = NULL,
+		       avatar_bg = NULL,
+		       status = 'withdrawn',
+		       withdrawn_at = now()
+		 WHERE user_id = #{userId}
+		   AND status = 'active'
 	</update>
 
 	<!-- 로그인 직후 열 기본 모임(가장 최근에 만들어진 참여 모임)과 그 모임에서의 내 색상 -->

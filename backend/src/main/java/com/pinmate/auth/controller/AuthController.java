@@ -11,12 +11,15 @@ import com.pinmate.cmmn.util.SessionUtil;
 import com.pinmate.team.service.TeamService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,10 +31,12 @@ import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 // 로그인·가입·로그아웃 (로그인 불필요: /api/auth/**).
 // 가입은 서비스 가입 코드가 있어야 하고, 가입 후에는 로그인 화면으로 돌아간다. 팀 참여는 로그인 후 초대 링크로 한다.
+// 내 계정 관리(비밀번호·프로필·탈퇴, /api/users/me/**)는 로그인이 필요하다.
 @RequestMapping(value = "/api/")
 @Controller
 public class AuthController {
@@ -41,12 +46,18 @@ public class AuthController {
 	// 길이 제한은 users 컬럼과 맞춘다
 	private static final int LOGIN_ID_MIN = 3;
 	private static final int LOGIN_ID_MAX = 20;      // users.login_id VARCHAR(20)
-	private static final int PASSWORD_MIN = 4;
+	private static final int PASSWORD_MIN = 8;
 	private static final int NICKNAME_MIN = 2;
 	private static final int NICKNAME_MAX = 30;      // users.nickname VARCHAR(30)
 	private static final int EMAIL_MAX = 100;        // users.email VARCHAR(100)
 	private static final int INVITE_CODE_MAX = 32;   // team_invites.code VARCHAR(32)
 	private static final Pattern EMAIL = Pattern.compile("[^@\\s]+@[^@\\s]+\\.[^@\\s]+");
+	private static final Pattern LETTER = Pattern.compile("[A-Za-z]");
+	private static final Pattern DIGIT = Pattern.compile("[0-9]");
+	private static final Pattern HEX_COLOR = Pattern.compile("#[0-9a-fA-F]{6}"); // users.avatar_bg VARCHAR(7)
+	// 프론트 features/auth/avatars.js 의 AVATARS id 와 같은 값을 유지한다
+	private static final Set<String> AVATAR_IDS = Set.of("cat", "dog", "rabbit", "bear", "fox", "panda", "penguin", "otter");
+	private static final String PASSWORD_RULE_MESSAGE = "비밀번호는 8자 이상, 영문과 숫자를 함께 입력해주세요.";
 
 	@Resource(name = "AuthService")
 	private AuthService authService;
@@ -156,8 +167,8 @@ public class AuthController {
 		if (!isValidLoginId(loginId) || loginId.length() < LOGIN_ID_MIN) {
 			return Response.invalid("아이디는 3~20자로 입력해주세요.");
 		}
-		if (password.length() < PASSWORD_MIN || !PasswordUtil.fits(password)) {
-			return Response.invalid("비밀번호는 4자 이상 72바이트 이하로 입력해주세요.");
+		if (!isValidPassword(password)) {
+			return Response.invalid(PASSWORD_RULE_MESSAGE);
 		}
 		if (!password.equals(ParamUtil.raw(param, "passwordConfirm"))) {
 			return Response.invalid("비밀번호 확인이 일치하지 않습니다.");
@@ -217,6 +228,127 @@ public class AuthController {
 		return Response.of(Constants.SUCCESS);
 	}
 
+	// 비밀번호 변경 (currentPassword, newPassword). 로그인 필요 — auth/** 는 로그인 검사에서 빠지므로 users/me/** 에 둔다
+	@ResponseBody
+	@PostMapping("users/me/password")
+	public Response changePassword(@RequestBody HashMap<String, Object> param, HttpSession session) {
+		String current = ParamUtil.raw(param, "currentPassword");
+		String next = ParamUtil.raw(param, "newPassword");
+
+		if (!isValidPassword(next)) {
+			return Response.invalid(PASSWORD_RULE_MESSAGE);
+		}
+		if (next.equals(current)) {
+			return Response.invalid("현재 비밀번호와 다른 비밀번호를 입력해주세요.");
+		}
+
+		Long userId = SessionUtil.getUserId(session);
+		// 세션만 가진 사람이 현재 비밀번호를 계속 대입하지 못하게 로그인과 같은 시도 제한을 건다
+		String attemptKey = "password|" + userId;
+		if (!loginAttemptLimiter.tryAcquire(attemptKey)) {
+			return Response.of(Constants.LOGIN_BLOCKED, "비밀번호를 여러 번 잘못 입력했습니다. 5분 뒤에 다시 시도해주세요.", null);
+		}
+
+		Response result = null;
+
+		try {
+			if (!PasswordUtil.matches(current, authService.selectPasswordHash(userId))) {
+				result = Response.invalid("현재 비밀번호가 올바르지 않습니다.");
+			} else {
+				authService.updatePasswordHash(ParamUtil.map("userId", userId, "passwordHash", PasswordUtil.hash(next)));
+				loginAttemptLimiter.reset(attemptKey);
+				result = Response.of(Constants.SUCCESS);
+			}
+		} catch (NullPointerException npe) {
+			logger.error("비밀번호 변경 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "비밀번호 변경 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("비밀번호 변경 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "비밀번호 변경 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("비밀번호 변경 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "비밀번호 변경 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
+	// 프로필 수정 (nickname, avatarId, avatarBg). 바뀐 값(nickname, initials, avatarId, avatarBg)을 돌려준다
+	@ResponseBody
+	@PatchMapping("users/me")
+	public Response updateProfile(@RequestBody HashMap<String, Object> param, HttpSession session) {
+		String nickname = ParamUtil.str(param, "nickname");
+		String avatarId = ParamUtil.str(param, "avatarId");
+		String avatarBg = ParamUtil.str(param, "avatarBg");
+
+		if (nickname.length() < NICKNAME_MIN || nickname.length() > NICKNAME_MAX) {
+			return Response.invalid("닉네임은 2~30자로 입력해주세요.");
+		}
+		if (!AVATAR_IDS.contains(avatarId)) {
+			return Response.invalid("프로필 캐릭터를 다시 선택해주세요.");
+		}
+		if (!HEX_COLOR.matcher(avatarBg).matches()) {
+			return Response.invalid("배경색을 다시 선택해주세요.");
+		}
+
+		Response result = null;
+
+		try {
+			Map<String, Object> profile = ParamUtil.map(
+					"userId", SessionUtil.getUserId(session),
+					"nickname", nickname,
+					"avatarId", avatarId,
+					"avatarBg", avatarBg.toLowerCase(Locale.ROOT));
+			if (!authService.updateProfile(profile)) {
+				result = Response.invalid("이미 사용 중인 닉네임입니다.");
+			} else {
+				profile.remove("userId");
+				profile.put("initials", nickname.substring(0, 1));
+				result = Response.of(Constants.SUCCESS, profile);
+			}
+		} catch (NullPointerException npe) {
+			logger.error("프로필 수정 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "프로필 수정 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("프로필 수정 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "프로필 수정 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("프로필 수정 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "프로필 수정 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
+	// 회원 탈퇴. owner 인 모임이 있으면 막는다. 성공하면 세션도 끝낸다
+	@ResponseBody
+	@DeleteMapping("users/me")
+	public Response withdraw(HttpServletRequest request) {
+		Response result = null;
+
+		try {
+			Long userId = SessionUtil.getUserId(request.getSession(false));
+			if (!authService.withdrawUser(userId)) {
+				result = Response.of(Constants.NO_PERMISSION, "모임장으로 있는 모임이 있어 탈퇴할 수 없습니다.", null);
+			} else {
+				SessionUtil.logout(request);
+				logger.info("사용자 {} 가 탈퇴했습니다.", userId);
+				result = Response.of(Constants.SUCCESS);
+			}
+		} catch (NullPointerException npe) {
+			logger.error("탈퇴 처리 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "탈퇴 처리 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("탈퇴 처리 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "탈퇴 처리 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("탈퇴 처리 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "탈퇴 처리 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
 	// 시도 제한 키. 검증을 통과하지 못한 아이디(빈 값, 20자 초과)는 넣지 않는다 — 긴 키로 메모리를 채우는 공격 방지
 	static String loginAttemptKey(String loginId, String ip) {
 		return "login|" + (isValidLoginId(loginId) ? loginId.toLowerCase(Locale.ROOT) : "") + "|" + ip;
@@ -224,6 +356,12 @@ public class AuthController {
 
 	private static boolean isValidLoginId(String loginId) {
 		return !loginId.isEmpty() && loginId.length() <= LOGIN_ID_MAX;
+	}
+
+	// 가입·변경 공통 규칙: 8자 이상, 영문과 숫자 포함, BCrypt 한도(72바이트) 이하
+	static boolean isValidPassword(String password) {
+		return password.length() >= PASSWORD_MIN && PasswordUtil.fits(password)
+				&& LETTER.matcher(password).find() && DIGIT.matcher(password).find();
 	}
 
 	// 환경변수 PINMATE_SIGNUP_CODE 가 비어 있으면 가입 불가. 비교는 상수 시간

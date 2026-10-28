@@ -33,6 +33,31 @@ public class AuthDAO {
 		return sqlSession.update(AuthDAO.SQL_PATH + ".updatePasswordHash", param);
 	}
 
+	//비밀번호 해시 조회 (user_id 기준). 탈퇴했거나 없으면 null
+	public String selectPasswordHash(Long userId) {
+		return sqlSession.selectOne(AuthDAO.SQL_PATH + ".selectPasswordHash", userId);
+	}
+
+	//프로필 수정 (param: userId, nickname, avatarId, avatarBg)
+	public int updateProfile(Map<String, Object> param) {
+		return sqlSession.update(AuthDAO.SQL_PATH + ".updateProfile", param);
+	}
+
+	//내가 owner 인 모임 수
+	public int countOwnedTeams(Long userId) {
+		return sqlSession.selectOne(AuthDAO.SQL_PATH + ".countOwnedTeams", userId);
+	}
+
+	//모든 모임에서 나가기
+	public int deleteTeamMemberships(Long userId) {
+		return sqlSession.delete(AuthDAO.SQL_PATH + ".deleteTeamMemberships", userId);
+	}
+
+	//탈퇴 (개인정보 비우고 status = 'withdrawn')
+	public int withdrawUser(Long userId) {
+		return sqlSession.update(AuthDAO.SQL_PATH + ".withdrawUser", userId);
+	}
+
 	//로그인 직후 열 기본 모임 (참여한 모임이 없으면 null)
 	public Map<String, Object> selectDefaultTeam(Long userId) {
 		return sqlSession.selectOne(AuthDAO.SQL_PATH + ".selectDefaultTeam", userId);
