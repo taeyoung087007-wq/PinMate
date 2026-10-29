@@ -24,6 +24,18 @@ const MAX_FIT_LEVEL = 3      // 핀 전체 보기 후 너무 당겨지지 않게
 const MIN_LEVEL = 1
 const MAX_LEVEL = 14
 
+// 이 픽셀 반경 안의 상가를 "누른 상가"로 본다 (지도 라벨 근처를 눌러도 잡히게)
+const TAP_RADIUS_PX = 40
+// 픽 마커(SVG)의 앵커: 뾰족한 끝(하단 중앙)이 좌표에 오도록
+const PICK_ANCHOR = { x: 16, y: 42 }
+// 말풍선 윗변이 지도 위쪽에서 이만큼은 떨어지게 한다 (상단 검색바·필터 칩·안내 문구에 가리지 않게)
+const PICK_SAFE_TOP = 170
+// 정적인 SVG라 문자열로 넣는다 (사용자 입력이 섞이지 않음)
+const PICK_PIN_SVG = `<svg width="32" height="42" viewBox="0 0 32 42" aria-hidden="true">
+  <path d="M16 1C7.7 1 1 7.6 1 15.8 1 26.9 16 41 16 41s15-14.1 15-25.2C31 7.6 24.3 1 16 1z" fill="#6C63FF" stroke="#fff" stroke-width="2"/>
+  <circle cx="16" cy="15.5" r="5.5" fill="#fff"/>
+</svg>`
+
 /**
  * 지도에서 고른 위치 마커 + 말풍선(상호명, 분류, 주소, 장소 추가 버튼)
  * - 상호명은 describeLocation 이 찾아 주면 채운다 (못 찾으면 주소만)
