@@ -79,4 +79,12 @@ describe('clusterPins', () => {
     expect(singles).toEqual([])
     expect(clusters).toEqual([])
   })
+
+  it('CLUSTER_MIN_LEVEL 은 실측 근거(레벨 3에서 라벨이 겹친다)를 따른다', () => {
+    // 390px 뷰포트에서 200m 안에 핀 10개를 두고 실측한 결과:
+    //   레벨 3에서 묶지 않으면 라벨이 15쌍 겹쳐 읽을 수 없다
+    //   레벨 2에서 풀면 1쌍만 겹친다 → 라벨이 읽히는 건 레벨 2부터
+    // 이 값이 4로 올라가면 레벨 3에서 겹침 폭탄이 다시 생긴다.
+    expect(CLUSTER_MIN_LEVEL).toBe(3)
+  })
 })

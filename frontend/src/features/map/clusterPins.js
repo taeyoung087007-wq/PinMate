@@ -12,7 +12,9 @@ export const CLUSTER_MIN_COUNT = 2 // 같은 칸에 이만큼 있으면 묶는�
 // 이 레벨보다 확대하면(숫자가 작을수록 확대) 묶지 않는다.
 // 개수 기준을 두면 "24개는 그대로, 25개는 갑자기 다 묶임" 같은 절벽이 생긴다.
 // 밀도는 격자가 알아서 판단하므로, 확대했을 때 풀리는지만 레벨로 막는다.
-export const CLUSTER_MIN_LEVEL = 4
+// 실측 근거(390px 뷰포트, 200m 안 핀 10개): 레벨 3에서 풀면 라벨이 15쌍 겹쳐 읽을 수
+// 없고, 레벨 2에서야 1쌍만 겹친다. → 라벨이 읽히는 레벨 2부터 풀어준다.
+export const CLUSTER_MIN_LEVEL = 3
 
 /**
  * @typedef {{ id: string|number, lat: number, lng: number }} Pin
