@@ -145,7 +145,10 @@ function createMyLocationMarker(maps, map, position) {
  *          onRouteTo(지도에서 고른 장소로 길찾기: { name, lat, lng }),
  *          focusPlace(상단 검색에서 고른 장소: 지도를 옮기고 말풍선을 띄운다)
  */
-export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onAddAtLocation, onRouteTo, routeTarget, onClearRoute, focusPlace }) {
+export default function MapCanvas({
+  pins, members, onSelectPin, selectedPin, onAddAtLocation, onRouteTo,
+  routeTarget, routePanelOpen, onOpenRoutePanel, onCloseRoutePanel, onClearRoute, focusPlace,
+}) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const onSelectRef = useRef(onSelectPin)
@@ -440,6 +443,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
   // 길찾기를 처음 열 때만 출발지를 내 위치로 시도한다.
   // 열린 상태에서 도착지를 바꾸거나 출발·도착을 바꿀 때는 출발지를 그대로 둔다
   const routeOpen = Boolean(routeTarget)
+  // 패널만 닫아도 경로선은 남긴다 (routeOpen 은 그대로)
+  const panelOpen = routeOpen && routePanelOpen
   useEffect(() => {
     setRouteOrigin(null)
     setOriginNote('')
@@ -689,7 +694,7 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
             </div>
           </div>
 
-          {route && (
+          {panelOpen && route && (
             <div className={styles.routePanel} ref={routePanelRef}>
               <div className={styles.routeHeader}>
                 <div className={styles.routeEnds}>
@@ -717,9 +722,18 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
                 <div className={styles.routeSide}>
                   <button
                     type="button"
-                    className={styles.routeClose}
+                    className={styles.routeClearBtn}
                     onClick={() => onClearRoute?.()}
-                    aria-label="길찾기 닫기"
+                    title="경로 지우기"
+                  >
+                    지우기
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.routeClose}
+                    onClick={() => onCloseRoutePanel?.()}
+                    aria-label="길찾기 패널 닫기"
+                    title="패널만 닫기 (경로선은 유지)"
                   >
                     ×
                   </button>
@@ -779,6 +793,33 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
                   onSelect={index => setTransit(prev => ({ ...prev, index }))}
                 />
               )}
+            </div>
+          )}
+
+          {/* 패널을 닫아도 경로는 남아 있다 — 작은 칩으로 다시 열거나 지운다 */}
+          {routeOpen && !panelOpen && (
+            <div className={styles.routeChip}>
+              <button
+                type="button"
+                className={styles.routeChipMain}
+                onClick={() => onOpenRoutePanel?.()}
+                title="경로 다시 열기"
+              >
+                <span className={styles.routeChipIcon}>
+                  {ROUTE_MODES[routeMode]?.icon ?? '🧭'}
+                </span>
+                <span className={styles.routeChipName}>{routeTarget.name}</span>
+                <span className={styles.routeChipHint}>경로 보기</span>
+              </button>
+              <button
+                type="button"
+                className={styles.routeChipClear}
+                onClick={() => onClearRoute?.()}
+                aria-label="경로 지우기"
+                title="경로 지우기"
+              >
+                ×
+              </button>
             </div>
           )}
 

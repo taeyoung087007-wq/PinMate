@@ -1,9 +1,10 @@
 .panel {
   position: absolute;
-  top: 16px;
+  /* 상단 검색바·필터 칩(약 112px) 아래에서 시작한다 — 겹치면 검색창이 가려진다 */
+  top: 120px;
   right: 16px;
   width: 320px;
-  max-height: calc(100% - 32px);
+  max-height: calc(100% - 136px);
   display: flex;
   flex-direction: column;
   z-index: 20;
