@@ -32,3 +32,6 @@ build/
 *.local
 .cache/
 .oxlint-cache
+
+# AI 프롬프트 지침 문서 (로컬에만 두고 저장소에는 올리지 않는다)
+frontend/docs/
