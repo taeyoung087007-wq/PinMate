@@ -213,7 +213,10 @@ function createMyLocationMarker(maps, map, position) {
 // 클러스터링: 화면을 격자로 나눠 같은 칸에 모인 핀을 하나로 묶는다
 const CLUSTER_CELL_PX = 72      // 격자 한 칸 크기(화면 픽셀). 작을수록 덜 묶인다
 const CLUSTER_MIN_COUNT = 2     // 같은 칸에 이만큼 있으면 묶는다
-const CLUSTER_FROM = 25         // 핀이 이보다 적으면 아예 묶지 않는다
+// 이 레벨보다 확대하면(숫자가 작을수록 확대) 묶지 않는다.
+// 개수 기준을 두면 "24개는 그대로, 25개는 갑자기 다 묶임" 같은 절벽이 생긴다.
+// 밀도는 격자가 알아서 판단하므로, 확대했을 때 풀리는지만 레벨로 막는다.
+const CLUSTER_MIN_LEVEL = 4
 const CLUSTER_SIZE = 46         // 클러스터 원 지름
 
 /** 여러 핀을 하나로 묶은 클러스터 마커 (개수 표시) */
@@ -492,8 +495,8 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
       markersRef.current.set(pin.id, { marker, pin, meta, memberColor, majority })
     }
 
-    // 핀이 적으면 하나씩 그대로 보여준다
-    if (pins.length < CLUSTER_FROM) {
+    // 충분히 확대했으면 하나씩 그대로 보여준다 (사용자가 일부러 확대한 상황)
+    if (map.getLevel() < CLUSTER_MIN_LEVEL) {
       pins.forEach(pin => placePin(pin, pin.id === selectedPin?.id))
       return
     }
