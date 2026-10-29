@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, Minus, RotateCcw, LocateFixed } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { isMajority } from '../consensus'
+import { anchorContent } from '../overlayAnchor'
+import { usePinMarkers } from '../usePinMarkers'
 import { describeLocation } from '../geocode'
 import { fetchRoute } from '../api'
 import { searchTransit, loadTransitLines, formatMinutes, WALK_COLOR } from '../transit'
@@ -20,81 +22,6 @@ const MY_LOCATION_LEVEL = 3  // 내 주변
 const MAX_FIT_LEVEL = 3      // 핀 전체 보기 후 너무 당겨지지 않게
 const MIN_LEVEL = 1
 const MAX_LEVEL = 14
-
-// 마커 아이콘 기준점: 원형 마커의 중심이 좌표에 오도록
-const PIN_ANCHOR = { x: 17, y: 17 }
-// 과반 인정 핀 색 (모두 인정은 금색)
-const SILVER = '#9AA8BC'
-
-/**
- * 핀 하나를 나타내는 DOM 요소를 만든다.
- * - HTML 문자열 대신 DOM을 쓰는 이유: 장소명이 사용자 입력이라 문자열 조립 시 이스케이프가 필요해진다
- * - 마커는 React 트리 밖에 붙으므로 CSS Module 클래스명을 직접 넘긴다
- */
-function createPinElement({ pin, meta, memberColor, majority, isSelected }) {
-  const isGold = Boolean(pin.isAllApproved)
-  const isSilver = !isGold && majority // 과반 인정
-
-  const wrap = document.createElement('div')
-  wrap.className = [styles.pinWrap, isGold && styles.pinWrapGold, isSilver && styles.pinWrapSilver, isSelected && styles.pinWrapSelected]
-    .filter(Boolean)
-    .join(' ')
-  wrap.title = pin.name
-
-  const body = document.createElement('div')
-  body.className = styles.pinBody
-  body.style.background = isGold ? '#FFBA08' : isSilver ? SILVER : meta.color
-  body.textContent = meta.icon
-
-  const label = document.createElement('span')
-  label.className = styles.pinLabel
-  label.textContent = pin.name
-
-  wrap.append(body, label)
-
-  // 추천 수 뱃지 (2명 이상 추천했을 때만)
-  const recommendCount = pin.recommenders?.length ?? 0
-  if (recommendCount > 1) {
-    const badge = document.createElement('span')
-    badge.className = styles.pinBadge
-    badge.style.background = isGold ? '#FFBA08' : isSilver ? SILVER : memberColor
-    badge.textContent = String(recommendCount)
-    wrap.appendChild(badge)
-  }
-
-  return wrap
-}
-
-/**
- * 카카오 CustomOverlay 는 "요소의 어느 지점이 좌표에 닿는지"를 비율(0~1)로만 받는다.
- * 요소 크기가 글자마다 달라서 비율을 미리 알 수 없으므로,
- * 크기 0인 컨테이너를 두고 그 안에서 (x, y) 픽셀만큼 왼쪽·위로 밀어 기준점을 맞춘다.
- * → 네이버의 `anchor: Point(x, y)` 와 같은 효과
- */
-function anchorContent(el, x, y) {
-  const wrap = document.createElement('div')
-  wrap.style.position = 'relative'
-  wrap.style.width = '0'
-  wrap.style.height = '0'
-
-  el.style.position = 'absolute'
-  el.style.left = `${-x}px`
-  el.style.top = `${-y}px`
-  wrap.appendChild(el)
-  return wrap
-}
-
-// 지도에서 고른 위치 마커: 물방울 끝이 좌표에 오도록 (SVG 32x42)
-const PICK_ANCHOR = { x: 16, y: 42 }
-// 말풍선 윗변이 지도 위쪽에서 이만큼은 떨어지게 한다 (상단 검색바·필터 칩·안내 문구에 가리지 않게)
-const PICK_SAFE_TOP = 170
-// 이 픽셀 반경 안의 상가를 "누른 상가"로 본다 (지도 라벨 근처를 눌러도 잡히게)
-const TAP_RADIUS_PX = 40
-// 정적인 SVG라 문자열로 넣는다 (사용자 입력이 섞이지 않음)
-const PICK_PIN_SVG = `<svg width="32" height="42" viewBox="0 0 32 42" aria-hidden="true">
-  <path d="M16 1C7.7 1 1 7.6 1 15.8 1 26.9 16 41 16 41s15-14.1 15-25.2C31 7.6 24.3 1 16 1z" fill="#6C63FF" stroke="#fff" stroke-width="2"/>
-  <circle cx="16" cy="15.5" r="5.5" fill="#fff"/>
-</svg>`
 
 /**
  * 지도에서 고른 위치 마커 + 말풍선(상호명, 분류, 주소, 장소 추가 버튼)
@@ -210,63 +137,6 @@ function createMyLocationMarker(maps, map, position) {
   })
 }
 
-// 클러스터링: 화면을 격자로 나눠 같은 칸에 모인 핀을 하나로 묶는다
-const CLUSTER_CELL_PX = 72      // 격자 한 칸 크기(화면 픽셀). 작을수록 덜 묶인다
-const CLUSTER_MIN_COUNT = 2     // 같은 칸에 이만큼 있으면 묶는다
-// 이 레벨보다 확대하면(숫자가 작을수록 확대) 묶지 않는다.
-// 개수 기준을 두면 "24개는 그대로, 25개는 갑자기 다 묶임" 같은 절벽이 생긴다.
-// 밀도는 격자가 알아서 판단하므로, 확대했을 때 풀리는지만 레벨로 막는다.
-const CLUSTER_MIN_LEVEL = 4
-const CLUSTER_SIZE = 46         // 클러스터 원 지름
-
-/** 여러 핀을 하나로 묶은 클러스터 마커 (개수 표시) */
-function createClusterElement({ count, color }) {
-  const wrap = document.createElement('div')
-  wrap.className = styles.clusterWrap
-
-  const body = document.createElement('div')
-  body.className = styles.clusterBody
-  body.style.background = color
-  body.textContent = String(count)
-
-  wrap.appendChild(body)
-  return wrap
-}
-
-/** 묶인 핀들 중 가장 많은 카테고리 색 — 줌아웃 상태에서도 동네 성격이 보인다 */
-function dominantColor(group) {
-  const tally = new Map()
-  group.forEach(pin => {
-    const meta = CATEGORY_META[pin.category] || CATEGORY_META.etc
-    tally.set(meta.color, (tally.get(meta.color) ?? 0) + 1)
-  })
-  let best = null
-  let bestCount = -1
-  tally.forEach((count, color) => {
-    if (count > bestCount) {
-      best = color
-      bestCount = count
-    }
-  })
-  return best
-}
-
-/** 핀 마커(오버레이)를 만든다 */
-function createPinOverlay(maps, map, { pin, meta, memberColor, majority, isSelected }) {
-  return new maps.CustomOverlay({
-    position: new maps.LatLng(pin.lat, pin.lng),
-    content: anchorContent(
-      createPinElement({ pin, meta, memberColor, majority, isSelected }),
-      PIN_ANCHOR.x,
-      PIN_ANCHOR.y
-    ),
-    map,
-    zIndex: isSelected ? 100 : pin.isAllApproved ? 50 : 10,
-    // 기본값(false)이면 클릭이 지도로 통과해 핀을 눌러도 "위치 고르기"가 같이 뜬다
-    clickable: true,
-  })
-}
-
 /**
  * 카카오 지도 기반 지도 컴포넌트
  * - 지도 생성·이동·줌은 SDK에 맡기고, 이 컴포넌트는 핀(오버레이)만 그린다
@@ -278,9 +148,6 @@ function createPinOverlay(maps, map, { pin, meta, memberColor, majority, isSelec
 export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onAddAtLocation, onRouteTo, routeTarget, onClearRoute, focusPlace }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
-  const markersRef = useRef(new Map()) // pinId -> { marker, pin, meta, memberColor }
-  const clusterRef = useRef([]) // 현재 화면에 떠 있는 클러스터 오버레이
-  const renderMarkersRef = useRef(null) // idle 리스너가 최신 렌더 함수를 보도록
   const onSelectRef = useRef(onSelectPin)
   const myLocationRef = useRef(null) // 현재 위치 좌표
   const myLocationMarkerRef = useRef(null) // 현재 위치 마커
@@ -300,6 +167,9 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
   const [originLocating, setOriginLocating] = useState(false)
   const [originNote, setOriginNote] = useState('') // 출발지가 비어 있는 이유 (위치 권한 등)
   const [status, setStatus] = useState('loading') // loading | ready | nokey | error
+
+  // 핀·클러스터는 훅이 관리한다 (지도가 준비되면 그리고, 팬·줌이 끝나면 다시 그린다)
+  usePinMarkers({ mapRef, status, pins, members, selectedPin, onSelectPin })
   const [errorMessage, setErrorMessage] = useState('')
   const [locateError, setLocateError] = useState('')
   const [locating, setLocating] = useState(false) // 위치 조회 중 표시
@@ -406,11 +276,6 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
           pickLocation(maps, map, e.latLng)
         })
 
-        // 팬·줌이 끝날 때마다 다시 그린다. 화면 격자가 바뀌므로 클러스터 구성도 달라진다
-        maps.event.addListener(map, 'idle', () => {
-          renderMarkersRef.current?.(maps, map)
-        })
-
         setStatus('ready')
 
         // 컨테이너 크기가 바뀌면(패널 열림 등) 지도를 다시 그린다
@@ -464,7 +329,6 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
     return () => {
       cancelled = true
       resizeObserver?.disconnect()
-      markersRef.current.clear()
       pickedMarkerRef.current = null
       myLocationMarkerRef.current = null
       mapRef.current = null
@@ -472,94 +336,6 @@ export default function MapCanvas({ pins, members, onSelectPin, selectedPin, onA
       if (containerRef.current) containerRef.current.innerHTML = ''
     }
   }, [pickLocation])
-
-  // 2) 핀을 그린다. 핀이 많으면 화면 격자로 묶어 클러스터로 표시한다.
-  //    선택이 바뀌면 전체를 다시 그린다 — 선택된 핀은 클러스터에서 빠져나와야 하기 때문
-  const renderMarkers = useCallback((maps, map) => {
-    markersRef.current.forEach(({ marker }) => marker.setMap(null))
-    markersRef.current.clear()
-    clusterRef.current.forEach(overlay => overlay.setMap(null))
-    clusterRef.current = []
-
-    const infoOf = pin => {
-      const meta = CATEGORY_META[pin.category] || CATEGORY_META.etc
-      const memberColor = members.find(m => m.id === pin.addedBy)?.avatarColor ?? meta.color
-      return { meta, memberColor, majority: isMajority(pin, members) }
-    }
-
-    const placePin = (pin, isSelected) => {
-      const { meta, memberColor, majority } = infoOf(pin)
-      const marker = createPinOverlay(maps, map, { pin, meta, memberColor, majority, isSelected })
-      // 오버레이는 DOM이라 클릭 리스너를 요소에 직접 건다
-      marker.getContent().firstChild.addEventListener('click', () => onSelectRef.current(pin))
-      markersRef.current.set(pin.id, { marker, pin, meta, memberColor, majority })
-    }
-
-    // 충분히 확대했으면 하나씩 그대로 보여준다 (사용자가 일부러 확대한 상황)
-    if (map.getLevel() < CLUSTER_MIN_LEVEL) {
-      pins.forEach(pin => placePin(pin, pin.id === selectedPin?.id))
-      return
-    }
-
-    const projection = map.getProjection()
-    const buckets = new Map()
-
-    pins.forEach(pin => {
-      // 선택된 핀은 항상 단독 — 상세 패널이 열린 핀이 클러스터에 숨으면 안 된다
-      if (pin.id === selectedPin?.id) {
-        placePin(pin, true)
-        return
-      }
-      const point = projection.containerPointFromCoords(new maps.LatLng(pin.lat, pin.lng))
-      const key = `${Math.floor(point.x / CLUSTER_CELL_PX)}:${Math.floor(point.y / CLUSTER_CELL_PX)}`
-      if (!buckets.has(key)) buckets.set(key, [])
-      buckets.get(key).push(pin)
-    })
-
-    buckets.forEach(group => {
-      if (group.length < CLUSTER_MIN_COUNT) {
-        placePin(group[0], false)
-        return
-      }
-
-      const lat = group.reduce((sum, pin) => sum + pin.lat, 0) / group.length
-      const lng = group.reduce((sum, pin) => sum + pin.lng, 0) / group.length
-      const position = new maps.LatLng(lat, lng)
-
-      const overlay = new maps.CustomOverlay({
-        position,
-        content: anchorContent(
-          createClusterElement({ count: group.length, color: dominantColor(group) }),
-          CLUSTER_SIZE / 2,
-          CLUSTER_SIZE / 2
-        ),
-        map,
-        zIndex: 20,
-        clickable: true,
-      })
-
-      // 누르면 그 자리로 확대한다 (줌인하면 자연스럽게 풀린다)
-      overlay.getContent().firstChild.addEventListener('click', () => {
-        map.setLevel(Math.max(1, map.getLevel() - 2))
-        map.panTo(position)
-      })
-
-      clusterRef.current.push(overlay)
-    })
-  }, [pins, members, selectedPin])
-
-  // idle 리스너는 한 번만 등록되므로 최신 렌더 함수를 ref로 본다
-  useEffect(() => {
-    renderMarkersRef.current = renderMarkers
-  }, [renderMarkers])
-
-  // 3) 핀 목록이나 선택이 바뀌면 다시 그린다
-  useEffect(() => {
-    const maps = window.kakao?.maps
-    const map = mapRef.current
-    if (!maps || !map || status !== 'ready') return
-    renderMarkers(maps, map)
-  }, [renderMarkers, status])
 
   // 4) 핀 전체 보기는 우측 하단 버튼(resetView)으로만 한다.
   //    첫 진입은 항상 내 위치(없으면 서울)로 열어야 해서 자동 fitBounds 는 하지 않는다.
