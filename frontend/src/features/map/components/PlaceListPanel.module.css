@@ -1,10 +1,11 @@
 .panel {
   position: absolute;
-  /* 상단 검색바·필터 칩(약 112px) 아래에서 시작한다 — 겹치면 검색창이 가려진다 */
-  top: 120px;
+  /* 상단 검색바·필터 행 아래에서 시작한다 — 겹치면 검색창이 가려진다 */
+  top: 144px;
   right: 16px;
   width: 320px;
-  max-height: calc(100% - 136px);
+  max-width: calc(100% - 32px);
+  max-height: calc(100% - 160px - var(--bottom-nav-h));
   display: flex;
   flex-direction: column;
   z-index: 20;
@@ -129,7 +130,7 @@
 }
 .empty span:first-child { font-size: 32px; }
 
-/* ── 검색 + 정렬 툴바 ───────────────────────────────── */
+/* ── 검색 툴바 ───────────────────────────────── */
 .toolbar {
   display: flex;
   flex-direction: column;
@@ -184,47 +185,8 @@
   color: var(--text-primary);
 }
 
-.sorts {
-  display: flex;
-  gap: 4px;
-}
-
-.sortBtn {
-  position: relative;
-  padding: 8px 10px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 600;
-  font-family: var(--font-base);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.sortBtn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.sortActive {
-  background: var(--primary-glow);
-  border-color: rgba(108, 99, 255, 0.45);
-  color: var(--primary-light);
-}
-
 /* 시각 크기는 그대로 두고 위아래로 보이지 않는 터치 영역을 붙인다
    (버튼과 칩이 40px 미만이라도 손가락으로 누를 수 있게) */
-.sortBtn::after {
-  content: '';
-  position: absolute;
-  top: -6px;
-  bottom: -6px;
-  left: 0;
-  right: 0;
-}
-
 .clearBtn::after {
   content: '';
   position: absolute;
@@ -252,4 +214,10 @@
   height: 4px;
   border-radius: var(--radius-full);
   background: var(--border-strong);
+}
+
+/* 낮은 화면에서도 헤더를 넘겨 장소 행까지 스크롤할 수 있게 한다 */
+@media (max-height: 500px) {
+  .panel { overflow-y: auto; }
+  .list { flex: none; }
 }

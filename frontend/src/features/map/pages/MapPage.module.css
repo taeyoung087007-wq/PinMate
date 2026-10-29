@@ -90,10 +90,19 @@
 }
 
 /* 검색창 */
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 /* 가로 스크롤 필터 칩 영역 */
 .chipsScroll {
   pointer-events: auto;
   display: flex;
+  flex: 1;
+  min-width: 0;
   align-items: center;
   gap: 6px;
   overflow-x: auto;
@@ -201,29 +210,23 @@
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* 상단바 오른쪽 장소 목록 버튼 */
-.listBtn {
+/* 칩을 넘겨도 정렬 선택은 오른쪽에 남긴다 */
+.sortSelect {
+  pointer-events: auto;
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-full);
+  min-height: 44px;
+  max-width: 104px;
+  padding: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--bg-card);
   color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
   cursor: pointer;
-  transition: all var(--transition);
 }
 
-.listBtn:hover,
-.listBtn[aria-pressed='true'] {
-  border-color: var(--primary-light);
-  background: var(--bg-hover);
-}
-
-.listBtn:focus-visible {
+.sortSelect:focus-visible {
   outline: 2px solid var(--primary-light);
   outline-offset: 2px;
 }

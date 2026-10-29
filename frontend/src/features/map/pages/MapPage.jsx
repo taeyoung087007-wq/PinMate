@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import {
-  MapPin, List, Star, Users,
+  MapPin, Star, Users,
   ChevronDown, X, Sparkles
 } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
+import { SORTS } from '../placeList'
 import { getCurrentUser, setCurrentUserStorage } from '../../../lib/currentUser'
 import {
   fetchTeam,
@@ -35,8 +36,8 @@ const CATEGORIES = ['all', 'food', 'cafe', 'drink', 'stay', 'sight', 'play', 'et
  * 네이버지도/카카오맵 스타일 메인 지도 앱 페이지
  * - 전체 화면 캔버스 지도 메인
  * - 상단 플로팅 바 (모임 전환 드롭다운 + 검색창 + 카테고리/팀원 칩)
- * - 우측 플로팅 액션 버튼 (장소 추가 FAB, 모두 인정 토글, 목록 토글)
- * - 하단 고정 내비게이션 바 (지도, 모임, 모두인정, 설정)
+ * - 가로 스크롤 모임·카테고리·팀원 칩과 장소 목록 정렬
+ * - 하단 고정 내비게이션 바 (지도, 모임, 장소 목록, 설정)
  */
 export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   // 사용자 상태 (설정에서 프로필을 바꾸면 저장소와 함께 갱신)
@@ -77,6 +78,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   // 패널을 닫아도 경로선은 남긴다 — 핀 상세를 보면서 경로를 참고할 수 있게
   const [routePanelOpen, setRoutePanelOpen] = useState(false)
   const [showListPanel, setShowListPanel] = useState(false)
+  const [placeSort, setPlaceSort] = useState('recommend')
   const [celebrationPin, setCelebrationPin] = useState(null)
 
   // 필터 상태
@@ -135,6 +137,17 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   // 현재 모임 정보
   const currentTeam = teams.find(t => String(t.id) === String(selectedTeamId)) || teamDetail
   const allApprovedCount = pins.filter(p => p.isAllApproved).length
+
+  const selectTeam = teamId => {
+    setSelectedTeamId(teamId)
+    setActiveMember('all')
+    setSelectedPin(null)
+  }
+
+  const closePlaceList = () => {
+    setShowListPanel(false)
+    setActiveTab(tab => tab === 'places' ? 'map' : tab)
+  }
 
   // 새 모임 생성 완료 핸들러
   const handleCreateTeam = async (name) => {
@@ -233,9 +246,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     } else if (tabId === 'teams') {
       setShowListPanel(false)
       setShowTeamDrawer(true)
-    } else if (tabId === 'approved') {
+    } else if (tabId === 'places') {
       setShowTeamDrawer(false)
-      setShowOnlyApproved(true)
       setShowListPanel(true)
     } else if (tabId === 'settings') {
       setShowTeamDrawer(false)
@@ -274,7 +286,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           {/* 모임 전환 버튼 */}
           <button
             className={`${styles.teamSwitchBtn} ${styles.touchArea}`}
-            onClick={() => setShowTeamDrawer(true)}
+            onClick={() => handleTabChange('teams')}
             title="모임 변경"
           >
             <span className={styles.teamBadgeDot}>📍</span>
@@ -287,27 +299,32 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           {/* 검색: 우리 모임 장소 + 상호명·주소 */}
           <TopSearch
             pins={pins}
-            onSelectPin={pin => { setSelectedPin(pin); setShowListPanel(false) }}
+            onSelectPin={pin => { setSelectedPin(pin); closePlaceList() }}
             onPickPlace={place => { setSelectedPin(null); setFocusPlace({ ...place, key: Date.now() }) }}
           />
 
-          {/* 장소 목록 */}
-          <button
-            className={styles.listBtn}
-            onClick={() => setShowListPanel(p => !p)}
-            title="장소 목록 보기"
-            aria-label="장소 목록 보기"
-            aria-pressed={showListPanel}
-          >
-            <List size={18} />
-          </button>
         </div>
 
-        {/* 가로 스크롤 카테고리 & 멤버 칩 */}
-        <div className={styles.chipsScroll} ref={chipsRef}>
+        <div className={styles.filterBar}>
+        {/* 모임·카테고리·멤버 칩은 함께 가로로 넘긴다 */}
+        <div className={styles.chipsScroll} ref={chipsRef} role="group" aria-label="지도 필터">
+          {teams.map(team => (
+            <button
+              key={team.id}
+              className={`${styles.chip} ${styles.touchArea} ${String(team.id) === String(selectedTeamId) ? styles.chipActive : ''}`}
+              aria-pressed={String(team.id) === String(selectedTeamId)}
+              onClick={() => selectTeam(team.id)}
+            >
+              <Users size={12} />
+              <span>{team.name}</span>
+            </button>
+          ))}
+          {teams.length > 0 && <div className={styles.chipDivider} />}
+
           {/* 모두 인정 빠른 필터 */}
           <button
             className={`${styles.chip} ${styles.touchArea} ${showOnlyApproved ? styles.chipApprovedActive : ''}`}
+            aria-pressed={showOnlyApproved}
             onClick={() => setShowOnlyApproved(p => !p)}
           >
             <Star size={12} fill={showOnlyApproved ? 'var(--warning)' : 'none'} color="var(--warning)" />
@@ -326,6 +343,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
               <button
                 key={cat}
                 className={`${styles.chip} ${styles.touchArea} ${isCatActive ? styles.chipActive : ''}`}
+                aria-pressed={isCatActive}
                 onClick={() => setActiveCategory(cat)}
               >
                 <span>{meta.icon}</span>
@@ -345,6 +363,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
                   <button
                     key={m.id}
                     className={`${styles.chip} ${styles.touchArea} ${isMemberActive ? styles.chipActive : ''}`}
+                    aria-pressed={isMemberActive}
                     style={isMemberActive ? { borderColor: m.avatarColor, color: m.avatarColor } : {}}
                     onClick={() => setActiveMember(p => p === m.id ? 'all' : m.id)}
                   >
@@ -355,6 +374,15 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
               })}
             </>
           )}
+        </div>
+        <select
+          className={styles.sortSelect}
+          aria-label="장소 정렬"
+          value={placeSort}
+          onChange={event => setPlaceSort(event.target.value)}
+        >
+          {SORTS.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
+        </select>
         </div>
       </div>
 
@@ -384,8 +412,9 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         <PlaceListPanel
           pins={filteredPins}
           members={members}
-          onSelectPin={(pin) => { setSelectedPin(pin); setShowListPanel(false); }}
-          onClose={() => setShowListPanel(false)}
+          sort={placeSort}
+          onSelectPin={pin => { setSelectedPin(pin); closePlaceList() }}
+          onClose={closePlaceList}
           emptyMessage={showOnlyApproved ? '모두 인정한 장소가 없습니다' : '아직 등록된 장소가 없습니다'}
         />
       )}
@@ -395,7 +424,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         isOpen={showTeamDrawer}
         teams={teams}
         activeTeamId={selectedTeamId}
-        onSelectTeam={(tId) => { setSelectedTeamId(tId); setActiveTab('map'); }}
+        onSelectTeam={teamId => { selectTeam(teamId); handleTabChange('map') }}
         onOpenCreate={() => { setShowTeamDrawer(false); setShowCreateTeamModal(true); }}
         onJoinTeam={handleJoinTeam}
         onLeftTeam={handleLeftTeam}
@@ -455,7 +484,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       <BottomNav
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        approvedCount={allApprovedCount}
+        placeCount={filteredPins.length}
         teamCount={teams.length}
       />
     </div>
