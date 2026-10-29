@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { usePanelDrag } from '../../../lib/usePanelDrag'
 import { X, MapPin, Star, Check, ExternalLink, Clock, Pencil, Trash2, Save, Navigation } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { isMajority, memberRecommendCount } from '../consensus'
@@ -33,6 +34,9 @@ export default function PinDetailPanel({
   onDelete,
   onRoute,
 }) {
+  // 하단 시트: 그랩 핸들을 아래로 쓸면 닫는다 (중앙 정렬 transform 은 유지)
+  const { panelRef, handleRef } = usePanelDrag(onClose, { axis: 'y', sign: 1, baseTransform: 'translateX(-50%)' })
+
   const meta = CATEGORY_META[pin.category] || CATEGORY_META.etc
   const addedByMember = members.find(m => m.id === pin.addedBy)
 
@@ -83,7 +87,11 @@ export default function PinDetailPanel({
   }
 
   return (
-    <div className={`${styles.panel} glass-card animate-slide-up`}>
+    <div ref={panelRef} className={`${styles.panel} glass-card animate-slide-up`}>
+      {/* 드래그 핸들: 아래로 쓸어 내려 닫는다 */}
+      <div className={styles.dragStrip} ref={handleRef} aria-hidden="true">
+        <span className={styles.grabber} />
+      </div>
       {/* 상단 헤더: 카테고리 뱃지 & 모두 인정 뱃지 */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>

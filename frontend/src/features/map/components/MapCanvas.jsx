@@ -3,6 +3,7 @@ import { Plus, Minus, RotateCcw, LocateFixed } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { isMajority } from '../consensus'
 import { anchorContent } from '../overlayAnchor'
+import { usePanelDrag } from '../../../lib/usePanelDrag'
 import { usePinMarkers } from '../usePinMarkers'
 import { describeLocation } from '../geocode'
 import { fetchRoute } from '../api'
@@ -160,6 +161,11 @@ export default function MapCanvas({
   const onRouteToRef = useRef(onRouteTo)
   const routeLinesRef = useRef([]) // 길찾기 경로 선들 (대중교통은 구간마다 한 줄)
   const routePanelRef = useRef(null) // 경로를 화면에 맞출 때 패널 높이만큼 위를 비운다
+
+  // 상단 시트: 그랩 핸들을 위로 쓸면 패널만 닫는다(경로선은 유지). routePanelRef 를 재사용한다
+  const { handleRef: routeHandleRef } = usePanelDrag(() => onCloseRoutePanel?.(), {
+    panelRef: routePanelRef, axis: 'y', sign: -1, baseTransform: 'translateX(-50%)',
+  })
   const walkPathCache = useRef(new Map()) // 'lat,lng>lat,lng' -> 실제 도보 경로 (대중교통 안의 도보 구간)
   const [transit, setTransit] = useState(null) // { options, index, origin, dest }
   const { arrivals, buses, subway } = useTransitRealtime(transit) // 실시간 도착·버스 위치(TAGO), 지하철 다음 열차
@@ -696,6 +702,10 @@ export default function MapCanvas({
 
           {panelOpen && route && (
             <div className={styles.routePanel} ref={routePanelRef}>
+              {/* 드래그 핸들: 위로 쓸어 올려 닫는다 (경로선은 유지) */}
+              <div className={styles.dragStrip} ref={routeHandleRef} aria-hidden="true">
+                <span className={styles.grabber} />
+              </div>
               <div className={styles.routeHeader}>
                 <div className={styles.routeEnds}>
                   <div className={styles.routeEnd}>
