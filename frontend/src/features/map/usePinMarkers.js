@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { CATEGORY_META } from './categories'
 import { isMajority } from './consensus'
+import { clusterPins } from './clusterPins'
 import { anchorContent } from './overlayAnchor'
 import styles from './components/PinMarker.module.css'
 
@@ -10,14 +11,7 @@ const PIN_ANCHOR = { x: 17, y: 17 }
 // 과반 인정(은색) 마커 색
 const SILVER = '#9AA8BC'
 
-// 클러스터링: 화면을 격자로 나눠 같은 칸에 모인 핀을 하나로 묶는다
-const CLUSTER_CELL_PX = 72      // 격자 한 칸 크기(화면 픽셀). 작을수록 덜 묶인다
-const CLUSTER_MIN_COUNT = 2     // 같은 칸에 이만큼 있으면 묶는다
-const CLUSTER_SIZE = 46         // 클러스터 원 지름
-// 이 레벨보다 확대하면(숫자가 작을수록 확대) 묶지 않는다.
-// 개수 기준을 두면 "24개는 그대로, 25개는 갑자기 다 묶임" 같은 절벽이 생긴다.
-// 밀도는 격자가 알아서 판단하므로, 확대했을 때 풀리는지만 레벨로 막는다.
-const CLUSTER_MIN_LEVEL = 4
+const CLUSTER_SIZE = 46 // 클러스터 원 지름
 
 /** 핀 하나를 나타내는 DOM 요소 (이름 라벨 + 추천 수 뱃지) */
 function createPinElement({ pin, meta, memberColor, majority, isSelected }) {
@@ -145,41 +139,23 @@ export function usePinMarkers({ mapRef, status, pins, members, selectedPin, onSe
       markersRef.current.set(pin.id, { marker, pin, meta, memberColor, majority })
     }
 
-    // 충분히 확대했으면 하나씩 그대로 보여준다 (사용자가 일부러 확대한 상황)
-    if (map.getLevel() < CLUSTER_MIN_LEVEL) {
-      pins.forEach(pin => placePin(pin, pin.id === selectedPin?.id))
-      return
-    }
-
+    // 어떤 핀을 묶을지는 순수 함수가 판단한다 (clusterPins.js)
     const projection = map.getProjection()
-    const buckets = new Map()
-
-    pins.forEach(pin => {
-      // 선택된 핀은 항상 단독 — 상세 패널이 열린 핀이 클러스터에 숨으면 안 된다
-      if (pin.id === selectedPin?.id) {
-        placePin(pin, true)
-        return
-      }
-      const point = projection.containerPointFromCoords(new maps.LatLng(pin.lat, pin.lng))
-      const key = `${Math.floor(point.x / CLUSTER_CELL_PX)}:${Math.floor(point.y / CLUSTER_CELL_PX)}`
-      if (!buckets.has(key)) buckets.set(key, [])
-      buckets.get(key).push(pin)
+    const { singles, clusters } = clusterPins(pins, {
+      project: pin => projection.containerPointFromCoords(new maps.LatLng(pin.lat, pin.lng)),
+      level: map.getLevel(),
+      selectedId: selectedPin?.id,
     })
 
-    buckets.forEach(group => {
-      if (group.length < CLUSTER_MIN_COUNT) {
-        placePin(group[0], false)
-        return
-      }
+    singles.forEach(({ pin, isSelected }) => placePin(pin, isSelected))
 
-      const lat = group.reduce((sum, pin) => sum + pin.lat, 0) / group.length
-      const lng = group.reduce((sum, pin) => sum + pin.lng, 0) / group.length
-      const position = new maps.LatLng(lat, lng)
+    clusters.forEach(group => {
+      const position = new maps.LatLng(group.lat, group.lng)
 
       const overlay = new maps.CustomOverlay({
         position,
         content: anchorContent(
-          createClusterElement({ count: group.length, color: dominantColor(group) }),
+          createClusterElement({ count: group.pins.length, color: dominantColor(group.pins) }),
           CLUSTER_SIZE / 2,
           CLUSTER_SIZE / 2
         ),
