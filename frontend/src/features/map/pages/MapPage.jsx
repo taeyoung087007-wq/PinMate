@@ -386,6 +386,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           members={members}
           onSelectPin={(pin) => { setSelectedPin(pin); setShowListPanel(false); }}
           onClose={() => setShowListPanel(false)}
+          emptyMessage={showOnlyApproved ? '모두 인정한 장소가 없습니다' : '아직 등록된 장소가 없습니다'}
         />
       )}
 

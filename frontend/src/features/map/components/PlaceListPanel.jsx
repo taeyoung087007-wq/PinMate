@@ -12,7 +12,7 @@ import styles from './PlaceListPanel.module.css'
  * - '모두 인정한 장소' 그룹을 항상 위에 표시
  * - 장소 클릭 시 지도의 해당 핀으로 포커스
  */
-export default function PlaceListPanel({ pins, members, onSelectPin, onClose }) {
+export default function PlaceListPanel({ pins, members, onSelectPin, onClose, emptyMessage }) {
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState('recommend')
 
@@ -94,8 +94,8 @@ export default function PlaceListPanel({ pins, members, onSelectPin, onClose }) 
 
         {total === 0 && (
           <div className={styles.empty}>
-            <span>{pins.length === 0 ? '🗺️' : '🔍'}</span>
-            <span>{pins.length === 0 ? '아직 등록된 장소가 없습니다' : '검색 결과가 없습니다'}</span>
+            <span>{query.trim() ? '🔍' : '🗺️'}</span>
+            <span>{query.trim() ? '검색 결과가 없습니다' : (emptyMessage ?? '아직 등록된 장소가 없습니다')}</span>
           </div>
         )}
       </div>
