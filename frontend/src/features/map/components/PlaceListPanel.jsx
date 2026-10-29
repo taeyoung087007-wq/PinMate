@@ -1,21 +1,25 @@
-import { X, MapPin, Star, Users, ChevronRight } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { X, MapPin, Star, Search } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { isMajority } from '../consensus'
+import { SORTS, filterAndSortPins } from '../placeList'
 import MemberAvatar from '../../../components/MemberAvatar/MemberAvatar'
 import styles from './PlaceListPanel.module.css'
 
 /**
  * 팀 장소 사이드 목록 패널
- * - '모두 인정한 장소' 그룹 우선 정렬 표시
- * - 추천 수 높은 순으로 정렬
+ * - 검색(이름·주소)과 정렬(추천순·최신순·이름순)
+ * - '모두 인정한 장소' 그룹을 항상 위에 표시
  * - 장소 클릭 시 지도의 해당 핀으로 포커스
  */
 export default function PlaceListPanel({ pins, members, onSelectPin, onClose }) {
-  // '모두 인정' 장소와 일반 장소 분리 정렬
-  const approved = pins.filter(p => p.isAllApproved)
-  const rest = pins
-    .filter(p => !p.isAllApproved)
-    .sort((a, b) => b.recommenders.length - a.recommenders.length)
+  const [query, setQuery] = useState('')
+  const [sort, setSort] = useState('recommend')
+
+  const { approved, rest, total } = useMemo(
+    () => filterAndSortPins(pins, { query, sort }),
+    [pins, query, sort]
+  )
 
   return (
     <div className={`${styles.panel} glass-card animate-fade-in`}>
@@ -23,11 +27,42 @@ export default function PlaceListPanel({ pins, members, onSelectPin, onClose }) 
         <div className={styles.headerTitle}>
           <MapPin size={16} color="var(--primary-light)" />
           장소 목록
-          <span className={styles.count}>{pins.length}</span>
+          <span className={styles.count}>{total}</span>
         </div>
         <button className="btn btn-ghost btn-icon" onClick={onClose} title="목록 닫기">
           <X size={15} />
         </button>
+      </div>
+
+      {/* 검색 + 정렬 */}
+      <div className={styles.toolbar}>
+        <div className={styles.searchBox}>
+          <Search size={13} color="var(--text-muted)" />
+          <input
+            className={styles.searchInput}
+            value={query}
+            onChange={event => setQuery(event.target.value)}
+            placeholder="장소 이름·주소 검색"
+            aria-label="장소 검색"
+          />
+          {query && (
+            <button className={styles.clearBtn} onClick={() => setQuery('')} aria-label="검색어 지우기">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+
+        <div className={styles.sorts} role="group" aria-label="정렬">
+          {SORTS.map(option => (
+            <button
+              key={option.key}
+              className={`${styles.sortBtn} ${sort === option.key ? styles.sortActive : ''}`}
+              onClick={() => setSort(option.key)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className={styles.list}>
@@ -57,10 +92,10 @@ export default function PlaceListPanel({ pins, members, onSelectPin, onClose }) 
           </>
         )}
 
-        {pins.length === 0 && (
+        {total === 0 && (
           <div className={styles.empty}>
-            <span>🗺️</span>
-            <span>아직 등록된 장소가 없습니다</span>
+            <span>{pins.length === 0 ? '🗺️' : '🔍'}</span>
+            <span>{pins.length === 0 ? '아직 등록된 장소가 없습니다' : '검색 결과가 없습니다'}</span>
           </div>
         )}
       </div>
