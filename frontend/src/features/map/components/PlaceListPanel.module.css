@@ -169,6 +169,7 @@
 }
 
 .clearBtn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -176,7 +177,7 @@
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 2px;
+  padding: 6px;
 }
 
 .clearBtn:hover {
@@ -189,7 +190,8 @@
 }
 
 .sortBtn {
-  padding: 4px 9px;
+  position: relative;
+  padding: 8px 10px;
   border-radius: var(--radius-full);
   border: 1px solid var(--border);
   background: transparent;
@@ -210,4 +212,21 @@
   background: var(--primary-glow);
   border-color: rgba(108, 99, 255, 0.45);
   color: var(--primary-light);
+}
+
+/* 시각 크기는 그대로 두고 위아래로 보이지 않는 터치 영역을 붙인다
+   (버튼과 칩이 40px 미만이라도 손가락으로 누를 수 있게) */
+.sortBtn::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  left: 0;
+  right: 0;
+}
+
+.clearBtn::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
 }

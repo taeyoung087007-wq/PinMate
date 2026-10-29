@@ -273,7 +273,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         <div className={styles.topCard}>
           {/* 모임 전환 버튼 */}
           <button
-            className={styles.teamSwitchBtn}
+            className={`${styles.teamSwitchBtn} ${styles.touchArea}`}
             onClick={() => setShowTeamDrawer(true)}
             title="모임 변경"
           >
@@ -307,7 +307,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         <div className={styles.chipsScroll} ref={chipsRef}>
           {/* 모두 인정 빠른 필터 */}
           <button
-            className={`${styles.chip} ${showOnlyApproved ? styles.chipApprovedActive : ''}`}
+            className={`${styles.chip} ${styles.touchArea} ${showOnlyApproved ? styles.chipApprovedActive : ''}`}
             onClick={() => setShowOnlyApproved(p => !p)}
           >
             <Star size={12} fill={showOnlyApproved ? 'var(--warning)' : 'none'} color="var(--warning)" />
@@ -325,7 +325,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
             return (
               <button
                 key={cat}
-                className={`${styles.chip} ${isCatActive ? styles.chipActive : ''}`}
+                className={`${styles.chip} ${styles.touchArea} ${isCatActive ? styles.chipActive : ''}`}
                 onClick={() => setActiveCategory(cat)}
               >
                 <span>{meta.icon}</span>
@@ -344,7 +344,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
                 return (
                   <button
                     key={m.id}
-                    className={`${styles.chip} ${isMemberActive ? styles.chipActive : ''}`}
+                    className={`${styles.chip} ${styles.touchArea} ${isMemberActive ? styles.chipActive : ''}`}
                     style={isMemberActive ? { borderColor: m.avatarColor, color: m.avatarColor } : {}}
                     onClick={() => setActiveMember(p => p === m.id ? 'all' : m.id)}
                   >

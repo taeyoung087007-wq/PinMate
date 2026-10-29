@@ -48,13 +48,14 @@
 
 /* 모임 전환 버튼 */
 .teamSwitchBtn {
+  position: relative;
   flex-shrink: 1;
   min-width: 0;
   max-width: 45%;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   border-radius: var(--radius-full);
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -96,7 +97,9 @@
   align-items: center;
   gap: 6px;
   overflow-x: auto;
-  padding: 2px 2px 6px;
+  /* 위아래 패딩은 칩의 보이지 않는 터치 영역(::after -5px)이
+     overflow 클리핑에 잘리지 않게 해주는 여유분이다. 7px 이하로 줄이지 말 것 */
+  padding: 7px 2px 7px;
   scrollbar-width: none; /* Firefox */
   user-select: none; /* 마우스로 끌어 넘길 때 글자가 선택되지 않게 */
 }
@@ -106,10 +109,11 @@
 }
 
 .chip {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   border-radius: var(--radius-full);
   background: rgba(18, 19, 31, 0.82);
   backdrop-filter: blur(12px);
@@ -200,8 +204,8 @@
 /* 상단바 오른쪽 장소 목록 버튼 */
 .listBtn {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -224,3 +228,13 @@
   outline-offset: 2px;
 }
 
+/* 모바일 터치 영역 확장: 칩은 시각적으로 34px 를 유지하되
+   위아래로 5px 씩 보이지 않는 터치 영역을 붙여 44px 를 확보한다 */
+.touchArea::after {
+  content: '';
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  left: 0;
+  right: 0;
+}
