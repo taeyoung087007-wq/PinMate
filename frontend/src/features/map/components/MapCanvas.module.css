@@ -596,3 +596,94 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   pointer-events: auto;
 }
+
+/* ── 경로 유지 칩 (패널을 닫아도 남는 요약) ───────────────── */
+.routeChip {
+  position: absolute;
+  left: 50%;
+  top: 112px;
+  transform: translateX(-50%);
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 3px 3px 4px;
+  border-radius: var(--radius-full);
+  background: rgba(18, 19, 32, 0.92);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.routeChipMain {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-base);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.routeChipMain:hover {
+  background: var(--bg-hover);
+}
+
+.routeChipIcon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.routeChipName {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.routeChipHint {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary-light);
+}
+
+.routeChipClear {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.routeChipClear:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* 패널 안의 '지우기' (× 는 패널만 닫는다) */
+.routeClearBtn {
+  flex-shrink: 0;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-base);
+  cursor: pointer;
+}
+
+.routeClearBtn:hover {
+  color: var(--danger);
+  background: var(--bg-hover);
+}

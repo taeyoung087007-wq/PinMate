@@ -74,6 +74,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const [showAddPinModal, setShowAddPinModal] = useState(false)
   const [pickedPlace, setPickedPlace] = useState(null) // 메인 지도에서 고른 위치로 장소 추가할 때
   const [routeTarget, setRouteTarget] = useState(null) // 길찾기 도착지 핀
+  // 패널을 닫아도 경로선은 남긴다 — 핀 상세를 보면서 경로를 참고할 수 있게
+  const [routePanelOpen, setRoutePanelOpen] = useState(false)
   const [showListPanel, setShowListPanel] = useState(false)
   const [celebrationPin, setCelebrationPin] = useState(null)
 
@@ -255,10 +257,13 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
             onSelectPin={setSelectedPin}
             selectedPin={selectedPin}
             onAddAtLocation={place => { setPickedPlace(place); setShowAddPinModal(true) }}
-            onRouteTo={place => { setRouteTarget(place); setSelectedPin(null); setShowListPanel(false) }}
+            onRouteTo={place => { setRouteTarget(place); setRoutePanelOpen(true); setSelectedPin(null); setShowListPanel(false) }}
             focusPlace={focusPlace}
             routeTarget={routeTarget}
-            onClearRoute={() => setRouteTarget(null)}
+            routePanelOpen={routePanelOpen}
+            onOpenRoutePanel={() => setRoutePanelOpen(true)}
+            onCloseRoutePanel={() => setRoutePanelOpen(false)}
+            onClearRoute={() => { setRouteTarget(null); setRoutePanelOpen(false) }}
           />
         </ErrorBoundary>
       </div>
@@ -370,7 +375,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           onRecommend={() => handleRecommend(selectedPin.id)}
           onUpdate={handleUpdatePin}
           onDelete={handleDeletePin}
-          onRoute={pin => { setRouteTarget(pin); setSelectedPin(null); setShowListPanel(false) }}
+          onRoute={pin => { setRouteTarget(pin); setRoutePanelOpen(true); setSelectedPin(null); setShowListPanel(false) }}
         />
       )}
 
