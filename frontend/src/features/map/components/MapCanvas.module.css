@@ -200,87 +200,7 @@
 /* ── 핀 마커 ──────────────────────────────────────────
    마커 요소는 네이버 지도가 직접 위치를 잡으므로,
    이 요소 자체의 transform은 건드리지 않고 내부 원(.pinBody)만 확대한다 */
-.pinWrap {
-  position: relative;
-  width: 34px;
-  height: 34px;
-  cursor: pointer;
-}
 
-.pinBody {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  font-size: 16px;
-  line-height: 1;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.pinWrap:hover .pinBody {
-  transform: scale(1.08);
-}
-
-.pinWrapSelected .pinBody {
-  transform: scale(1.14);
-  border-color: #ffffff;
-  box-shadow: 0 0 0 4px rgba(108, 99, 255, 0.35), 0 4px 14px rgba(0, 0, 0, 0.4);
-}
-
-/* '모두 인정' 골드 마커 */
-.pinWrapSilver .pinBody {
-  border-color: #e3e8f0;
-  box-shadow: 0 0 0 3px rgba(154, 168, 188, 0.3), 0 3px 12px rgba(154, 168, 188, 0.35);
-}
-
-.pinWrapGold .pinBody {
-  border-color: #fff0b3;
-  box-shadow: 0 0 0 3px rgba(255, 186, 8, 0.25), 0 3px 12px rgba(255, 186, 8, 0.35);
-}
-
-/* 추천 수 뱃지 */
-.pinBadge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 4px;
-  border-radius: var(--radius-full);
-  border: 1.5px solid #ffffff;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 14px;
-  text-align: center;
-}
-
-/* 장소명 말풍선 (호버 / 선택 시) */
-.pinLabel {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgba(16, 17, 30, 0.92);
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-}
-
-.pinWrap:hover .pinLabel,
-.pinWrapSelected .pinLabel {
-  opacity: 1;
-}
 
 /* 현재 위치 표시 (지도 위 파란 점) */
 .myLocationDot {
@@ -675,32 +595,4 @@
   white-space: nowrap;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   pointer-events: auto;
-}
-
-
-/* ── 클러스터 (핀이 많을 때 하나로 묶인 마커) ─────────────── */
-.clusterWrap {
-  width: 46px;
-  height: 46px;
-  cursor: pointer;
-}
-
-.clusterBody {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 700;
-  font-family: var(--font-base);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-  transition: transform var(--transition);
-}
-
-.clusterWrap:hover .clusterBody {
-  transform: scale(1.08);
 }
