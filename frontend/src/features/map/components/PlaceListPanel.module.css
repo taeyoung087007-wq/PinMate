@@ -127,3 +127,86 @@
   color: var(--text-muted);
 }
 .empty span:first-child { font-size: 32px; }
+
+/* ── 검색 + 정렬 툴바 ───────────────────────────────── */
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.searchBox:focus-within {
+  border-color: rgba(108, 99, 255, 0.55);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-base);
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: var(--text-muted);
+}
+
+.clearBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.clearBtn:hover {
+  color: var(--text-primary);
+}
+
+.sorts {
+  display: flex;
+  gap: 4px;
+}
+
+.sortBtn {
+  padding: 4px 9px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-base);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.sortBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sortActive {
+  background: var(--primary-glow);
+  border-color: rgba(108, 99, 255, 0.45);
+  color: var(--primary-light);
+}
