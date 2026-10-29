@@ -93,8 +93,8 @@
 
 /* 네이버 지도 스타일 원형 '내 위치' 버튼 */
 .locateBtn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -135,8 +135,8 @@
 }
 
 .controlBtn {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -562,8 +562,8 @@
 
 .routeClose {
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: 50%;
   background: transparent;
@@ -619,7 +619,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 5px 9px;
+  padding: 8px 9px;
   border: none;
   border-radius: var(--radius-full);
   background: transparent;
@@ -653,8 +653,8 @@
 }
 
 .routeChipClear {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: 50%;
   background: transparent;
@@ -672,7 +672,7 @@
 /* 패널 안의 '지우기' (× 는 패널만 닫는다) */
 .routeClearBtn {
   flex-shrink: 0;
-  padding: 4px 6px;
+  padding: 7px 8px;
   border: none;
   border-radius: 6px;
   background: transparent;
