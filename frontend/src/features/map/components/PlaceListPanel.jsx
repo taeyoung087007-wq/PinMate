@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { usePanelDrag } from '../../../lib/usePanelDrag'
 import { X, MapPin, Star, Search } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { isMajority } from '../consensus'
@@ -16,13 +17,20 @@ export default function PlaceListPanel({ pins, members, onSelectPin, onClose, em
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState('recommend')
 
+  // 우측 사이드 시트: 그랩 핸들을 오른쪽으로 쓸면 닫는다
+  const { panelRef, handleRef } = usePanelDrag(onClose, { axis: 'x', sign: 1 })
+
   const { approved, rest, total } = useMemo(
     () => filterAndSortPins(pins, { query, sort }),
     [pins, query, sort]
   )
 
   return (
-    <div className={`${styles.panel} glass-card animate-fade-in`}>
+    <div ref={panelRef} className={`${styles.panel} glass-card animate-fade-in`}>
+      {/* 드래그 핸들: 오른쪽으로 쓸어 닫는다 */}
+      <div className={styles.dragStrip} ref={handleRef} aria-hidden="true">
+        <span className={styles.grabber} />
+      </div>
       <div className={styles.header}>
         <div className={styles.headerTitle}>
           <MapPin size={16} color="var(--primary-light)" />
