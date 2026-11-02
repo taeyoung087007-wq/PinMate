@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import {
-  MapPin, List, Star, Users,
+  MapPin, Star, Users, Home,
   ChevronDown, X, Sparkles
 } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
+import { SORTS } from '../placeList'
 import { getCurrentUser, setCurrentUserStorage } from '../../../lib/currentUser'
 import {
   fetchTeam,
@@ -11,7 +12,11 @@ import {
   createPinApi,
   toggleRecommendationApi,
   updatePinApi,
-  deletePinApi
+  deletePinApi,
+  fetchPersonalPins,
+  createPersonalPinApi,
+  updatePersonalPinApi,
+  deletePersonalPinApi
 } from '../api'
 import { fetchTeams, createTeamApi, joinTeamApi } from '../../teams/api'
 import { distanceMeters } from '../places'
@@ -35,8 +40,8 @@ const CATEGORIES = ['all', 'food', 'cafe', 'drink', 'stay', 'sight', 'play', 'et
  * 네이버지도/카카오맵 스타일 메인 지도 앱 페이지
  * - 전체 화면 캔버스 지도 메인
  * - 상단 플로팅 바 (모임 전환 드롭다운 + 검색창 + 카테고리/팀원 칩)
- * - 우측 플로팅 액션 버튼 (장소 추가 FAB, 모두 인정 토글, 목록 토글)
- * - 하단 고정 내비게이션 바 (지도, 모임, 모두인정, 설정)
+ * - 가로 스크롤 모임·카테고리·팀원 칩과 장소 목록 정렬
+ * - 하단 고정 내비게이션 바 (지도, 모임, 장소 목록, 설정)
  */
 export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   // 사용자 상태 (설정에서 프로필을 바꾸면 저장소와 함께 갱신)
@@ -67,6 +72,11 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const [selectedPin, setSelectedPin] = useState(null)
   const [error, setError] = useState('')
 
+  // 내 지도(개인 장소) 상태. mapScope 가 'personal' 이면 팀 핀 대신 개인 핀을 보여준다
+  const [mapScope, setMapScope] = useState('team') // 'team' | 'personal'
+  const [personalPins, setPersonalPins] = useState([])
+  const [personalLoadState, setPersonalLoadState] = useState('idle') // 'idle' | 'loading' | 'ready' | 'error'
+
   // UI 제어 상태
   const [activeTab, setActiveTab] = useState('map')
   const [showTeamDrawer, setShowTeamDrawer] = useState(false)
@@ -77,6 +87,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   // 패널을 닫아도 경로선은 남긴다 — 핀 상세를 보면서 경로를 참고할 수 있게
   const [routePanelOpen, setRoutePanelOpen] = useState(false)
   const [showListPanel, setShowListPanel] = useState(false)
+  const [placeSort, setPlaceSort] = useState('recommend')
   const [celebrationPin, setCelebrationPin] = useState(null)
 
   // 필터 상태
@@ -122,19 +133,62 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     return () => { cancelled = true }
   }, [selectedTeamId])
 
+  // 3. 내 지도로 처음 전환할 때 개인 장소를 한 번 불러온다
+  useEffect(() => {
+    if (mapScope !== 'personal' || personalLoadState !== 'idle') return
+    let cancelled = false
+    setPersonalLoadState('loading')
+    fetchPersonalPins()
+      .then(data => {
+        if (cancelled) return
+        setPersonalPins(data)
+        setPersonalLoadState('ready')
+      })
+      .catch(e => {
+        if (cancelled) return
+        setPersonalLoadState('error')
+        setError(`내 지도를 불러오지 못했습니다: ${e.message}`)
+      })
+    return () => { cancelled = true }
+  }, [mapScope, personalLoadState])
+
+  // 지금 보고 있는 지도의 핀 (내 지도면 개인 장소, 아니면 선택한 모임의 핀)
+  const scopePins = mapScope === 'personal' ? personalPins : pins
+
   // 필터링된 핀 목록
   const filteredPins = useMemo(() => {
-    return pins.filter(pin => {
+    return scopePins.filter(pin => {
       if (activeCategory !== 'all' && pin.category !== activeCategory) return false
       if (activeMember !== 'all' && !pin.recommenders.includes(activeMember)) return false
       if (showOnlyApproved && !pin.isAllApproved) return false
       return true
     })
-  }, [pins, activeCategory, activeMember, showOnlyApproved])
+  }, [scopePins, activeCategory, activeMember, showOnlyApproved])
 
   // 현재 모임 정보
   const currentTeam = teams.find(t => String(t.id) === String(selectedTeamId)) || teamDetail
   const allApprovedCount = pins.filter(p => p.isAllApproved).length
+
+  const selectTeam = teamId => {
+    setMapScope('team')
+    setSelectedTeamId(teamId)
+    setActiveMember('all')
+    setSelectedPin(null)
+  }
+
+  // 내 지도로 전환한다. 팀 전용 필터(멤버·모두 인정)는 초기화한다
+  const selectPersonalMap = () => {
+    setMapScope('personal')
+    setActiveMember('all')
+    setActiveCategory('all')
+    setShowOnlyApproved(false)
+    setSelectedPin(null)
+  }
+
+  const closePlaceList = () => {
+    setShowListPanel(false)
+    setActiveTab(tab => tab === 'places' ? 'map' : tab)
+  }
 
   // 새 모임 생성 완료 핸들러
   const handleCreateTeam = async (name) => {
@@ -156,6 +210,26 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
 
   // 핀 추가 핸들러. 이미 있는 장소면 새로 만들지 않고 그 장소를 보여준다 (서버도 한 번 더 막는다)
   const handleAddPin = async (newPinData) => {
+    // 내 지도: 팀 핀 대신 개인 장소로 저장한다
+    if (mapScope === 'personal') {
+      const same = personalPins.find(p => isSamePlace(p, newPinData))
+      if (same) {
+        setShowAddPinModal(false)
+        setSelectedPin(same)
+        setError(`'${same.name}'은(는) 이미 내 지도에 있는 장소예요.`)
+        return
+      }
+      try {
+        const saved = await createPersonalPinApi(newPinData)
+        setPersonalPins(prev => [saved, ...prev])
+        setShowAddPinModal(false)
+        setSelectedPin(saved)
+      } catch (e) {
+        setError(`장소 추가에 실패했습니다: ${e.message}`)
+      }
+      return
+    }
+
     const same = pins.find(p => isSamePlace(p, newPinData))
     if (same) {
       setShowAddPinModal(false)
@@ -202,6 +276,17 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
 
   // 장소 수정 핸들러 (성공 여부를 돌려줘 패널이 수정 모드를 닫을 수 있게 한다)
   const handleUpdatePin = async (pinId, data) => {
+    if (mapScope === 'personal') {
+      try {
+        const updated = await updatePersonalPinApi(pinId, data)
+        setPersonalPins(prev => prev.map(p => (p.id === updated.id ? updated : p)))
+        setSelectedPin(updated)
+        return true
+      } catch (e) {
+        setError(`장소 수정에 실패했습니다: ${e.message}`)
+        return false
+      }
+    }
     try {
       const updated = await updatePinApi(pinId, data)
       setPins(prev => prev.map(p => (p.id === updated.id ? updated : p)))
@@ -215,6 +300,16 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
 
   // 장소 삭제 핸들러
   const handleDeletePin = async (pinId) => {
+    if (mapScope === 'personal') {
+      try {
+        await deletePersonalPinApi(pinId)
+        setPersonalPins(prev => prev.filter(p => p.id !== pinId))
+        setSelectedPin(null)
+      } catch (e) {
+        setError(`장소 삭제에 실패했습니다: ${e.message}`)
+      }
+      return
+    }
     try {
       await deletePinApi(pinId)
       setPins(prev => prev.filter(p => p.id !== pinId))
@@ -233,9 +328,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     } else if (tabId === 'teams') {
       setShowListPanel(false)
       setShowTeamDrawer(true)
-    } else if (tabId === 'approved') {
+    } else if (tabId === 'places') {
       setShowTeamDrawer(false)
-      setShowOnlyApproved(true)
       setShowListPanel(true)
     } else if (tabId === 'settings') {
       setShowTeamDrawer(false)
@@ -274,58 +368,83 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           {/* 모임 전환 버튼 */}
           <button
             className={`${styles.teamSwitchBtn} ${styles.touchArea}`}
-            onClick={() => setShowTeamDrawer(true)}
+            onClick={() => handleTabChange('teams')}
             title="모임 변경"
           >
             <span className={styles.teamBadgeDot}>📍</span>
             <span className={styles.teamTitle}>
-              {currentTeam?.name || '모임 선택'}
+              {mapScope === 'personal' ? '내 지도' : (currentTeam?.name || '모임 선택')}
             </span>
             <ChevronDown size={14} className={styles.teamArrow} />
           </button>
 
-          {/* 검색: 우리 모임 장소 + 상호명·주소 */}
+          {/* 검색: 지금 보는 지도(모임 또는 내 지도)의 장소 + 상호명·주소 */}
           <TopSearch
-            pins={pins}
-            onSelectPin={pin => { setSelectedPin(pin); setShowListPanel(false) }}
+            pins={scopePins}
+            onSelectPin={pin => { setSelectedPin(pin); closePlaceList() }}
             onPickPlace={place => { setSelectedPin(null); setFocusPlace({ ...place, key: Date.now() }) }}
           />
 
-          {/* 장소 목록 */}
-          <button
-            className={styles.listBtn}
-            onClick={() => setShowListPanel(p => !p)}
-            title="장소 목록 보기"
-            aria-label="장소 목록 보기"
-            aria-pressed={showListPanel}
-          >
-            <List size={18} />
-          </button>
         </div>
 
-        {/* 가로 스크롤 카테고리 & 멤버 칩 */}
-        <div className={styles.chipsScroll} ref={chipsRef}>
-          {/* 모두 인정 빠른 필터 */}
+        <div className={styles.filterBar}>
+        {/* 모임·카테고리·멤버 칩은 함께 가로로 넘긴다 */}
+        <div className={styles.chipsScroll} ref={chipsRef} role="group" aria-label="지도 필터">
+          {/* 내 지도: 모임 없이도 쓸 수 있는 개인 지도 */}
           <button
-            className={`${styles.chip} ${styles.touchArea} ${showOnlyApproved ? styles.chipApprovedActive : ''}`}
-            onClick={() => setShowOnlyApproved(p => !p)}
+            className={`${styles.chip} ${styles.touchArea} ${mapScope === 'personal' ? styles.chipActive : ''}`}
+            aria-pressed={mapScope === 'personal'}
+            onClick={selectPersonalMap}
           >
-            <Star size={12} fill={showOnlyApproved ? 'var(--warning)' : 'none'} color="var(--warning)" />
-            <span>모두인정</span>
-            <span className={styles.chipCount}>{allApprovedCount}</span>
+            <Home size={12} />
+            <span>내 지도</span>
+            <span className={styles.chipCount}>{personalPins.length}</span>
           </button>
-
           <div className={styles.chipDivider} />
+
+          {teams.map(team => {
+            const isTeamActive = mapScope === 'team' && String(team.id) === String(selectedTeamId)
+            return (
+              <button
+                key={team.id}
+                className={`${styles.chip} ${styles.touchArea} ${isTeamActive ? styles.chipActive : ''}`}
+                aria-pressed={isTeamActive}
+                onClick={() => selectTeam(team.id)}
+              >
+                <Users size={12} />
+                <span>{team.name}</span>
+              </button>
+            )
+          })}
+          {teams.length > 0 && <div className={styles.chipDivider} />}
+
+          {/* 모두 인정 빠른 필터 (팀 지도에서만) */}
+          {mapScope === 'team' && (
+            <>
+              <button
+                className={`${styles.chip} ${styles.touchArea} ${showOnlyApproved ? styles.chipApprovedActive : ''}`}
+                aria-pressed={showOnlyApproved}
+                onClick={() => setShowOnlyApproved(p => !p)}
+              >
+                <Star size={12} fill={showOnlyApproved ? 'var(--warning)' : 'none'} color="var(--warning)" />
+                <span>모두인정</span>
+                <span className={styles.chipCount}>{allApprovedCount}</span>
+              </button>
+
+              <div className={styles.chipDivider} />
+            </>
+          )}
 
           {/* 카테고리 칩들 */}
           {CATEGORIES.map(cat => {
             const meta = cat === 'all' ? { label: '전체', icon: '🗺️' } : (CATEGORY_META[cat] || CATEGORY_META.etc)
-            const count = cat === 'all' ? pins.length : pins.filter(p => p.category === cat).length
+            const count = cat === 'all' ? scopePins.length : scopePins.filter(p => p.category === cat).length
             const isCatActive = activeCategory === cat
             return (
               <button
                 key={cat}
                 className={`${styles.chip} ${styles.touchArea} ${isCatActive ? styles.chipActive : ''}`}
+                aria-pressed={isCatActive}
                 onClick={() => setActiveCategory(cat)}
               >
                 <span>{meta.icon}</span>
@@ -335,8 +454,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
             )
           })}
 
-          {/* 팀원 필터 칩들 */}
-          {members.length > 0 && (
+          {/* 팀원 필터 칩들 (팀 지도에서만) */}
+          {mapScope === 'team' && members.length > 0 && (
             <>
               <div className={styles.chipDivider} />
               {members.map(m => {
@@ -345,6 +464,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
                   <button
                     key={m.id}
                     className={`${styles.chip} ${styles.touchArea} ${isMemberActive ? styles.chipActive : ''}`}
+                    aria-pressed={isMemberActive}
                     style={isMemberActive ? { borderColor: m.avatarColor, color: m.avatarColor } : {}}
                     onClick={() => setActiveMember(p => p === m.id ? 'all' : m.id)}
                   >
@@ -356,7 +476,28 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
             </>
           )}
         </div>
+        <select
+          className={styles.sortSelect}
+          aria-label="장소 정렬"
+          value={placeSort}
+          onChange={event => setPlaceSort(event.target.value)}
+        >
+          {SORTS.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
+        </select>
+        </div>
       </div>
+
+      {/* 팀 지도를 보다가 내 지도로 돌아가는 버튼 (내 위치 버튼 반대편, 하단 내비 위) */}
+      {mapScope === 'team' && (
+        <button
+          className={styles.personalMapBtn}
+          onClick={selectPersonalMap}
+          title="내 지도로 돌아가기"
+        >
+          <Home size={15} />
+          <span>내 지도</span>
+        </button>
+      )}
 
       {/* 에러 알림 배너 */}
       {error && (
@@ -370,9 +511,10 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       {selectedPin && (
         <PinDetailPanel
           pin={selectedPin}
-          members={members}
+          members={mapScope === 'personal' ? [] : members}
+          personal={mapScope === 'personal'}
           onClose={() => setSelectedPin(null)}
-          onRecommend={() => handleRecommend(selectedPin.id)}
+          onRecommend={mapScope === 'personal' ? undefined : () => handleRecommend(selectedPin.id)}
           onUpdate={handleUpdatePin}
           onDelete={handleDeletePin}
           onRoute={pin => { setRouteTarget(pin); setRoutePanelOpen(true); setSelectedPin(null); setShowListPanel(false) }}
@@ -384,8 +526,9 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         <PlaceListPanel
           pins={filteredPins}
           members={members}
-          onSelectPin={(pin) => { setSelectedPin(pin); setShowListPanel(false); }}
-          onClose={() => setShowListPanel(false)}
+          sort={placeSort}
+          onSelectPin={pin => { setSelectedPin(pin); closePlaceList() }}
+          onClose={closePlaceList}
           emptyMessage={showOnlyApproved ? '모두 인정한 장소가 없습니다' : '아직 등록된 장소가 없습니다'}
         />
       )}
@@ -395,7 +538,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         isOpen={showTeamDrawer}
         teams={teams}
         activeTeamId={selectedTeamId}
-        onSelectTeam={(tId) => { setSelectedTeamId(tId); setActiveTab('map'); }}
+        onSelectTeam={teamId => { selectTeam(teamId); handleTabChange('map') }}
         onOpenCreate={() => { setShowTeamDrawer(false); setShowCreateTeamModal(true); }}
         onJoinTeam={handleJoinTeam}
         onLeftTeam={handleLeftTeam}
@@ -414,6 +557,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       {showAddPinModal && (
         <AddPinModal
           teamId={selectedTeamId}
+          personal={mapScope === 'personal'}
           initialPlace={pickedPlace}
           onClose={() => setShowAddPinModal(false)}
           onAdd={handleAddPin}
@@ -455,7 +599,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       <BottomNav
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        approvedCount={allApprovedCount}
+        placeCount={filteredPins.length}
         teamCount={teams.length}
       />
     </div>

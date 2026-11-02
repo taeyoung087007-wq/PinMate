@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pinmate.personal.dao.PersonalPlaceDAO">
+
+	<!-- 개인 장소 공통 컬럼. addedBy 로 쓸 login_id 를 함께 읽는다 -->
+	<sql id="personalColumns">
+		p.personal_place_id,
+		p.user_id,
+		p.name,
+		p.category,
+		p.road_address,
+		p.address,
+		p.latitude,
+		p.longitude,
+		COALESCE(u.login_id, p.user_id::text) AS login_id,
+		p.memo,
+		p.created_at
+	</sql>
+
+	<select id="selectPersonalPlacesByUserId" parameterType="long" resultType="java.util.HashMap">
+		SELECT <include refid="personalColumns"/>
+		  FROM personal_places p
+		  LEFT JOIN users u ON p.user_id = u.user_id
+		 WHERE p.user_id = #{userId}
+		 ORDER BY p.created_at DESC
+	</select>
+
+	<select id="selectPersonalPlaceById" parameterType="long" resultType="java.util.HashMap">
+		SELECT <include refid="personalColumns"/>
+		  FROM personal_places p
+		  LEFT JOIN users u ON p.user_id = u.user_id
+		 WHERE p.personal_place_id = #{personalPlaceId}
+	</select>
+
+	<!-- param: userId, name, category, roadAddress, address, latitude, longitude, source(search/manual), memo. 실행 후 param.personalPlaceId 에 생성된 키가 들어간다 -->
+	<insert id="insertPersonalPlace" parameterType="map" useGeneratedKeys="true" keyProperty="personalPlaceId" keyColumn="personal_place_id">
+		INSERT INTO personal_places (user_id, name, category, road_address, address,
+		                             latitude, longitude, source, memo, created_at, updated_at)
+		VALUES (#{userId}, #{name}, #{category}, #{roadAddress}, #{address},
+		        #{latitude}, #{longitude}, #{source}, #{memo}, now(), now())
+	</insert>
+
+	<!-- param: personalPlaceId, name, category, memo -->
+	<update id="updatePersonalPlace" parameterType="map">
+		UPDATE personal_places
+		   SET name = #{name},
+		       category = #{category},
+		       memo = #{memo},
+		       updated_at = now()
+		 WHERE personal_place_id = #{personalPlaceId}
+	</update>
+
+	<!-- 소유자 본인 것만 지운다 (param: personalPlaceId, userId) -->
+	<delete id="deletePersonalPlace" parameterType="map">
+		DELETE FROM personal_places
+		 WHERE personal_place_id = #{personalPlaceId} AND user_id = #{userId}
+	</delete>
+</mapper>

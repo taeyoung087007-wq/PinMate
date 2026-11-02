@@ -3,7 +3,7 @@ import { usePanelDrag } from '../../../lib/usePanelDrag'
 import { X, MapPin, Star, Search } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { isMajority } from '../consensus'
-import { SORTS, filterAndSortPins } from '../placeList'
+import { filterAndSortPins } from '../placeList'
 import MemberAvatar from '../../../components/MemberAvatar/MemberAvatar'
 import styles from './PlaceListPanel.module.css'
 
@@ -13,9 +13,8 @@ import styles from './PlaceListPanel.module.css'
  * - '모두 인정한 장소' 그룹을 항상 위에 표시
  * - 장소 클릭 시 지도의 해당 핀으로 포커스
  */
-export default function PlaceListPanel({ pins, members, onSelectPin, onClose, emptyMessage }) {
+export default function PlaceListPanel({ pins, members, onSelectPin, onClose, emptyMessage, sort = 'recommend' }) {
   const [query, setQuery] = useState('')
-  const [sort, setSort] = useState('recommend')
 
   // 우측 사이드 시트: 그랩 핸들을 오른쪽으로 쓸면 닫는다
   const { panelRef, handleRef } = usePanelDrag(onClose, { axis: 'x', sign: 1 })
@@ -26,7 +25,7 @@ export default function PlaceListPanel({ pins, members, onSelectPin, onClose, em
   )
 
   return (
-    <div ref={panelRef} className={`${styles.panel} glass-card animate-fade-in`}>
+    <div ref={panelRef} className={`${styles.panel} glass-card animate-fade-in`} role="region" aria-label="장소 목록">
       {/* 드래그 핸들: 오른쪽으로 쓸어 닫는다 */}
       <div className={styles.dragStrip} ref={handleRef} aria-hidden="true">
         <span className={styles.grabber} />
@@ -42,7 +41,7 @@ export default function PlaceListPanel({ pins, members, onSelectPin, onClose, em
         </button>
       </div>
 
-      {/* 검색 + 정렬 */}
+      {/* 검색 */}
       <div className={styles.toolbar}>
         <div className={styles.searchBox}>
           <Search size={13} color="var(--text-muted)" />
@@ -58,18 +57,6 @@ export default function PlaceListPanel({ pins, members, onSelectPin, onClose, em
               <X size={12} />
             </button>
           )}
-        </div>
-
-        <div className={styles.sorts} role="group" aria-label="정렬">
-          {SORTS.map(option => (
-            <button
-              key={option.key}
-              className={`${styles.sortBtn} ${sort === option.key ? styles.sortActive : ''}`}
-              onClick={() => setSort(option.key)}
-            >
-              {option.label}
-            </button>
-          ))}
         </div>
       </div>
 
