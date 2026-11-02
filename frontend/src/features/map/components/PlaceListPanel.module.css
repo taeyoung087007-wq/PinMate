@@ -133,7 +133,8 @@
 /* ── 검색 툴바 ───────────────────────────────── */
 .toolbar {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   gap: 8px;
   padding: 10px 16px 12px;
   border-bottom: 1px solid var(--border);
@@ -142,12 +143,34 @@
 
 .searchBox {
   display: flex;
+  flex: 1;
+  min-width: 0;
   align-items: center;
   gap: 7px;
   padding: 7px 10px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--bg-elevated);
+}
+
+/* 정렬 박스: 장소 목록 카드 안에서 검색 옆에 둔다 */
+.sortSelect {
+  flex-shrink: 0;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sortSelect:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
 }
 
 .searchBox:focus-within {

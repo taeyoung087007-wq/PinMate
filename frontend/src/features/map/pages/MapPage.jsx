@@ -4,7 +4,6 @@ import {
   ChevronDown, X, Sparkles
 } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
-import { SORTS } from '../placeList'
 import { getCurrentUser, setCurrentUserStorage } from '../../../lib/currentUser'
 import {
   fetchTeam,
@@ -476,28 +475,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
             </>
           )}
         </div>
-        <select
-          className={styles.sortSelect}
-          aria-label="장소 정렬"
-          value={placeSort}
-          onChange={event => setPlaceSort(event.target.value)}
-        >
-          {SORTS.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
-        </select>
         </div>
       </div>
-
-      {/* 팀 지도를 보다가 내 지도로 돌아가는 버튼 (내 위치 버튼 반대편, 하단 내비 위) */}
-      {mapScope === 'team' && (
-        <button
-          className={styles.personalMapBtn}
-          onClick={selectPersonalMap}
-          title="내 지도로 돌아가기"
-        >
-          <Home size={15} />
-          <span>내 지도</span>
-        </button>
-      )}
 
       {/* 에러 알림 배너 */}
       {error && (
@@ -527,6 +506,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           pins={filteredPins}
           members={members}
           sort={placeSort}
+          onSortChange={setPlaceSort}
           onSelectPin={pin => { setSelectedPin(pin); closePlaceList() }}
           onClose={closePlaceList}
           emptyMessage={showOnlyApproved ? '모두 인정한 장소가 없습니다' : '아직 등록된 장소가 없습니다'}
