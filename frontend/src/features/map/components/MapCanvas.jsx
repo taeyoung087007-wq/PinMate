@@ -161,6 +161,7 @@ function createMyLocationMarker(maps, map, position) {
 export default function MapCanvas({
   pins, members, onSelectPin, selectedPin, onAddAtLocation, onRouteTo,
   routeTarget, routePanelOpen, onOpenRoutePanel, onCloseRoutePanel, onClearRoute, focusPlace,
+  overlayPins = [], onSelectOverlayPin,
 }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -190,7 +191,7 @@ export default function MapCanvas({
   const [status, setStatus] = useState('loading') // loading | ready | nokey | error
 
   // 핀·클러스터는 훅이 관리한다 (지도가 준비되면 그리고, 팬·줌이 끝나면 다시 그린다)
-  usePinMarkers({ mapRef, status, pins, members, selectedPin, onSelectPin })
+  usePinMarkers({ mapRef, status, pins, members, selectedPin, onSelectPin, overlayPins, onSelectOverlayPin })
   const [errorMessage, setErrorMessage] = useState('')
   const [locateError, setLocateError] = useState('')
   const [locating, setLocating] = useState(false) // 위치 조회 중 표시

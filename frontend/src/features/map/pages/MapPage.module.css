@@ -207,6 +207,61 @@
   display: flex;
 }
 
+/* 내 지도 공개 핀 레이어 토글 (모임 지도 우측, 필터 바 아래) */
+.layerBtn {
+  position: absolute;
+  right: 14px;
+  top: 124px;
+  z-index: 22;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: rgba(18, 19, 31, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.layerBtn:hover {
+  background: var(--bg-hover);
+  color: var(--primary-light);
+}
+
+.layerBtn:active {
+  transform: scale(0.94);
+}
+
+/* 레이어가 켜져 있을 때 */
+.layerBtnActive {
+  color: var(--primary-light);
+  border-color: rgba(108, 99, 255, 0.65);
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.18), 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.layerCount {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+}
+
 /* 3. 우측 플로팅 액션 버튼 (FAB) */
 @keyframes fadeIn {
   from { opacity: 0; transform: translate(-50%, -8px); }

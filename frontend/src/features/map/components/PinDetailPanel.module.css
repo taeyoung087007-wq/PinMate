@@ -239,3 +239,104 @@
   border-radius: var(--radius-full);
   background: var(--border-strong);
 }
+
+/* 내 지도 공개/비공개 토글 */
+.visibilityToggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  margin: 8px 0 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition);
+}
+
+.visibilityToggle:hover {
+  border-color: var(--border-strong);
+}
+
+.visibilityDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.visibilityOn .visibilityDot {
+  background: var(--success, #22c55e);
+}
+
+.visibilityText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.visibilityText strong {
+  font-size: 13px;
+}
+
+.visibilityText small {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.visibilitySwitch {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  flex-shrink: 0;
+  transition: background var(--transition);
+}
+
+.visibilitySwitch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform var(--transition);
+}
+
+.visibilityOn .visibilitySwitch {
+  background: var(--primary);
+}
+
+.visibilityOn .visibilitySwitch::after {
+  transform: translateX(14px);
+}
+
+/* 모임 지도 위 오버레이 핀 삭제 선택 */
+.deletePrompt {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 71, 87, 0.4);
+  background: rgba(255, 71, 87, 0.08);
+}
+
+.deletePromptText {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.deletePromptActions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}

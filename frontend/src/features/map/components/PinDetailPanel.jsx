@@ -29,11 +29,13 @@ export default function PinDetailPanel({
   pin,
   members,
   personal = false,
+  overlay = false,
   onClose,
   onRecommend,
   onUpdate,
   onDelete,
   onRoute,
+  onToggleVisibility,
 }) {
   // 하단 시트: 그랩 핸들을 아래로 쓸면 닫는다 (중앙 정렬 transform 은 유지)
   const { panelRef, handleRef } = usePanelDrag(onClose, { axis: 'y', sign: 1, baseTransform: 'translateX(-50%)' })
@@ -57,6 +59,7 @@ export default function PinDetailPanel({
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [draft, setDraft] = useState({ name: '', category: '', memo: '' })
+  const [deletePrompt, setDeletePrompt] = useState(false) // 모임 지도 위 오버레이 핀 삭제 선택
 
   const startEdit = () => {
     setDraft({ name: pin.name, category: pin.category, memo: pin.memo || '' })
@@ -76,6 +79,11 @@ export default function PinDetailPanel({
   }
 
   const handleDelete = () => {
+    // 모임 지도 위에 겹쳐 보이는 내 핀이면 '내 지도에서도 삭제' vs '공유만 해제'를 고르게 한다
+    if (overlay) {
+      setDeletePrompt(true)
+      return
+    }
     // 실수로 지우는 것을 막기 위해 한 번 확인한다
     const message = personal
       ? `'${pin.name}' 장소를 내 지도에서 삭제할까요?`
@@ -213,6 +221,23 @@ export default function PinDetailPanel({
             </div>
           )}
 
+          {/* 내 지도 공개 여부: 공개한 핀만 모임 지도에 겹쳐 보인다 */}
+          {personal && onToggleVisibility && (
+            <button
+              className={`${styles.visibilityToggle} ${pin.isPublic ? styles.visibilityOn : ''}`}
+              onClick={() => onToggleVisibility(!pin.isPublic)}
+              aria-pressed={pin.isPublic}
+              title="공개하면 모임 지도 위에 내 핀이 겹쳐 보입니다"
+            >
+              <span className={styles.visibilityDot} />
+              <span className={styles.visibilityText}>
+                <strong>{pin.isPublic ? '모임 지도에 공개 중' : '비공개'}</strong>
+                <small>{pin.isPublic ? '모임 지도 위에 내 핀이 겹쳐 보입니다' : '나만 볼 수 있습니다'}</small>
+              </span>
+              <span className={styles.visibilitySwitch} aria-hidden="true" />
+            </button>
+          )}
+
           {/* 추천한 멤버 섹션 (팀 지도에서만) */}
           {!personal && (
             <div className={styles.section}>
@@ -254,6 +279,28 @@ export default function PinDetailPanel({
               </span>
             )}
           </div>
+
+          {/* 모임 지도 위 오버레이 핀 삭제: 내 지도에서도 지울지, 공유만 해제할지 고른다 */}
+          {deletePrompt && (
+            <div className={styles.deletePrompt}>
+              <p className={styles.deletePromptText}>모임 지도에서 이 핀을 뺍니다. 내 지도에서도 삭제할까요?</p>
+              <div className={styles.deletePromptActions}>
+                <button
+                  className="btn btn-danger"
+                  onClick={() => { setDeletePrompt(false); onDelete?.(pin.id) }}
+                >
+                  내 지도에서도 삭제
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => { setDeletePrompt(false); onToggleVisibility?.(false) }}
+                >
+                  공유만 해제
+                </button>
+                <button className="btn btn-ghost" onClick={() => setDeletePrompt(false)}>취소</button>
+              </div>
+            </div>
+          )}
 
           {/* 액션 버튼들 */}
           <div className={styles.actions}>

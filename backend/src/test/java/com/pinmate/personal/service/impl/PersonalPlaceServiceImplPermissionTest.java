@@ -92,5 +92,16 @@ class PersonalPlaceServiceImplPermissionTest {
         assertThat(item.get("category")).isEqualTo("cafe");
         assertThat(item.get("personal")).isEqualTo(true);
         assertThat(item.get("recommenders")).isEqualTo(List.of("pincheck"));
+        assertThat(item.get("isPublic")).isEqualTo(false);   // 기본은 비공개
+    }
+
+    @Test
+    @DisplayName("공개 여부를 바꾸면 is_public 만 갱신된다")
+    void updateVisibilityWritesFlag() throws Exception {
+        given(personalPlaceDAO.selectPersonalPlaceById(PLACE_ID)).willReturn(existingPlace());
+
+        service.updateVisibility(PLACE_ID, true);
+
+        verify(personalPlaceDAO).updatePersonalVisibility(Map.of("personalPlaceId", PLACE_ID, "isPublic", true));
     }
 }

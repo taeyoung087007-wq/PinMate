@@ -77,6 +77,7 @@ public class PersonalPlaceController {
 		Double lat = ParamUtil.dbl(param, "lat");
 		Double lng = ParamUtil.dbl(param, "lng");
 		String memo = ParamUtil.str(param, "memo");
+		boolean isPublic = Boolean.TRUE.equals(param.get("isPublic"));
 
 		if (name.isEmpty() || name.length() > NAME_MAX) {
 			return Response.invalid("장소 이름은 100자 이하로 입력해주세요.");
@@ -105,6 +106,7 @@ public class PersonalPlaceController {
 					"lat", lat,
 					"lng", lng,
 					"memo", memo.isEmpty() ? null : memo,
+					"isPublic", isPublic,
 					"source", "manual".equals(ParamUtil.str(param, "source")) ? "manual" : "search"), SessionUtil.getUserId(session));
 			result = Response.of(Constants.SUCCESS, data);
 		} catch (NullPointerException npe) {
@@ -157,6 +159,38 @@ public class PersonalPlaceController {
 		} catch (Exception e) {
 			logger.error("개인 장소 수정 중 알 수 없는 오류가 발생했습니다.", e);
 			result = Response.of(Constants.FAIL, "장소 수정 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
+	// 공개/비공개 전환. 공개한 핀만 모임 지도에 오버레이(공유)된다
+	@ResponseBody
+	@PatchMapping("personal/places/{personalPlaceId}/visibility")
+	public Response updateVisibility(@PathVariable("personalPlaceId") Long personalPlaceId, @RequestBody HashMap<String, Object> param, HttpSession session) {
+		Object value = param.get("isPublic");
+		if (!(value instanceof Boolean)) {
+			return Response.invalid("공개 여부 값이 올바르지 않습니다.");
+		}
+
+		Response result = null;
+
+		try {
+			String code = personalPlaceService.selectEditCode(personalPlaceId, SessionUtil.getUserId(session));
+			if (Constants.SUCCESS.equals(code)) {
+				result = Response.of(Constants.SUCCESS, personalPlaceService.updateVisibility(personalPlaceId, (Boolean) value));
+			} else {
+				result = Response.of(code, editFailMessage(code), null);
+			}
+		} catch (NullPointerException npe) {
+			logger.error("개인 장소 공개 여부 변경 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "공개 여부 변경 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("개인 장소 공개 여부 변경 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "공개 여부 변경 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("개인 장소 공개 여부 변경 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "공개 여부 변경 중 오류가 발생했습니다.", null);
 		}
 
 		return result;

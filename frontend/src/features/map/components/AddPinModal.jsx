@@ -34,6 +34,7 @@ export default function AddPinModal({ teamId, personal = false, onClose, onAdd, 
   const [name, setName] = useState(initialPlace?.name ?? '')
   const [memo, setMemo] = useState('')
   const [recommend, setRecommend] = useState(false) // 다녀와 봤으면 등록하면서 바로 추천 (SNS 에서 보고 찍어두기만 하면 끔)
+  const [syncToPersonal, setSyncToPersonal] = useState(false) // 모임에 추가하면서 내 지도에도 같이 저장
   const [adding, setAdding] = useState(false) // 버튼을 연달아 눌러 같은 장소가 두 번 들어가지 않게
 
   // 검색: 상호명(카카오 Places)과 주소(카카오 Geocoder)를 동시에 조회해 합친다
@@ -138,6 +139,7 @@ export default function AddPinModal({ teamId, personal = false, onClose, onAdd, 
       addedBy: CURRENT_USER.id,
       memo: (personal || recommend) ? memo.trim() : '',
       recommend: personal ? false : recommend,   // 개인 장소에는 추천 개념이 없다
+      syncToPersonal: personal ? false : syncToPersonal,   // 모임 장소를 내 지도에도 저장할지
       source,
     })
     setAdding(false)
@@ -306,6 +308,16 @@ export default function AddPinModal({ teamId, personal = false, onClose, onAdd, 
                 <span>
                   다녀와 봤어요 · 바로 추천하기
                   <small>가보고 싶어서 찍어두는 곳이면 체크하지 마세요. 다녀온 뒤 추천할 수 있어요.</small>
+                </span>
+              </label>
+            )}
+
+            {!personal && (
+              <label className={styles.recommendCheck}>
+                <input type="checkbox" checked={syncToPersonal} onChange={e => setSyncToPersonal(e.target.checked)} />
+                <span>
+                  내 지도에도 저장
+                  <small>내 지도(개인 지도)에 같은 장소를 함께 담아둡니다.</small>
                 </span>
               </label>
             )}

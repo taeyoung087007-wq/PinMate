@@ -18,6 +18,13 @@ export const updatePersonalPinApi = (pinId, data) =>
 export const deletePersonalPinApi = (pinId) =>
   request(`/personal/places/${encodeURIComponent(pinId)}`, { method: 'DELETE' })
 
+/** 공개/비공개 전환. 공개한 핀만 모임 지도에 오버레이(공유)된다 */
+export const updatePersonalVisibilityApi = (pinId, isPublic) =>
+  request(`/personal/places/${encodeURIComponent(pinId)}/visibility`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isPublic }),
+  })
+
 /** @returns {Promise<{ pin, reachedAllApproved: boolean }>} 추천이 0명이 돼도 장소는 남는다 */
 export const toggleRecommendationApi = (pinId, userId) =>
   post(`/pins/${encodeURIComponent(pinId)}/recommend`, { userId })

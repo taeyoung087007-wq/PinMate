@@ -34,6 +34,11 @@ public class PersonalPlaceDAO {
 		return sqlSession.update(PersonalPlaceDAO.SQL_PATH + ".updatePersonalPlace", param);
 	}
 
+	// 공개/비공개만 변경 (param: personalPlaceId, isPublic)
+	public int updatePersonalVisibility(Map<String, Object> param) {
+		return sqlSession.update(PersonalPlaceDAO.SQL_PATH + ".updatePersonalVisibility", param);
+	}
+
 	// 개인 장소 삭제. 소유자 확인을 위해 userId 도 함께 넘긴다 (param: personalPlaceId, userId)
 	public int deletePersonalPlace(Map<String, Object> param) {
 		return sqlSession.delete(PersonalPlaceDAO.SQL_PATH + ".deletePersonalPlace", param);
