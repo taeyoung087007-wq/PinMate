@@ -3,7 +3,7 @@
   /* 상단 검색바·필터 행 아래에서 시작한다 — 겹치면 검색창이 가려진다 */
   top: 144px;
   right: 16px;
-  width: 320px;
+  width: 360px;
   max-width: calc(100% - 32px);
   max-height: calc(100% - 160px - var(--bottom-nav-h));
   display: flex;
