@@ -7,6 +7,17 @@ export const fetchPins = (teamId) => request(`/pins?teamId=${encodeURIComponent(
 
 export const createPinApi = (pinData) => post('/pins', pinData)
 
+// ── 내 지도(개인 장소). 팀과 무관하게 나만 보는 장소 ──────────────────────
+export const fetchPersonalPins = () => request('/personal/places')
+
+export const createPersonalPinApi = (pinData) => post('/personal/places', pinData)
+
+export const updatePersonalPinApi = (pinId, data) =>
+  request(`/personal/places/${encodeURIComponent(pinId)}`, { method: 'PATCH', body: JSON.stringify(data) })
+
+export const deletePersonalPinApi = (pinId) =>
+  request(`/personal/places/${encodeURIComponent(pinId)}`, { method: 'DELETE' })
+
 /** @returns {Promise<{ pin, reachedAllApproved: boolean }>} 추천이 0명이 돼도 장소는 남는다 */
 export const toggleRecommendationApi = (pinId, userId) =>
   post(`/pins/${encodeURIComponent(pinId)}/recommend`, { userId })

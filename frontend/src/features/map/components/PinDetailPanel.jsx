@@ -28,6 +28,7 @@ function formatCreatedAt(value) {
 export default function PinDetailPanel({
   pin,
   members,
+  personal = false,
   onClose,
   onRecommend,
   onUpdate,
@@ -76,7 +77,10 @@ export default function PinDetailPanel({
 
   const handleDelete = () => {
     // 실수로 지우는 것을 막기 위해 한 번 확인한다
-    if (!window.confirm(`'${pin.name}' 장소를 삭제할까요? 추천 기록도 함께 사라집니다.`)) return
+    const message = personal
+      ? `'${pin.name}' 장소를 내 지도에서 삭제할까요?`
+      : `'${pin.name}' 장소를 삭제할까요? 추천 기록도 함께 사라집니다.`
+    if (!window.confirm(message)) return
     onDelete?.(pin.id)
   }
 
@@ -98,16 +102,16 @@ export default function PinDetailPanel({
           <span className={`badge ${meta.cls}`}>
             {meta.icon} {meta.label}
           </span>
-          {pin.isAllApproved && (
+          {!personal && pin.isAllApproved && (
             <span className="badge badge-gold">
               ⭐ 모두 인정{pin.consensusMemberCount ? ` · ${pin.consensusMemberCount}명` : ''}
             </span>
           )}
-          {isMajority(pin, members) && (
+          {!personal && isMajority(pin, members) && (
             <span className="badge">👍 과반 인정 · {recommendCount}/{members.length}명</span>
           )}
           {/* 팀원이 늘어 배지가 풀린 경우: 그때 몇 명이 모두 인정했는지 남겨 보여준다 */}
-          {!pin.isAllApproved && pin.consensusMemberCount > 0 && (
+          {!personal && !pin.isAllApproved && pin.consensusMemberCount > 0 && (
             <span className="badge">🏅 {pin.consensusMemberCount}명 달성</span>
           )}
         </div>
@@ -169,7 +173,7 @@ export default function PinDetailPanel({
 
           {creatorRecommended && (
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>한 줄 추천평</label>
+              <label className={styles.fieldLabel}>{personal ? '메모' : '한 줄 추천평'}</label>
               <textarea
                 className={`input ${styles.memoInput}`}
                 value={draft.memo}
@@ -209,36 +213,40 @@ export default function PinDetailPanel({
             </div>
           )}
 
-          {/* 추천한 멤버 섹션 */}
-          <div className={styles.section}>
-            <div className={styles.sectionLabel}>
-              <Star size={13} />
-              추천한 멤버 ({recommendCount}/{members.length}명)
+          {/* 추천한 멤버 섹션 (팀 지도에서만) */}
+          {!personal && (
+            <div className={styles.section}>
+              <div className={styles.sectionLabel}>
+                <Star size={13} />
+                추천한 멤버 ({recommendCount}/{members.length}명)
+              </div>
+              <div className={styles.recommenders}>
+                {members.map(m => {
+                  const didRecommend = pin.recommenders.includes(m.id)
+                  return (
+                    <div
+                      key={m.id}
+                      className={`${styles.recommenderItem} ${!didRecommend ? styles.recommenderInactive : ''}`}
+                      title={`${m.nickname} ${didRecommend ? '(추천함)' : '(미추천)'}`}
+                    >
+                      <MemberAvatar member={m} className={styles.recommenderAvatar} muted={!didRecommend} />
+                      <span className={styles.recommenderName}>{m.nickname}</span>
+                      {didRecommend && <Check size={12} color="var(--success)" />}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-            <div className={styles.recommenders}>
-              {members.map(m => {
-                const didRecommend = pin.recommenders.includes(m.id)
-                return (
-                  <div
-                    key={m.id}
-                    className={`${styles.recommenderItem} ${!didRecommend ? styles.recommenderInactive : ''}`}
-                    title={`${m.nickname} ${didRecommend ? '(추천함)' : '(미추천)'}`}
-                  >
-                    <MemberAvatar member={m} className={styles.recommenderAvatar} muted={!didRecommend} />
-                    <span className={styles.recommenderName}>{m.nickname}</span>
-                    {didRecommend && <Check size={12} color="var(--success)" />}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+          )}
 
           {/* 최초 등록자 정보 */}
           <div className={styles.addedBy}>
-            {addedByMember
-              ? <MemberAvatar member={addedByMember} className={styles.addedByAvatar} />
-              : <div className={styles.addedByAvatar} style={{ background: 'var(--primary)' }}>팀</div>}
-            <span>{addedByMember?.nickname || '팀원'}님이 처음 등록</span>
+            {personal
+              ? <div className={styles.addedByAvatar} style={{ background: 'var(--primary)' }}>나</div>
+              : (addedByMember
+                ? <MemberAvatar member={addedByMember} className={styles.addedByAvatar} />
+                : <div className={styles.addedByAvatar} style={{ background: 'var(--primary)' }}>팀</div>)}
+            <span>{personal ? '내가 저장한 장소' : `${addedByMember?.nickname || '팀원'}님이 처음 등록`}</span>
             {createdAtText && (
               <span className={styles.addedByDate}>
                 <Clock size={11} />
@@ -249,14 +257,16 @@ export default function PinDetailPanel({
 
           {/* 액션 버튼들 */}
           <div className={styles.actions}>
-            <button
-              className={`btn ${isMeRecommended ? 'btn-danger' : 'btn-primary'} ${styles.recommendBtn}`}
-              onClick={onRecommend}
-              title="다녀와 보고 좋았으면 추천해 주세요"
-            >
-              <Star size={15} fill={isMeRecommended ? 'var(--danger)' : 'white'} />
-              {isMeRecommended ? '추천 취소' : '다녀왔어요 · 추천하기'}
-            </button>
+            {!personal && (
+              <button
+                className={`btn ${isMeRecommended ? 'btn-danger' : 'btn-primary'} ${styles.recommendBtn}`}
+                onClick={onRecommend}
+                title="다녀와 보고 좋았으면 추천해 주세요"
+              >
+                <Star size={15} fill={isMeRecommended ? 'var(--danger)' : 'white'} />
+                {isMeRecommended ? '추천 취소' : '다녀왔어요 · 추천하기'}
+              </button>
+            )}
             <button
               className="btn btn-secondary btn-icon"
               onClick={() => onRoute?.(pin)}

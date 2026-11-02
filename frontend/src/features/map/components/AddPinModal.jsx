@@ -18,7 +18,7 @@ const PICKER_LEVEL = 4
  * - 좌표는 반드시 실제 주소에서 나온다 (임의 좌표 생성 없음)
  * - initialPlace: 메인 지도에서 이미 고른 위치 { name, address, lat, lng } 가 있으면 상세 입력부터 시작
  */
-export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = null }) {
+export default function AddPinModal({ teamId, personal = false, onClose, onAdd, initialPlace = null }) {
   const [step, setStep] = useState(initialPlace ? 'detail' : 'search') // 'search' | 'detail'
   const [mode, setMode] = useState('search') // 'search' | 'map'
   const [query, setQuery] = useState('')
@@ -136,8 +136,8 @@ export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = nul
       lat: selected.lat,
       lng: selected.lng,
       addedBy: CURRENT_USER.id,
-      memo: recommend ? memo.trim() : '',
-      recommend,
+      memo: (personal || recommend) ? memo.trim() : '',
+      recommend: personal ? false : recommend,   // 개인 장소에는 추천 개념이 없다
       source,
     })
     setAdding(false)
@@ -300,19 +300,21 @@ export default function AddPinModal({ teamId, onClose, onAdd, initialPlace = nul
               </div>
             </div>
 
-            <label className={styles.recommendCheck}>
-              <input type="checkbox" checked={recommend} onChange={e => setRecommend(e.target.checked)} />
-              <span>
-                다녀와 봤어요 · 바로 추천하기
-                <small>가보고 싶어서 찍어두는 곳이면 체크하지 마세요. 다녀온 뒤 추천할 수 있어요.</small>
-              </span>
-            </label>
+            {!personal && (
+              <label className={styles.recommendCheck}>
+                <input type="checkbox" checked={recommend} onChange={e => setRecommend(e.target.checked)} />
+                <span>
+                  다녀와 봤어요 · 바로 추천하기
+                  <small>가보고 싶어서 찍어두는 곳이면 체크하지 마세요. 다녀온 뒤 추천할 수 있어요.</small>
+                </span>
+              </label>
+            )}
 
-            {recommend && (
+            {(personal || recommend) && (
               <div className={styles.field}>
                 <label className={styles.label}>
                   <FileText size={13} />
-                  팀원들에게 남길 한 줄 추천평 (선택)
+                  {personal ? '메모 (선택)' : '팀원들에게 남길 한 줄 추천평 (선택)'}
                 </label>
                 <textarea
                   className={`input ${styles.textarea}`}
