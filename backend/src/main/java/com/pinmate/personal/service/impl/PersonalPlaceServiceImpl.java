@@ -46,7 +46,8 @@ public class PersonalPlaceServiceImpl implements PersonalPlaceService {
 				"latitude", BigDecimal.valueOf((Double) param.get("lat")),
 				"longitude", BigDecimal.valueOf((Double) param.get("lng")),
 				"source", param.get("source"),
-				"memo", param.get("memo"));
+				"memo", param.get("memo"),
+				"isPublic", !Boolean.FALSE.equals(param.get("isPublic")));   // 기본 공개
 		personalPlaceDAO.insertPersonalPlace(place);   // useGeneratedKeys → place.personalPlaceId
 		Long personalPlaceId = ((Number) place.get("personalPlaceId")).longValue();
 
@@ -74,6 +75,13 @@ public class PersonalPlaceServiceImpl implements PersonalPlaceService {
 
 	@Override
 	@Transactional
+	public Map<String, Object> updateVisibility(Long personalPlaceId, boolean isPublic) throws Exception {
+		personalPlaceDAO.updatePersonalVisibility(ParamUtil.map("personalPlaceId", personalPlaceId, "isPublic", isPublic));
+		return toItem(personalPlaceDAO.selectPersonalPlaceById(personalPlaceId));
+	}
+
+	@Override
+	@Transactional
 	public void delete(Long personalPlaceId, Long userId) throws Exception {
 		personalPlaceDAO.deletePersonalPlace(ParamUtil.map("personalPlaceId", personalPlaceId, "userId", userId));
 	}
@@ -94,6 +102,7 @@ public class PersonalPlaceServiceImpl implements PersonalPlaceService {
 		// 개인 장소에는 추천 개념이 없다. 다만 상세 패널이 '내가 등록한 장소'로 보고 메모를 고칠 수 있게 본인만 넣는다
 		item.put("recommenders", loginId == null ? List.of() : List.of(loginId));
 		item.put("memo", row.get("memo"));
+		item.put("isPublic", Boolean.TRUE.equals(row.get("is_public")));
 		item.put("isAllApproved", false);
 		item.put("consensusAchievedAt", null);
 		item.put("consensusMemberCount", null);

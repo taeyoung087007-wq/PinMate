@@ -53,6 +53,29 @@ function createPinElement({ pin, meta, memberColor, majority, isSelected }) {
   return wrap
 }
 
+/** 내 지도 공개 핀: 기본 핀과 구분되게 점선 테두리 + '내 지도' 태그를 붙인다 */
+function createOverlayPinElement({ pin, meta }) {
+  const wrap = document.createElement('div')
+  wrap.className = `${styles.pinWrap} ${styles.pinWrapPersonal}`
+  wrap.title = `${pin.name} (내 지도 · 공개)`
+
+  const body = document.createElement('div')
+  body.className = styles.pinBody
+  body.style.background = meta.color
+  body.textContent = meta.icon
+
+  const label = document.createElement('span')
+  label.className = styles.pinLabel
+  label.textContent = pin.name
+
+  const tag = document.createElement('span')
+  tag.className = styles.personalTag
+  tag.textContent = '내 지도'
+
+  wrap.append(body, label, tag)
+  return wrap
+}
+
 /** 여러 핀을 하나로 묶은 클러스터 마커 (개수 표시) */
 function createClusterElement({ count, color }) {
   const wrap = document.createElement('div')
@@ -99,20 +122,28 @@ function dominantColor(group) {
  * @param {object|null} params.selectedPin 선택된 핀
  * @param {(pin: object) => void} params.onSelectPin 핀 클릭 콜백
  */
-export function usePinMarkers({ mapRef, status, pins, members, selectedPin, onSelectPin }) {
+export function usePinMarkers({ mapRef, status, pins, members, selectedPin, onSelectPin, overlayPins = [], onSelectOverlayPin }) {
   const markersRef = useRef(new Map()) // pinId -> { marker, pin, meta, memberColor }
   const clusterRef = useRef([]) // 현재 떠 있는 클러스터 오버레이
+  const overlayRef = useRef([]) // 내 지도 공개 핀 오버레이
   const onSelectRef = useRef(onSelectPin)
+  const onSelectOverlayRef = useRef(onSelectOverlayPin)
 
   useEffect(() => {
     onSelectRef.current = onSelectPin
   }, [onSelectPin])
+
+  useEffect(() => {
+    onSelectOverlayRef.current = onSelectOverlayPin
+  }, [onSelectOverlayPin])
 
   const render = useCallback((maps, map) => {
     markersRef.current.forEach(({ marker }) => marker.setMap(null))
     markersRef.current.clear()
     clusterRef.current.forEach(overlay => overlay.setMap(null))
     clusterRef.current = []
+    overlayRef.current.forEach(marker => marker.setMap(null))
+    overlayRef.current = []
 
     const infoOf = pin => {
       const meta = CATEGORY_META[pin.category] || CATEGORY_META.etc
@@ -172,7 +203,21 @@ export function usePinMarkers({ mapRef, status, pins, members, selectedPin, onSe
 
       clusterRef.current.push(overlay)
     })
-  }, [pins, members, selectedPin])
+
+    // 내 지도 공개 핀은 클러스터에 섞지 않고 별도 레이어로 그린다 (겹쳐도 기본 핀과 구분되게)
+    overlayPins.forEach(pin => {
+      const meta = CATEGORY_META[pin.category] || CATEGORY_META.etc
+      const marker = new maps.CustomOverlay({
+        position: new maps.LatLng(pin.lat, pin.lng),
+        content: anchorContent(createOverlayPinElement({ pin, meta }), PIN_ANCHOR.x, PIN_ANCHOR.y),
+        map,
+        zIndex: 30, // 겹쳐도 클릭할 수 있게 팀 핀·클러스터 위에 올린다 (핀은 살짝 비껴 그린다)
+        clickable: true,
+      })
+      marker.getContent().firstChild.addEventListener('click', () => onSelectOverlayRef.current?.(pin))
+      overlayRef.current.push(marker)
+    })
+  }, [pins, members, selectedPin, overlayPins])
 
   // 지도가 준비되면 그리고, 팬·줌이 끝날 때마다 다시 그린다
   useEffect(() => {

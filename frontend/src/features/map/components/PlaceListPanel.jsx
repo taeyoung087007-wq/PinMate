@@ -3,7 +3,7 @@ import { usePanelDrag } from '../../../lib/usePanelDrag'
 import { X, MapPin, Star, Search } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { isMajority } from '../consensus'
-import { filterAndSortPins } from '../placeList'
+import { filterAndSortPins, SORTS } from '../placeList'
 import MemberAvatar from '../../../components/MemberAvatar/MemberAvatar'
 import styles from './PlaceListPanel.module.css'
 
@@ -13,7 +13,7 @@ import styles from './PlaceListPanel.module.css'
  * - '모두 인정한 장소' 그룹을 항상 위에 표시
  * - 장소 클릭 시 지도의 해당 핀으로 포커스
  */
-export default function PlaceListPanel({ pins, members, onSelectPin, onClose, emptyMessage, sort = 'recommend' }) {
+export default function PlaceListPanel({ pins, members, onSelectPin, onClose, emptyMessage, sort = 'recommend', onSortChange }) {
   const [query, setQuery] = useState('')
 
   // 우측 사이드 시트: 그랩 핸들을 오른쪽으로 쓸면 닫는다
@@ -58,6 +58,15 @@ export default function PlaceListPanel({ pins, members, onSelectPin, onClose, em
             </button>
           )}
         </div>
+        {/* 정렬 (추천순·최신순·이름순) */}
+        <select
+          className={styles.sortSelect}
+          aria-label="장소 정렬"
+          value={sort}
+          onChange={event => onSortChange?.(event.target.value)}
+        >
+          {SORTS.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
+        </select>
       </div>
 
       <div className={styles.list}>

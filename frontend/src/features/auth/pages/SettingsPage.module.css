@@ -62,9 +62,9 @@
 .sectionHeading { margin-bottom: 16px; }
 .sectionHeading h2 { font-size: 16px; line-height: 1.5; letter-spacing: -0.03em; }
 .sectionHeading p { margin-top: 4px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
-.list { padding: 0 20px; background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: 16px; }
+.list { padding: 0; background: var(--bg-surface); border: 0; border-radius: 16px; overflow: hidden; }
 .row, .activity { display: flex; width: 100%; align-items: center; gap: 16px; color: var(--text-primary); text-align: left; }
-.row { min-height: 88px; padding: 20px 0; }
+.row { min-height: 88px; padding: 20px; }
 .row + .row { border-top: 1px solid var(--border); }
 .row:disabled, .activity:disabled, .accountFooter button:disabled { cursor: default; opacity: 1; }
 .icon { display: grid; width: 40px; height: 40px; flex-shrink: 0; place-items: center; color: #b7b3d5; }
@@ -72,7 +72,7 @@
 .rowTitle { font-size: 14px; font-weight: 600; line-height: 1.4; }
 .description { color: var(--text-secondary); font-size: 12px; font-weight: 400; line-height: 1.5; }
 .chevron { color: #79778f; flex-shrink: 0; }
-.activity { min-height: 100px; padding: 22px 20px; border-radius: 16px; border: 1px solid rgba(139, 133, 255, 0.22); background: #1b1930; }
+.activity { min-height: 100px; padding: 22px 20px; border-radius: 16px; border: 0; background: #1b1930; }
 .activityIcon { display: grid; width: 44px; height: 48px; flex-shrink: 0; place-items: center; border-radius: 12px; color: #b8adff; background: #2d2749; }
 .notice { margin-top: 20px; color: var(--text-secondary); font-size: 11px; line-height: 1.8; }
 .accountFooter { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between; margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 11px; }
@@ -111,7 +111,7 @@
 .page button:focus-visible, .page select:focus-visible { outline: 2px solid var(--primary-light); outline-offset: 4px; }
 .row, .activity, .placeCard { transition: background-color 160ms ease, border-color 160ms ease; }
 .row:hover { background: var(--bg-elevated); }
-.activity:hover, .placeCard:hover { background: #24213b; border-color: var(--primary-light); }
+.activity:hover, .placeCard:hover { background: #24213b; }
 .editorCard { padding: 30px; border: 1px solid var(--border-strong); border-radius: 20px; background: var(--bg-surface); }
 .avatarEditor { display: flex; align-items: center; gap: 24px; padding-bottom: 28px; margin-bottom: 28px; border-bottom: 1px solid var(--border); }
 .avatarEditor h2, .formIntro h2 { font-size: 17px; line-height: 1.5; }

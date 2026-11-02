@@ -30,8 +30,8 @@
 
   /* Text */
   --text-primary: #F0F0FF;
-  --text-secondary: #9B9BB8;
-  --text-muted: #5A5A7A;
+  --text-secondary: #B3B3D0;
+  --text-muted: #8C8CAE;
 
   /* Borders */
   --border: rgba(255, 255, 255, 0.07);
@@ -293,9 +293,10 @@ img, svg {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* transform 이 아니라 translate 를 쓴다 — 패널이 가진 translateX(-50%) 중앙 정렬을 덮어쓰지 않게 */
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(24px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; translate: 0 24px; }
+  to   { opacity: 1; translate: 0 0; }
 }
 
 @keyframes pulse {
