@@ -204,6 +204,44 @@
   display: flex;
 }
 
+/* 팀 지도를 보다가 내 지도로 돌아가는 버튼 (내 위치 버튼 반대편, 하단 내비 위) */
+.personalMapBtn {
+  position: absolute;
+  right: 16px;
+  bottom: calc(var(--bottom-nav-h) + 84px);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-strong);
+  background: rgba(18, 19, 31, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.personalMapBtn:hover {
+  background: var(--bg-hover);
+  color: var(--primary-light);
+}
+
+.personalMapBtn:active {
+  transform: scale(0.96);
+}
+
+/* 좁은 화면에서는 아이콘만 남겨 지도를 가리지 않게 한다 */
+@media (max-width: 420px) {
+  .personalMapBtn span { display: none; }
+  .personalMapBtn { padding: 11px; }
+}
+
 /* 3. 우측 플로팅 액션 버튼 (FAB) */
 @keyframes fadeIn {
   from { opacity: 0; transform: translate(-50%, -8px); }

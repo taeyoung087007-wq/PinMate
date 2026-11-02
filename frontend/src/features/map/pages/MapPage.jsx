@@ -487,6 +487,18 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         </div>
       </div>
 
+      {/* 팀 지도를 보다가 내 지도로 돌아가는 버튼 (내 위치 버튼 반대편, 하단 내비 위) */}
+      {mapScope === 'team' && (
+        <button
+          className={styles.personalMapBtn}
+          onClick={selectPersonalMap}
+          title="내 지도로 돌아가기"
+        >
+          <Home size={15} />
+          <span>내 지도</span>
+        </button>
+      )}
+
       {/* 에러 알림 배너 */}
       {error && (
         <div className={styles.errorFloat}>
