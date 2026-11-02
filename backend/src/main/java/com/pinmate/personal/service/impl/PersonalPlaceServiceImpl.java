@@ -47,7 +47,7 @@ public class PersonalPlaceServiceImpl implements PersonalPlaceService {
 				"longitude", BigDecimal.valueOf((Double) param.get("lng")),
 				"source", param.get("source"),
 				"memo", param.get("memo"),
-				"isPublic", Boolean.TRUE.equals(param.get("isPublic")));
+				"isPublic", !Boolean.FALSE.equals(param.get("isPublic")));   // 기본 공개
 		personalPlaceDAO.insertPersonalPlace(place);   // useGeneratedKeys → place.personalPlaceId
 		Long personalPlaceId = ((Number) place.get("personalPlaceId")).longValue();
 

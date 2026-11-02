@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   MapPin, Star, Users, Home, Layers,
-  ChevronDown, X, Sparkles
+  X, Sparkles
 } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { getCurrentUser, setCurrentUserStorage } from '../../../lib/currentUser'
@@ -250,7 +250,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       // '내 지도에도 저장' 을 체크했으면 개인 장소로도 저장한다 (팀 등록은 이미 성공)
       if (newPinData.syncToPersonal) {
         try {
-          const personal = await createPersonalPinApi({ ...newPinData, isPublic: false })
+          const personal = await createPersonalPinApi({ ...newPinData, isPublic: true })
           setPersonalPins(prev => [personal, ...prev])
         } catch {
           setError('모임에는 저장했지만 내 지도에는 저장하지 못했습니다.')
@@ -395,19 +395,6 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       {/* 2. 상단 플로팅 헤더 (팀 선택 + 검색 + 카테고리 바) */}
       <div className={styles.floatingTop}>
         <div className={styles.topCard}>
-          {/* 모임 전환 버튼 */}
-          <button
-            className={`${styles.teamSwitchBtn} ${styles.touchArea}`}
-            onClick={() => handleTabChange('teams')}
-            title="모임 변경"
-          >
-            <span className={styles.teamBadgeDot}>📍</span>
-            <span className={styles.teamTitle}>
-              {mapScope === 'personal' ? '내 지도' : (currentTeam?.name || '모임 선택')}
-            </span>
-            <ChevronDown size={14} className={styles.teamArrow} />
-          </button>
-
           {/* 검색: 지금 보는 지도(모임 또는 내 지도)의 장소 + 상호명·주소 */}
           <TopSearch
             pins={scopePins}

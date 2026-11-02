@@ -77,7 +77,8 @@ public class PersonalPlaceController {
 		Double lat = ParamUtil.dbl(param, "lat");
 		Double lng = ParamUtil.dbl(param, "lng");
 		String memo = ParamUtil.str(param, "memo");
-		boolean isPublic = Boolean.TRUE.equals(param.get("isPublic"));
+		// 기본 공개. 클라이언트가 false 로 명시했을 때만 비공개
+		boolean isPublic = !Boolean.FALSE.equals(param.get("isPublic"));
 
 		if (name.isEmpty() || name.length() > NAME_MAX) {
 			return Response.invalid("장소 이름은 100자 이하로 입력해주세요.");
