@@ -516,6 +516,18 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           )}
         </div>
         </div>
+
+        {/* 대기 중인 친구 요청이 있으면 지도 위에 바로 보여준다 */}
+        {friendPendingCount > 0 && (
+          <button
+            className={styles.friendRequestBanner}
+            onClick={() => { setShowListPanel(false); setShowFriendPanel(true) }}
+          >
+            <Users size={14} />
+            <span>친구 요청 {friendPendingCount}건</span>
+            <span className={styles.friendRequestAction}>확인</span>
+          </button>
+        )}
       </div>
 
       {/* 친구 (지도 우측 상단 고정) */}
