@@ -207,11 +207,11 @@
   display: flex;
 }
 
-/* 지도 우측 원형 버튼 (친구·레이어) */
-.friendBtn,
+/* 지도 우측 원형 버튼 (내 지도 레이어) */
 .layerBtn {
   position: absolute;
   right: 14px;
+  top: 124px;
   z-index: 22;
   width: 44px;
   height: 44px;
@@ -229,8 +229,6 @@
   transition: all var(--transition);
 }
 
-.friendBtn { top: 124px; }
-.layerBtn { top: 178px; }
 
 /* 친구 요청 배너 (지도 상단, 대기 중인 요청이 있을 때) */
 .friendRequestBanner {
@@ -266,19 +264,16 @@
   .hideOnNarrow { display: none; }
 }
 
-.friendBtn:hover,
 .layerBtn:hover {
   background: var(--bg-hover);
   color: var(--primary-light);
 }
 
-.friendBtn:active,
 .layerBtn:active {
   transform: scale(0.94);
 }
 
 /* 켜져 있을 때 (친구 패널 열림 / 레이어 표시 중) */
-.friendBtnActive,
 .layerBtnActive {
   color: var(--primary-light);
   border-color: rgba(108, 99, 255, 0.65);

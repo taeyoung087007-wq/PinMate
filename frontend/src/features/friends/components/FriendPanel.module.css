@@ -1,14 +1,15 @@
 .panel {
   position: absolute;
-  top: 144px;
-  /* 우측 원형 버튼(친구·레이어) 열을 비켜 왼쪽에 둔다 */
+  top: 176px;
+  /* 우측 원형 버튼(레이어) 열을 비켜 왼쪽에 둔다 */
   right: 74px;
   width: 360px;
   max-width: calc(100% - 32px);
-  max-height: calc(100% - 160px - var(--bottom-nav-h));
+  max-height: calc(100% - 192px - var(--bottom-nav-h));
   display: flex;
   flex-direction: column;
-  z-index: 21;
+  /* 상단 검색·필터·배너(z-index 25)보다 위에 있어 가리지 않는다 */
+  z-index: 26;
   overflow: hidden;
   border-radius: var(--radius-xl) !important;
 }
@@ -59,6 +60,41 @@
   border-radius: var(--radius-full);
   font-size: 11px;
   font-weight: 600;
+}
+
+/* 받은 요청 고정 영역 (검색창 위) */
+.requests {
+  flex-shrink: 0;
+  margin: 8px 12px 0;
+  padding: 8px 4px 6px;
+  border-radius: var(--radius-md);
+  background: rgba(108, 99, 255, 0.14);
+  border: 1px solid rgba(108, 99, 255, 0.4);
+}
+
+.requestsLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 12px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-light);
+  letter-spacing: 0.04em;
+}
+
+.requestsCount {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .searchBar {

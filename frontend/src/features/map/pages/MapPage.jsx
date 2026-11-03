@@ -538,26 +538,6 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         )}
       </div>
 
-      {/* 친구 (지도 우측 상단 고정) */}
-      <button
-        className={`${styles.friendBtn} ${showFriendPanel ? styles.friendBtnActive : ''} ${showFriendPanel ? styles.hideOnNarrow : ''}`}
-        onClick={() => {
-          setShowListPanel(false)
-          if (showFriendPanel) {
-            setShowFriendPanel(false)
-            setActiveTab('map')
-          } else {
-            setShowFriendPanel(true)
-            setActiveTab('friends')
-          }
-        }}
-        aria-pressed={showFriendPanel}
-        title="친구"
-      >
-        <Users size={18} />
-        {friendPendingCount > 0 && <span className={styles.layerCount}>{friendPendingCount}</span>}
-      </button>
-
       {/* 내 지도 공개 핀 레이어 토글 (모임 지도에서만, 공개 핀이 있을 때) */}
       {mapScope === 'team' && publicPersonalPins.length > 0 && (
         <button

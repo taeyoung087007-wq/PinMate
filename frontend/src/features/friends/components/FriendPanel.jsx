@@ -152,6 +152,26 @@ export default function FriendPanel({ onClose }) {
         </button>
       </div>
 
+      {/* 받은 요청은 검색창 위에 고정해 항상 먼저 보이게 한다 */}
+      {!loading && results === null && overview.incoming.length > 0 && (
+        <div className={styles.requests}>
+          <div className={styles.requestsLabel}>
+            받은 요청
+            <span className={styles.requestsCount}>{overview.incoming.length}</span>
+          </div>
+          {overview.incoming.map(person => (
+            <PersonRow key={person.id} person={person}>
+              <button className={styles.acceptBtn} disabled={busyId === person.id} onClick={() => runAction(person.id, acceptFriendRequest)}>
+                <Check size={13} />수락
+              </button>
+              <button className={styles.ghostBtn} disabled={busyId === person.id} onClick={() => runAction(person.id, removeFriend)}>
+                거절
+              </button>
+            </PersonRow>
+          ))}
+        </div>
+      )}
+
       <form className={styles.searchBar} onSubmit={handleSearch}>
         <Search size={13} color="var(--text-muted)" />
         <input
@@ -187,22 +207,6 @@ export default function FriendPanel({ onClose }) {
           </>
         ) : (
           <>
-            {overview.incoming.length > 0 && (
-              <>
-                <div className={styles.groupLabel}>받은 요청 ({overview.incoming.length})</div>
-                {overview.incoming.map(person => (
-                  <PersonRow key={person.id} person={person}>
-                    <button className={styles.acceptBtn} disabled={busyId === person.id} onClick={() => runAction(person.id, acceptFriendRequest)}>
-                      <Check size={13} />수락
-                    </button>
-                    <button className={styles.ghostBtn} disabled={busyId === person.id} onClick={() => runAction(person.id, removeFriend)}>
-                      거절
-                    </button>
-                  </PersonRow>
-                ))}
-              </>
-            )}
-
             <div className={styles.groupLabel}>내 친구 ({overview.friends.length})</div>
             {overview.friends.length === 0 ? (
               <p className={styles.notice}>아직 친구가 없습니다. 위에서 아이디로 찾아보세요.</p>
