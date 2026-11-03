@@ -13,10 +13,24 @@ import styles from './FriendPanel.module.css'
 const avatarChar = person => (person.nickname || person.loginId || '?').slice(0, 1)
 const displayName = person => person.nickname || person.loginId || '사용자'
 
+// 밝은 배경(#ffffff 등)에는 흰 글씨가 안 보이므로 배경 밝기에 따라 글자색을 고른다
+function isLightColor(hex) {
+  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex)) return false
+  const n = parseInt(hex.slice(1), 16)
+  const r = (n >> 16) & 255
+  const g = (n >> 8) & 255
+  const b = n & 255
+  return 0.299 * r + 0.587 * g + 0.114 * b > 160
+}
+
 function PersonRow({ person, children }) {
+  const light = isLightColor(person.avatarBg)
   return (
     <div className={styles.row}>
-      <span className={styles.avatar} style={{ background: person.avatarBg || 'var(--primary)' }}>
+      <span
+        className={styles.avatar}
+        style={{ background: person.avatarBg || 'var(--primary)', color: light ? '#1a1a2e' : '#fff' }}
+      >
         {avatarChar(person)}
       </span>
       <div className={styles.info}>
