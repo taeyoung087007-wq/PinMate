@@ -29,6 +29,8 @@ export const CODE = {
 export async function send(path, options = {}) {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
+    // GET 응답을 브라우저가 캐시하면 친구 요청처럼 자주 바뀌는 값이 옛날 값으로 남는다
+    cache: 'no-store',
     // 서버는 이 헤더와 JSON 본문이 없는 POST 를 거절한다 (다른 사이트의 폼 전송 차단)
     headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', ...options.headers },
   })
