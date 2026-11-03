@@ -520,7 +520,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
 
       {/* 친구 (지도 우측 상단 고정) */}
       <button
-        className={`${styles.friendBtn} ${showFriendPanel ? styles.friendBtnActive : ''}`}
+        className={`${styles.friendBtn} ${showFriendPanel ? styles.friendBtnActive : ''} ${showFriendPanel ? styles.hideOnNarrow : ''}`}
         onClick={() => { setShowListPanel(false); setShowFriendPanel(v => !v) }}
         aria-pressed={showFriendPanel}
         title="친구"
@@ -532,7 +532,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       {/* 내 지도 공개 핀 레이어 토글 (모임 지도에서만, 공개 핀이 있을 때) */}
       {mapScope === 'team' && publicPersonalPins.length > 0 && (
         <button
-          className={`${styles.layerBtn} ${showOverlay ? styles.layerBtnActive : ''}`}
+          className={`${styles.layerBtn} ${showOverlay ? styles.layerBtnActive : ''} ${showFriendPanel ? styles.hideOnNarrow : ''}`}
           onClick={() => setShowOverlay(v => !v)}
           aria-pressed={showOverlay}
           title={showOverlay ? '내 지도 핀 숨기기' : '내 지도 핀 보기'}

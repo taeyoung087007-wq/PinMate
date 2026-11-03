@@ -232,6 +232,11 @@
 .friendBtn { top: 124px; }
 .layerBtn { top: 178px; }
 
+/* 좁은 화면에서 친구 패널이 열리면 우측 버튼은 패널에 가리므로 숨긴다 */
+@media (max-width: 520px) {
+  .hideOnNarrow { display: none; }
+}
+
 .friendBtn:hover,
 .layerBtn:hover {
   background: var(--bg-hover);

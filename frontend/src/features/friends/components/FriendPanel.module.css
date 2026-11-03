@@ -1,7 +1,8 @@
 .panel {
   position: absolute;
   top: 144px;
-  right: 16px;
+  /* 우측 원형 버튼(친구·레이어) 열을 비켜 왼쪽에 둔다 */
+  right: 74px;
   width: 360px;
   max-width: calc(100% - 32px);
   max-height: calc(100% - 160px - var(--bottom-nav-h));
@@ -229,4 +230,13 @@
   color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.6;
+}
+
+/* 좁은 화면에서는 패널이 화면을 거의 다 쓰고, 우측 버튼은 숨긴다(패널 X 로 닫음) */
+@media (max-width: 520px) {
+  .panel {
+    right: 16px;
+    left: 16px;
+    width: auto;
+  }
 }
