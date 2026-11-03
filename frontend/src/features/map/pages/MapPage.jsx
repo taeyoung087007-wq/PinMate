@@ -210,6 +210,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   // 친구 패널을 닫으면서 배지를 다시 읽는다 (패널에서 수락·끊기를 했을 수 있다)
   const closeFriendPanel = () => {
     setShowFriendPanel(false)
+    setActiveTab(tab => (tab === 'friends' ? 'map' : tab))
     fetchFriends()
       .then(data => setFriendPendingCount(data.pendingCount ?? 0))
       .catch(() => {})
@@ -374,16 +375,23 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     if (tabId === 'map') {
       setShowTeamDrawer(false)
       setShowListPanel(false)
+      setShowFriendPanel(false)
     } else if (tabId === 'teams') {
       setShowListPanel(false)
+      setShowFriendPanel(false)
       setShowTeamDrawer(true)
     } else if (tabId === 'places') {
       setShowTeamDrawer(false)
       setShowFriendPanel(false)
       setShowListPanel(true)
+    } else if (tabId === 'friends') {
+      setShowTeamDrawer(false)
+      setShowListPanel(false)
+      setShowFriendPanel(true)
     } else if (tabId === 'settings') {
       setShowTeamDrawer(false)
       setShowListPanel(false)
+      setShowFriendPanel(false)
       setSelectedPin(null)
     }
   }
@@ -521,7 +529,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         {friendPendingCount > 0 && (
           <button
             className={styles.friendRequestBanner}
-            onClick={() => { setShowListPanel(false); setShowFriendPanel(true) }}
+            onClick={() => { setShowListPanel(false); setShowFriendPanel(true); setActiveTab('friends') }}
           >
             <Users size={14} />
             <span>친구 요청 {friendPendingCount}건</span>
@@ -533,7 +541,16 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       {/* 친구 (지도 우측 상단 고정) */}
       <button
         className={`${styles.friendBtn} ${showFriendPanel ? styles.friendBtnActive : ''} ${showFriendPanel ? styles.hideOnNarrow : ''}`}
-        onClick={() => { setShowListPanel(false); setShowFriendPanel(v => !v) }}
+        onClick={() => {
+          setShowListPanel(false)
+          if (showFriendPanel) {
+            setShowFriendPanel(false)
+            setActiveTab('map')
+          } else {
+            setShowFriendPanel(true)
+            setActiveTab('friends')
+          }
+        }}
         aria-pressed={showFriendPanel}
         title="친구"
       >
@@ -662,6 +679,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         onTabChange={handleTabChange}
         placeCount={filteredPins.length}
         teamCount={teams.length}
+        friendCount={friendPendingCount}
       />
     </div>
   )
