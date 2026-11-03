@@ -265,6 +265,31 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
 
   const clearFriendOverlays = () => setFriendOverlays([])
 
+  // 친구 지도에서 본 핀을 내 지도에 추가한다 (공개로 저장)
+  const handleAddFriendPinToMyMap = async pin => {
+    if (personalPins.some(p => isSamePlace(p, pin))) {
+      setError('이미 내 지도에 있는 장소예요.')
+      return
+    }
+    try {
+      const saved = await createPersonalPinApi({
+        name: pin.name,
+        category: pin.category,
+        address: pin.address,
+        roadAddress: pin.roadAddress,
+        lat: pin.lat,
+        lng: pin.lng,
+        memo: pin.memo,
+        isPublic: true,
+        source: 'search',
+      })
+      setPersonalPins(prev => [saved, ...prev])
+      setSelectedPin(saved)   // 내 핀으로 바뀌어 '내가 저장한 장소'로 확인된다
+    } catch (e) {
+      setError(`내 지도에 추가하지 못했습니다: ${e.message}`)
+    }
+  }
+
   // 친구 레이어 모두 선택 (아직 안 켠 친구만 불러와서 더한다)
   const handleSelectAllFriends = async () => {
     const missing = friends.filter(f => !friendOverlays.some(o => String(o.friend.id) === String(f.id)))
@@ -644,6 +669,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           personal={Boolean(selectedPin?.personal)}
           ownerName={selectedPin?.owner}
           overlay={Boolean(selectedPin?.personal) && !selectedPin?.owner && mapScope === 'team'}
+          onAddToMyMap={selectedPin?.owner ? () => handleAddFriendPinToMyMap(selectedPin) : undefined}
+          alreadyAdded={selectedPin?.owner ? personalPins.some(p => isSamePlace(p, selectedPin)) : false}
           onClose={() => setSelectedPin(null)}
           onRecommend={selectedPin?.personal ? undefined : () => handleRecommend(selectedPin.id)}
           onUpdate={selectedPin?.owner ? undefined : handleUpdatePin}

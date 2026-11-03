@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { usePanelDrag } from '../../../lib/usePanelDrag'
-import { X, MapPin, Star, Check, ExternalLink, Clock, Pencil, Trash2, Save, Navigation } from 'lucide-react'
+import { X, MapPin, Star, Check, ExternalLink, Clock, Pencil, Trash2, Save, Navigation, Plus } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { isMajority, memberRecommendCount } from '../consensus'
 import { getCurrentUser } from '../../../lib/currentUser'
@@ -31,6 +31,8 @@ export default function PinDetailPanel({
   personal = false,
   overlay = false,
   ownerName,
+  onAddToMyMap,
+  alreadyAdded = false,
   onClose,
   onRecommend,
   onUpdate,
@@ -310,6 +312,18 @@ export default function PinDetailPanel({
 
           {/* 액션 버튼들 */}
           <div className={styles.actions}>
+            {/* 친구 지도 핀은 읽기 전용 — 내 지도에 추가할 수 있다 */}
+            {personal && ownerName && onAddToMyMap && (
+              <button
+                className="btn btn-primary"
+                onClick={onAddToMyMap}
+                disabled={alreadyAdded}
+                style={{ flex: 1 }}
+              >
+                <Plus size={15} />
+                {alreadyAdded ? '내 지도에 있음' : '내 지도에 추가'}
+              </button>
+            )}
             {!personal && (
               <button
                 className={`btn ${isMeRecommended ? 'btn-danger' : 'btn-primary'} ${styles.recommendBtn}`}
