@@ -55,9 +55,12 @@ function createPinElement({ pin, meta, memberColor, majority, isSelected }) {
 
 /** 내 지도 공개 핀: 기본 핀과 구분되게 점선 테두리 + '내 지도' 태그를 붙인다 */
 function createOverlayPinElement({ pin, meta }) {
+  const isFriend = Boolean(pin.owner)
+  const tagText = pin.overlayTag || (isFriend ? pin.owner : '내 지도')
+
   const wrap = document.createElement('div')
-  wrap.className = `${styles.pinWrap} ${styles.pinWrapPersonal}`
-  wrap.title = `${pin.name} (내 지도 · 공개)`
+  wrap.className = `${styles.pinWrap} ${isFriend ? styles.pinWrapFriend : styles.pinWrapPersonal}`
+  wrap.title = `${pin.name} (${tagText})`
 
   const body = document.createElement('div')
   body.className = styles.pinBody
@@ -69,8 +72,8 @@ function createOverlayPinElement({ pin, meta }) {
   label.textContent = pin.name
 
   const tag = document.createElement('span')
-  tag.className = styles.personalTag
-  tag.textContent = '내 지도'
+  tag.className = isFriend ? styles.friendTag : styles.personalTag
+  tag.textContent = tagText
 
   wrap.append(body, label, tag)
   return wrap

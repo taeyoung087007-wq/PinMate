@@ -17,3 +17,7 @@ export const acceptFriendRequest = (userId) =>
 /** 거절·요청 취소·끊기 (방향 무관) */
 export const removeFriend = (userId) =>
   request(`/friends/${encodeURIComponent(userId)}`, { method: 'DELETE' })
+
+/** 친구가 공개한 개인 장소 (내 지도 위 오버레이) */
+export const fetchFriendPlaces = (friendId) =>
+  request(`/friends/${encodeURIComponent(friendId)}/places`)

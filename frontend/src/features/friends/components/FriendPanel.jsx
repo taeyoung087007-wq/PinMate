@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { X, Search, Users, UserPlus, Check } from 'lucide-react'
+import { X, Search, Users, UserPlus, Check, MapPin } from 'lucide-react'
 import { usePanelDrag } from '../../../lib/usePanelDrag'
 import {
   fetchFriends,
@@ -46,7 +46,7 @@ function PersonRow({ person, children }) {
  * 친구 패널 (지도 우측 시트)
  * - 받은 요청 수락/거절, 친구 끊기, 아이디·닉네임 검색으로 친구 맺기
  */
-export default function FriendPanel({ onClose }) {
+export default function FriendPanel({ onClose, onViewFriend }) {
   // 우측 사이드 시트: 그랩 핸들을 오른쪽으로 쓸면 닫는다
   const { panelRef, handleRef } = usePanelDrag(onClose, { axis: 'x', sign: 1 })
 
@@ -213,6 +213,9 @@ export default function FriendPanel({ onClose }) {
             ) : (
               overview.friends.map(person => (
                 <PersonRow key={person.id} person={person}>
+                  <button className={styles.mapBtn} onClick={() => onViewFriend?.(person)} title="내 지도에 겹쳐 보기">
+                    <MapPin size={13} />지도
+                  </button>
                   <button className={styles.ghostBtn} disabled={busyId === person.id} onClick={() => handleUnfriend(person)}>
                     끊기
                   </button>

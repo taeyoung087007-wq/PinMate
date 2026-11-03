@@ -63,4 +63,9 @@ public class FriendDAO {
 	public int countIncoming(Long userId) {
 		return sqlSession.selectOne(FriendDAO.SQL_PATH + ".countIncoming", userId);
 	}
+
+	// 친구가 공개한 개인 장소 목록 (지도 오버레이용)
+	public List<Map<String, Object>> selectPublicPlaces(Long userId) {
+		return sqlSession.selectList(FriendDAO.SQL_PATH + ".selectPublicPlaces", userId);
+	}
 }

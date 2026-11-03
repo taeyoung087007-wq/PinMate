@@ -120,6 +120,33 @@
   box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.3), 0 3px 12px rgba(0, 0, 0, 0.4);
 }
 
+/* 친구 지도 오버레이 핀: 파란 테두리로 내 핀과 구분 */
+.pinWrapFriend {
+  transform: translate(10px, -12px);
+}
+
+.pinWrapFriend .pinBody {
+  border-style: solid;
+  border-color: #7fd4ff;
+  box-shadow: 0 0 0 3px rgba(64, 196, 255, 0.3), 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* 친구 지도 핀 위 태그 */
+.friendTag {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #2b7fff;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 /* 오버레이 핀 위 '내 지도' 태그 */
 .personalTag {
   position: absolute;

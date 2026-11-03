@@ -30,6 +30,7 @@ export default function PinDetailPanel({
   members,
   personal = false,
   overlay = false,
+  ownerName,
   onClose,
   onRecommend,
   onUpdate,
@@ -46,11 +47,12 @@ export default function PinDetailPanel({
   // 로그인 직후에도 최신 값을 쓰도록 렌더 시점에 읽는다 (모듈 상수는 로그인 전 값으로 고정된다)
   const me = getCurrentUser()
   const myMember = members.find(m => m.id === me.loginId)
-  const isMeRecommended = pin.recommenders.includes(myMember?.id ?? me.loginId)
+  const recommenders = pin.recommenders ?? []   // 친구 지도 핀은 추천 개념이 없어 비어 있을 수 있다
+  const isMeRecommended = recommenders.includes(myMember?.id ?? me.loginId)
   const createdAtText = formatCreatedAt(pin.createdAt)
   const recommendCount = memberRecommendCount(pin, members)
   // 한 줄 추천평은 등록자의 추천에 붙는다. 등록자가 아직 추천하지 않았으면 고칠 추천평이 없다
-  const creatorRecommended = pin.recommenders.includes(pin.addedBy)
+  const creatorRecommended = recommenders.includes(pin.addedBy)
 
   // 등록자 본인 또는 팀 owner 만 수정·삭제할 수 있다 (서버에서도 같은 규칙으로 검사한다)
   const canEdit = Boolean(onUpdate || onDelete) &&
@@ -247,7 +249,7 @@ export default function PinDetailPanel({
               </div>
               <div className={styles.recommenders}>
                 {members.map(m => {
-                  const didRecommend = pin.recommenders.includes(m.id)
+                  const didRecommend = recommenders.includes(m.id)
                   return (
                     <div
                       key={m.id}
@@ -267,11 +269,15 @@ export default function PinDetailPanel({
           {/* 최초 등록자 정보 */}
           <div className={styles.addedBy}>
             {personal
-              ? <div className={styles.addedByAvatar} style={{ background: 'var(--primary)' }}>나</div>
+              ? <div className={styles.addedByAvatar} style={{ background: 'var(--primary)' }}>{(ownerName || '나').slice(0, 1)}</div>
               : (addedByMember
                 ? <MemberAvatar member={addedByMember} className={styles.addedByAvatar} />
                 : <div className={styles.addedByAvatar} style={{ background: 'var(--primary)' }}>팀</div>)}
-            <span>{personal ? '내가 저장한 장소' : `${addedByMember?.nickname || '팀원'}님이 처음 등록`}</span>
+            <span>
+              {personal
+                ? (ownerName ? `${ownerName}님이 저장한 장소` : '내가 저장한 장소')
+                : `${addedByMember?.nickname || '팀원'}님이 처음 등록`}
+            </span>
             {createdAtText && (
               <span className={styles.addedByDate}>
                 <Clock size={11} />

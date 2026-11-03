@@ -98,6 +98,52 @@ public class FriendServiceImpl implements FriendService {
 		return friendDAO.deleteRelation(ParamUtil.map("a", userId, "b", otherId)) > 0;
 	}
 
+	@Override
+	@Transactional(readOnly = true)
+	public List<Map<String, Object>> selectFriendPlaces(Long userId, Long friendId) throws Exception {
+		if (friendId == null || userId.equals(friendId)) return null;
+
+		Map<String, Object> relation = friendDAO.selectRelation(ParamUtil.map("a", userId, "b", friendId));
+		if (relation == null || !"accepted".equals(relation.get("status"))) return null;
+
+		List<Map<String, Object>> list = new ArrayList<>();
+		for (Map<String, Object> row : friendDAO.selectPublicPlaces(friendId)) {
+			Map<String, Object> item = new HashMap<>();
+			// 팀 핀 id 와 섞이지 않도록 접두어를 붙인다
+			item.put("id", "f-" + row.get("personal_place_id"));
+			item.put("name", row.get("name"));
+			item.put("category", toFrontendCategory((String) row.get("category")));
+			item.put("address", row.get("address"));
+			item.put("roadAddress", row.get("road_address"));
+			item.put("lat", toDouble(row.get("latitude")));
+			item.put("lng", toDouble(row.get("longitude")));
+			item.put("memo", row.get("memo"));
+			item.put("owner", row.get("nickname"));
+			item.put("ownerLoginId", row.get("login_id"));
+			item.put("ownerColor", row.get("avatar_bg"));
+			item.put("personal", true);
+			item.put("isPublic", true);
+			list.add(item);
+		}
+		return list;
+	}
+
+	private Double toDouble(Object v) {
+		return (v == null) ? null : ((Number) v).doubleValue();
+	}
+
+	// DB 카테고리 → 프론트 카테고리 (PersonalPlaceServiceImpl 과 같은 규칙)
+	private static String toFrontendCategory(String cat) {
+		if (cat == null) return "etc";
+		return switch (cat.toLowerCase().trim()) {
+			case "restaurant" -> "food";
+			case "bar" -> "drink";
+			case "attraction" -> "sight";
+			case "activity" -> "play";
+			default -> cat.toLowerCase().trim();
+		};
+	}
+
 	// 화면이 그대로 쓸 수 있는 사용자 항목. timeKey 가 있으면 그 시각을 timeOutKey 로 내려준다
 	private Map<String, Object> toItem(Map<String, Object> row, String timeKey, String timeOutKey) {
 		Map<String, Object> item = new HashMap<>();
