@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pinmate.friend.dao.FriendDAO">
+
+	<!-- 수락된 친구. 나와 상대 중 누가 requester 인지는 상관없이 상대 유저를 꺼낸다 -->
+	<select id="selectFriends" parameterType="long" resultType="java.util.HashMap">
+		SELECT u.user_id,
+		       u.login_id,
+		       u.nickname,
+		       u.avatar_id,
+		       u.avatar_bg,
+		       f.accepted_at
+		  FROM friendships f
+		  JOIN users u
+		    ON u.user_id = CASE WHEN f.requester_id = #{userId} THEN f.addressee_id ELSE f.requester_id END
+		 WHERE f.status = 'accepted'
+		   AND (f.requester_id = #{userId} OR f.addressee_id = #{userId})
+		 ORDER BY f.accepted_at DESC NULLS LAST
+	</select>
+
+	<!-- 나에게 온 요청 (보낸 사람 정보) -->
+	<select id="selectIncoming" parameterType="long" resultType="java.util.HashMap">
+		SELECT u.user_id,
+		       u.login_id,
+		       u.nickname,
+		       u.avatar_id,
+		       u.avatar_bg,
+		       f.created_at
+		  FROM friendships f
+		  JOIN users u ON u.user_id = f.requester_id
+		 WHERE f.addressee_id = #{userId}
+		   AND f.status = 'pending'
+		 ORDER BY f.created_at DESC
+	</select>
+
+	<!-- 내가 보낸 요청 (받는 사람 정보) -->
+	<select id="selectOutgoing" parameterType="long" resultType="java.util.HashMap">
+		SELECT u.user_id,
+		       u.login_id,
+		       u.nickname,
+		       u.avatar_id,
+		       u.avatar_bg,
+		       f.created_at
+		  FROM friendships f
+		  JOIN users u ON u.user_id = f.addressee_id
+		 WHERE f.requester_id = #{userId}
+		   AND f.status = 'pending'
+		 ORDER BY f.created_at DESC
+	</select>
+
+	<select id="selectUserById" parameterType="long" resultType="java.util.HashMap">
+		SELECT user_id, login_id, nickname, avatar_id, avatar_bg
+		  FROM users
+		 WHERE user_id = #{userId} AND status = 'active'
+	</select>
+
+	<!-- 두 사람 사이의 관계 한 행 (방향 무관). param: a, b -->
+	<select id="selectRelation" parameterType="map" resultType="java.util.HashMap">
+		SELECT requester_id, addressee_id, status
+		  FROM friendships
+		 WHERE (requester_id = #{a} AND addressee_id = #{b})
+		    OR (requester_id = #{b} AND addressee_id = #{a})
+		 LIMIT 1
+	</select>
+
+	<!-- param: requesterId, addresseeId. 이미 관계가 있으면 아무 것도 하지 않는다 -->
+	<insert id="insertRequest" parameterType="map">
+		INSERT INTO friendships (requester_id, addressee_id, status, created_at)
+		VALUES (#{requesterId}, #{addresseeId}, 'pending', now())
+		ON CONFLICT DO NOTHING
+	</insert>
+
+	<!-- param: requesterId, addresseeId -->
+	<update id="acceptRequest" parameterType="map">
+		UPDATE friendships
+		   SET status = 'accepted', accepted_at = now()
+		 WHERE requester_id = #{requesterId}
+		   AND addressee_id = #{addresseeId}
+		   AND status = 'pending'
+	</update>
+
+	<!-- 거절·요청 취소·끊기 모두 이 한 번으로 처리한다 (param: a, b) -->
+	<delete id="deleteRelation" parameterType="map">
+		DELETE FROM friendships
+		 WHERE (requester_id = #{a} AND addressee_id = #{b})
+		    OR (requester_id = #{b} AND addressee_id = #{a})
+	</delete>
+
+	<!-- 아이디·닉네임 검색. param: meId, q(이미 % 를 붙인 값). 관계 상태와 방향도 함께 -->
+	<select id="searchUsers" parameterType="map" resultType="java.util.HashMap">
+		SELECT u.user_id,
+		       u.login_id,
+		       u.nickname,
+		       u.avatar_id,
+		       u.avatar_bg,
+		       f.status,
+		       CASE WHEN f.requester_id = #{meId} THEN 'outgoing'
+		            WHEN f.addressee_id = #{meId} THEN 'incoming'
+		       END AS direction
+		  FROM users u
+		  LEFT JOIN friendships f
+		    ON (f.requester_id = u.user_id AND f.addressee_id = #{meId})
+		    OR (f.addressee_id = u.user_id AND f.requester_id = #{meId})
+		 WHERE u.user_id &lt;&gt; #{meId}
+		   AND u.status = 'active'
+		   AND (lower(u.login_id) LIKE lower(#{q}) OR u.nickname ILIKE #{q})
+		 ORDER BY u.nickname ASC
+		 LIMIT 20
+	</select>
+
+	<select id="countIncoming" parameterType="long" resultType="int">
+		SELECT COUNT(*)
+		  FROM friendships
+		 WHERE addressee_id = #{userId} AND status = 'pending'
+	</select>
+</mapper>

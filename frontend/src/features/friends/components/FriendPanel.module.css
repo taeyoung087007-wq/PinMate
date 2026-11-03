@@ -1,0 +1,278 @@
+.panel {
+  position: absolute;
+  top: 176px;
+  /* 우측 원형 버튼(레이어) 열을 비켜 왼쪽에 둔다 */
+  right: 74px;
+  width: 360px;
+  max-width: calc(100% - 32px);
+  max-height: calc(100% - 192px - var(--bottom-nav-h));
+  display: flex;
+  flex-direction: column;
+  /* 상단 검색·필터·배너(z-index 25)보다 위에 있어 가리지 않는다 */
+  z-index: 26;
+  overflow: hidden;
+  border-radius: var(--radius-xl) !important;
+}
+
+.dragStrip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+.dragStrip:active {
+  cursor: grabbing;
+}
+
+.grabber {
+  width: 36px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.count {
+  background: var(--primary-glow);
+  color: var(--primary-light);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* 받은 요청 고정 영역 (검색창 위) */
+.requests {
+  flex-shrink: 0;
+  margin: 8px 12px 0;
+  padding: 8px 4px 6px;
+  border-radius: var(--radius-md);
+  background: rgba(108, 99, 255, 0.14);
+  border: 1px solid rgba(108, 99, 255, 0.4);
+}
+
+.requestsLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 12px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-light);
+  letter-spacing: 0.04em;
+}
+
+.requestsCount {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 12px 16px 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+
+.searchBar:focus-within {
+  border-color: rgba(108, 99, 255, 0.55);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-base);
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: var(--text-muted);
+}
+
+.clearBtn {
+  display: flex;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.error {
+  margin: 0 16px 6px;
+  color: #ff8a95;
+  font-size: 12px;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+
+.groupLabel {
+  padding: 10px 16px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nickname {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loginId {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.addBtn,
+.acceptBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-base);
+  cursor: pointer;
+}
+
+.addBtn {
+  background: var(--primary);
+  color: #fff;
+}
+
+.addBtn:disabled,
+.acceptBtn:disabled,
+.ghostBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.acceptBtn {
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #6ee7a8;
+}
+
+.ghostBtn {
+  padding: 6px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: var(--font-base);
+  cursor: pointer;
+}
+
+.ghostBtn:hover {
+  background: var(--bg-hover);
+}
+
+.state {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.notice {
+  padding: 8px 16px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* 좁은 화면에서는 패널이 화면을 거의 다 쓰고, 우측 버튼은 숨긴다(패널 X 로 닫음) */
+@media (max-width: 520px) {
+  .panel {
+    right: 16px;
+    left: 16px;
+    width: auto;
+  }
+}

@@ -31,6 +31,8 @@ import BottomNav from '../../../components/BottomNav/BottomNav'
 import TeamDrawer from '../../teams/components/TeamDrawer'
 import TeamCreateModal from '../../teams/components/TeamCreateModal'
 import SettingsPage from '../../auth/pages/SettingsPage'
+import FriendPanel from '../../friends/components/FriendPanel'
+import { fetchFriends } from '../../friends/api'
 import styles from './MapPage.module.css'
 
 /** 카테고리 필터 목록 */
@@ -77,6 +79,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const [personalPins, setPersonalPins] = useState([])
   const [personalLoadState, setPersonalLoadState] = useState('idle') // 'idle' | 'loading' | 'ready' | 'error'
   const [showOverlay, setShowOverlay] = useState(true) // 모임 지도 위에 내 공개 핀을 겹쳐 볼지
+  const [showFriendPanel, setShowFriendPanel] = useState(false)
+  const [friendPendingCount, setFriendPendingCount] = useState(0) // 받은 친구 요청 수 (배지)
 
   // UI 제어 상태
   const [activeTab, setActiveTab] = useState('map')
@@ -152,6 +156,15 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       })
   }, [])
 
+  // 4. 받은 친구 요청 수는 앱을 열 때 한 번 불러 배지로 보여준다
+  useEffect(() => {
+    let cancelled = false
+    fetchFriends()
+      .then(data => { if (!cancelled) setFriendPendingCount(data.pendingCount ?? 0) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
   // 지금 보고 있는 지도의 핀 (내 지도면 개인 장소, 아니면 선택한 모임의 핀)
   const scopePins = mapScope === 'personal' ? personalPins : pins
 
@@ -192,6 +205,15 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const closePlaceList = () => {
     setShowListPanel(false)
     setActiveTab(tab => tab === 'places' ? 'map' : tab)
+  }
+
+  // 친구 패널을 닫으면서 배지를 다시 읽는다 (패널에서 수락·끊기를 했을 수 있다)
+  const closeFriendPanel = () => {
+    setShowFriendPanel(false)
+    setActiveTab(tab => (tab === 'friends' ? 'map' : tab))
+    fetchFriends()
+      .then(data => setFriendPendingCount(data.pendingCount ?? 0))
+      .catch(() => {})
   }
 
   // 새 모임 생성 완료 핸들러
@@ -353,15 +375,23 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     if (tabId === 'map') {
       setShowTeamDrawer(false)
       setShowListPanel(false)
+      setShowFriendPanel(false)
     } else if (tabId === 'teams') {
       setShowListPanel(false)
+      setShowFriendPanel(false)
       setShowTeamDrawer(true)
     } else if (tabId === 'places') {
       setShowTeamDrawer(false)
+      setShowFriendPanel(false)
       setShowListPanel(true)
+    } else if (tabId === 'friends') {
+      setShowTeamDrawer(false)
+      setShowListPanel(false)
+      setShowFriendPanel(true)
     } else if (tabId === 'settings') {
       setShowTeamDrawer(false)
       setShowListPanel(false)
+      setShowFriendPanel(false)
       setSelectedPin(null)
     }
   }
@@ -494,12 +524,24 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           )}
         </div>
         </div>
+
+        {/* 대기 중인 친구 요청이 있으면 지도 위에 바로 보여준다 */}
+        {friendPendingCount > 0 && (
+          <button
+            className={styles.friendRequestBanner}
+            onClick={() => { setShowListPanel(false); setShowFriendPanel(true); setActiveTab('friends') }}
+          >
+            <Users size={14} />
+            <span>친구 요청 {friendPendingCount}건</span>
+            <span className={styles.friendRequestAction}>확인</span>
+          </button>
+        )}
       </div>
 
       {/* 내 지도 공개 핀 레이어 토글 (모임 지도에서만, 공개 핀이 있을 때) */}
       {mapScope === 'team' && publicPersonalPins.length > 0 && (
         <button
-          className={`${styles.layerBtn} ${showOverlay ? styles.layerBtnActive : ''}`}
+          className={`${styles.layerBtn} ${showOverlay ? styles.layerBtnActive : ''} ${showFriendPanel ? styles.hideOnNarrow : ''}`}
           onClick={() => setShowOverlay(v => !v)}
           aria-pressed={showOverlay}
           title={showOverlay ? '내 지도 핀 숨기기' : '내 지도 핀 보기'}
@@ -545,6 +587,9 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           emptyMessage={showOnlyApproved ? '모두 인정한 장소가 없습니다' : '아직 등록된 장소가 없습니다'}
         />
       )}
+
+      {/* 5-1. 친구 패널 (지도 우측 시트) */}
+      {showFriendPanel && <FriendPanel onClose={closeFriendPanel} />}
 
       {/* 6. 모임 목록 바텀시트 */}
       <TeamDrawer
@@ -614,6 +659,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         onTabChange={handleTabChange}
         placeCount={filteredPins.length}
         teamCount={teams.length}
+        friendCount={friendPendingCount}
       />
     </div>
   )

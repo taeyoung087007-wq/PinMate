@@ -207,7 +207,7 @@
   display: flex;
 }
 
-/* 내 지도 공개 핀 레이어 토글 (모임 지도 우측, 필터 바 아래) */
+/* 지도 우측 원형 버튼 (내 지도 레이어) */
 .layerBtn {
   position: absolute;
   right: 14px;
@@ -229,6 +229,41 @@
   transition: all var(--transition);
 }
 
+
+/* 친구 요청 배너 (지도 상단, 대기 중인 요청이 있을 때) */
+.friendRequestBanner {
+  pointer-events: auto;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(139, 133, 255, 0.7);
+  background: rgba(34, 30, 62, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45), 0 0 0 3px rgba(108, 99, 255, 0.15);
+  transition: background var(--transition);
+}
+
+.friendRequestBanner:hover {
+  background: rgba(48, 42, 86, 0.96);
+}
+
+.friendRequestAction {
+  color: var(--primary-light);
+}
+
+/* 좁은 화면에서 친구 패널이 열리면 우측 버튼은 패널에 가리므로 숨긴다 */
+@media (max-width: 520px) {
+  .hideOnNarrow { display: none; }
+}
+
 .layerBtn:hover {
   background: var(--bg-hover);
   color: var(--primary-light);
@@ -238,7 +273,7 @@
   transform: scale(0.94);
 }
 
-/* 레이어가 켜져 있을 때 */
+/* 켜져 있을 때 (친구 패널 열림 / 레이어 표시 중) */
 .layerBtnActive {
   color: var(--primary-light);
   border-color: rgba(108, 99, 255, 0.65);
