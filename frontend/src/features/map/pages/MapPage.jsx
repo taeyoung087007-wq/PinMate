@@ -32,6 +32,7 @@ import TeamDrawer from '../../teams/components/TeamDrawer'
 import TeamCreateModal from '../../teams/components/TeamCreateModal'
 import SettingsPage from '../../auth/pages/SettingsPage'
 import FriendPanel from '../../friends/components/FriendPanel'
+import LayerPanel from '../components/LayerPanel'
 import { fetchFriends, fetchFriendPlaces } from '../../friends/api'
 import styles from './MapPage.module.css'
 
@@ -82,6 +83,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const [showFriendPanel, setShowFriendPanel] = useState(false)
   const [friendPendingCount, setFriendPendingCount] = useState(0) // 받은 친구 요청 수 (배지)
   const [friendOverlay, setFriendOverlay] = useState(null) // { friend, pins } — 친구 지도 오버레이
+  const [showLayerPanel, setShowLayerPanel] = useState(false)
+  const [friends, setFriends] = useState([])
 
   // UI 제어 상태
   const [activeTab, setActiveTab] = useState('map')
@@ -161,7 +164,11 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   useEffect(() => {
     let cancelled = false
     fetchFriends()
-      .then(data => { if (!cancelled) setFriendPendingCount(data.pendingCount ?? 0) })
+      .then(data => {
+        if (cancelled) return
+        setFriendPendingCount(data.pendingCount ?? 0)
+        setFriends(data.friends ?? [])
+      })
       .catch(() => {})
     return () => { cancelled = true }
   }, [])
@@ -172,10 +179,10 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   // 모임 지도 위에 겹쳐 그릴 내 공개 핀
   const publicPersonalPins = personalPins.filter(p => p.isPublic)
 
-  // 친구 지도 오버레이: 친구가 공개한 핀. 내 팀 장소와 겹치면 '나 외 N명이 추천' 태그를 붙인다
-  const friendOverlayPins = mapScope === 'team' && friendOverlay
+  // 친구 지도 오버레이: 친구가 공개한 핀. 지금 보는 지도의 핀과 겹치면 '나 외 N명이 추천' 태그를 붙인다
+  const friendOverlayPins = friendOverlay
     ? friendOverlay.pins.map(pin => {
-      const match = pins.find(p => isSamePlace(p, pin))
+      const match = scopePins.find(p => isSamePlace(p, pin))
       const others = match ? Math.max(0, (match.recommenders?.length ?? 0) - 1) : 0
       return {
         ...pin,
@@ -229,7 +236,10 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     setShowFriendPanel(false)
     setActiveTab(tab => (tab === 'friends' ? 'map' : tab))
     fetchFriends()
-      .then(data => setFriendPendingCount(data.pendingCount ?? 0))
+      .then(data => {
+        setFriendPendingCount(data.pendingCount ?? 0)
+        setFriends(data.friends ?? [])
+      })
       .catch(() => {})
   }
 
@@ -583,16 +593,16 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         )}
       </div>
 
-      {/* 내 지도 공개 핀 레이어 토글 (모임 지도에서만, 공개 핀이 있을 때) */}
-      {mapScope === 'team' && publicPersonalPins.length > 0 && (
+      {/* 지도 레이어 (내 공개 핀·친구 지도 선택). 내 지도·모임 지도 모두에서 */}
+      {(friends.length > 0 || publicPersonalPins.length > 0) && (
         <button
-          className={`${styles.layerBtn} ${showOverlay ? styles.layerBtnActive : ''} ${showFriendPanel ? styles.hideOnNarrow : ''}`}
-          onClick={() => setShowOverlay(v => !v)}
-          aria-pressed={showOverlay}
-          title={showOverlay ? '내 지도 핀 숨기기' : '내 지도 핀 보기'}
+          className={`${styles.layerBtn} ${(showLayerPanel || friendOverlay || showOverlay) ? styles.layerBtnActive : ''} ${showFriendPanel ? styles.hideOnNarrow : ''}`}
+          onClick={() => setShowLayerPanel(v => !v)}
+          aria-pressed={showLayerPanel}
+          title="지도 레이어"
         >
           <Layers size={18} />
-          <span className={styles.layerCount}>{publicPersonalPins.length}</span>
+          {publicPersonalPins.length > 0 && <span className={styles.layerCount}>{publicPersonalPins.length}</span>}
         </button>
       )}
 
@@ -635,7 +645,21 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       )}
 
       {/* 5-1. 친구 패널 (지도 우측 시트) */}
-      {showFriendPanel && <FriendPanel onClose={closeFriendPanel} onViewFriend={handleViewFriend} />}
+      {showFriendPanel && <FriendPanel onClose={closeFriendPanel} />}
+
+      {/* 5-2. 지도 레이어 선택 패널 */}
+      {showLayerPanel && (
+        <LayerPanel
+          friends={friends}
+          activeFriendId={friendOverlay?.friend.id}
+          showMine={showOverlay}
+          showMineOption={mapScope === 'team'}
+          onToggleMine={() => setShowOverlay(v => !v)}
+          onSelectFriend={friend => { handleViewFriend(friend); setShowLayerPanel(false) }}
+          onClear={clearFriendOverlay}
+          onClose={() => setShowLayerPanel(false)}
+        />
+      )}
 
       {/* 6. 모임 목록 바텀시트 */}
       <TeamDrawer
