@@ -18,11 +18,12 @@ function isLightColor(hex) {
  */
 export default function LayerPanel({
   friends = [],
-  activeFriendId,
+  activeFriendIds = [],
   showMine = false,
   showMineOption = false,
   onToggleMine,
   onSelectFriend,
+  onSelectAll,
   onClear,
   onClose,
 }) {
@@ -46,12 +47,32 @@ export default function LayerPanel({
         </button>
       )}
 
-      <div className={styles.label}>친구 지도</div>
+      <div className={styles.labelRow}>
+        <span className={styles.label}>친구 지도</span>
+        {friends.length > 0 && (
+          <span className={styles.actions}>
+            <button
+              className={styles.actionBtn}
+              onClick={onSelectAll}
+              disabled={activeFriendIds.length >= friends.length}
+            >
+              모두 선택
+            </button>
+            <button
+              className={styles.actionBtn}
+              onClick={onClear}
+              disabled={activeFriendIds.length === 0}
+            >
+              모두 해제
+            </button>
+          </span>
+        )}
+      </div>
       {friends.length === 0 ? (
         <p className={styles.notice}>친구가 없습니다. 친구 탭에서 추가해 보세요.</p>
       ) : (
         friends.map(friend => {
-          const active = String(friend.id) === String(activeFriendId)
+          const active = activeFriendIds.some(id => String(id) === String(friend.id))
           return (
             <button
               key={friend.id}
@@ -74,9 +95,6 @@ export default function LayerPanel({
         })
       )}
 
-      {activeFriendId && (
-        <button className={styles.clear} onClick={onClear}>친구 레이어 끄기</button>
-      )}
     </div>
   )
 }

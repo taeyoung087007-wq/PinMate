@@ -61,6 +61,11 @@ function createOverlayPinElement({ pin, meta }) {
   const wrap = document.createElement('div')
   wrap.className = `${styles.pinWrap} ${isFriend ? styles.pinWrapFriend : styles.pinWrapPersonal}`
   wrap.title = `${pin.name} (${tagText})`
+  // 친구를 여러 명 겹쳐 켜면 친구마다 핀을 조금씩 더 비껴 그려 서로 구분되게
+  if (isFriend) {
+    const index = pin.overlayIndex ?? 0
+    wrap.style.transform = `translate(${10 + index * 14}px, ${-12 - index * 14}px)`
+  }
 
   const body = document.createElement('div')
   body.className = styles.pinBody

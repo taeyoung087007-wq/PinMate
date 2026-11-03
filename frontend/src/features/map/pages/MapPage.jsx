@@ -82,7 +82,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const [showOverlay, setShowOverlay] = useState(true) // 모임 지도 위에 내 공개 핀을 겹쳐 볼지
   const [showFriendPanel, setShowFriendPanel] = useState(false)
   const [friendPendingCount, setFriendPendingCount] = useState(0) // 받은 친구 요청 수 (배지)
-  const [friendOverlay, setFriendOverlay] = useState(null) // { friend, pins } — 친구 지도 오버레이
+  const [friendOverlays, setFriendOverlays] = useState([]) // [{ friend, pins, key }] — 여러 친구 중첩 가능
   const [showLayerPanel, setShowLayerPanel] = useState(false)
   const [friends, setFriends] = useState([])
 
@@ -179,22 +179,32 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   // 모임 지도 위에 겹쳐 그릴 내 공개 핀
   const publicPersonalPins = personalPins.filter(p => p.isPublic)
 
-  // 친구 지도 오버레이: 친구가 공개한 핀. 지금 보는 지도의 핀과 겹치면 '나 외 N명이 추천' 태그를 붙인다
-  const friendOverlayPins = friendOverlay
-    ? friendOverlay.pins.map(pin => {
+  // 친구 지도 오버레이: 선택한 친구들(중첩)의 공개 핀. 지금 보는 지도의 핀과 겹치면 '나 외 N명이 추천' 태그
+  const friendOverlayPins = friendOverlays.flatMap(({ friend, pins: friendPins }, index) =>
+    friendPins.map(pin => {
       const match = scopePins.find(p => isSamePlace(p, pin))
       const others = match ? Math.max(0, (match.recommenders?.length ?? 0) - 1) : 0
       return {
         ...pin,
-        overlayTag: others > 0 ? `나 외 ${others}명이 추천` : (pin.owner || '친구 지도'),
+        overlayIndex: index,   // 친구마다 핀을 조금씩 비껴 그려 겹쳐도 구분되게
+        overlayTag: others > 0 ? `나 외 ${others}명이 추천` : (pin.owner || friend.nickname || '친구 지도'),
       }
     })
-    : []
+  )
 
   const overlayPins = [
     ...(mapScope === 'team' && showOverlay ? publicPersonalPins : []),
     ...friendOverlayPins,
   ]
+
+  // 선택한 친구들의 핀이 모두 보이도록 지도를 맞출 때 쓴다
+  const focusPlaces = useMemo(() => {
+    if (friendOverlays.length === 0) return null
+    return {
+      places: friendOverlays.flatMap(o => o.pins),
+      key: friendOverlays.map(o => o.key).join('-'),
+    }
+  }, [friendOverlays])
 
   // 필터링된 핀 목록
   const filteredPins = useMemo(() => {
@@ -243,14 +253,15 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       .catch(() => {})
   }
 
-  // 친구 지도 보기: 친구가 공개한 핀을 내 지도 위에 겹쳐 보여준다
-  const handleViewFriend = async friend => {
+  // 친구 레이어를 켜고 끈다 (여러 명 동시에 중첩 가능)
+  const handleToggleFriendOverlay = async friend => {
+    if (friendOverlays.some(o => String(o.friend.id) === String(friend.id))) {
+      setFriendOverlays(prev => prev.filter(o => String(o.friend.id) !== String(friend.id)))
+      return
+    }
     try {
       const places = await fetchFriendPlaces(friend.id)
-      setFriendOverlay({ friend, pins: places, key: Date.now() })
-      setShowFriendPanel(false)
-      setActiveTab('map')
-      setSelectedPin(null)
+      setFriendOverlays(prev => [...prev, { friend, pins: places, key: Date.now() }])
       if (places.length === 0) {
         setError(`${friend.nickname || friend.loginId}님이 공개한 장소가 없습니다.`)
       }
@@ -259,7 +270,21 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     }
   }
 
-  const clearFriendOverlay = () => setFriendOverlay(null)
+  const clearFriendOverlays = () => setFriendOverlays([])
+
+  // 친구 레이어 모두 선택 (아직 안 켠 친구만 불러와서 더한다)
+  const handleSelectAllFriends = async () => {
+    const missing = friends.filter(f => !friendOverlays.some(o => String(o.friend.id) === String(f.id)))
+    if (missing.length === 0) return
+    const results = await Promise.all(missing.map(async (friend, index) => {
+      try {
+        return { friend, pins: await fetchFriendPlaces(friend.id), key: Date.now() + index }
+      } catch {
+        return null
+      }
+    }))
+    setFriendOverlays(prev => [...prev, ...results.filter(Boolean)])
+  }
 
   // 새 모임 생성 완료 핸들러
   const handleCreateTeam = async (name) => {
@@ -455,7 +480,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
             selectedPin={selectedPin}
             overlayPins={overlayPins}
             onSelectOverlayPin={pin => setSelectedPin(pin)}
-            focusPlaces={friendOverlay ? { places: friendOverlay.pins, key: friendOverlay.key } : null}
+            focusPlaces={focusPlaces}
             onAddAtLocation={place => { setPickedPlace(place); setShowAddPinModal(true) }}
             onRouteTo={place => { setRouteTarget(place); setRoutePanelOpen(true); setSelectedPin(null); setShowListPanel(false) }}
             focusPlace={focusPlace}
@@ -584,10 +609,14 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         )}
 
         {/* 친구 지도 오버레이가 켜져 있으면 누구 지도인지 보여준다 */}
-        {friendOverlay && (
-          <button className={styles.friendOverlayChip} onClick={clearFriendOverlay}>
+        {friendOverlays.length > 0 && (
+          <button className={styles.friendOverlayChip} onClick={clearFriendOverlays}>
             <MapPin size={13} />
-            <span>{friendOverlay.friend.nickname || friendOverlay.friend.loginId}님 지도</span>
+            <span>
+              {friendOverlays.length === 1
+                ? `${friendOverlays[0].friend.nickname || friendOverlays[0].friend.loginId}님 지도`
+                : `친구 ${friendOverlays.length}명 지도`}
+            </span>
             <span className={styles.friendOverlayClose}>끄기</span>
           </button>
         )}
@@ -596,7 +625,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       {/* 지도 레이어 (내 공개 핀·친구 지도 선택). 내 지도·모임 지도 모두에서 */}
       {(friends.length > 0 || publicPersonalPins.length > 0) && (
         <button
-          className={`${styles.layerBtn} ${(showLayerPanel || friendOverlay || showOverlay) ? styles.layerBtnActive : ''} ${showFriendPanel ? styles.hideOnNarrow : ''}`}
+          className={`${styles.layerBtn} ${(showLayerPanel || friendOverlays.length > 0 || showOverlay) ? styles.layerBtnActive : ''} ${showFriendPanel ? styles.hideOnNarrow : ''}`}
           onClick={() => setShowLayerPanel(v => !v)}
           aria-pressed={showLayerPanel}
           title="지도 레이어"
@@ -651,12 +680,13 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       {showLayerPanel && (
         <LayerPanel
           friends={friends}
-          activeFriendId={friendOverlay?.friend.id}
+          activeFriendIds={friendOverlays.map(o => o.friend.id)}
           showMine={showOverlay}
           showMineOption={mapScope === 'team'}
           onToggleMine={() => setShowOverlay(v => !v)}
-          onSelectFriend={friend => { handleViewFriend(friend); setShowLayerPanel(false) }}
-          onClear={clearFriendOverlay}
+          onSelectFriend={handleToggleFriendOverlay}
+          onSelectAll={handleSelectAllFriends}
+          onClear={clearFriendOverlays}
           onClose={() => setShowLayerPanel(false)}
         />
       )}
