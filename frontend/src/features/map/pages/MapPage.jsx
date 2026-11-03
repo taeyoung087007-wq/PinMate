@@ -20,6 +20,7 @@ import {
 } from '../api'
 import { fetchTeams, createTeamApi, joinTeamApi } from '../../teams/api'
 import { distanceMeters } from '../places'
+import { groupFriendOverlayPins } from '../overlayGrouping'
 import MapCanvas from '../components/MapCanvas'
 import ErrorBoundary from '../../../components/ErrorBoundary/ErrorBoundary'
 import TopSearch from '../components/TopSearch'
@@ -179,18 +180,10 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   // 모임 지도 위에 겹쳐 그릴 내 공개 핀
   const publicPersonalPins = personalPins.filter(p => p.isPublic)
 
-  // 친구 지도 오버레이: 선택한 친구들(중첩)의 공개 핀. 지금 보는 지도의 핀과 겹치면 '나 외 N명이 추천' 태그
-  const friendOverlayPins = friendOverlays.flatMap(({ friend, pins: friendPins }, index) =>
-    friendPins.map(pin => {
-      const match = scopePins.find(p => isSamePlace(p, pin))
-      const others = match ? Math.max(0, (match.recommenders?.length ?? 0) - 1) : 0
-      return {
-        ...pin,
-        overlayIndex: index,   // 친구마다 핀을 조금씩 비껴 그려 겹쳐도 구분되게
-        overlayTag: others > 0 ? `나 외 ${others}명이 추천` : (pin.owner || friend.nickname || '친구 지도'),
-      }
-    })
-  )
+  // 친구 지도 오버레이: 선택한 친구들(중첩)의 공개 핀을 같은 장소끼리 묶는다
+  // - 여러 친구가 같은 곳을 저장하면 핀 하나 + 'N명이 추천'
+  // - 팀 핀과 겹치면 추천인 수를 합산해 '나 외 N명이 추천'
+  const friendOverlayPins = groupFriendOverlayPins(friendOverlays, scopePins, currentUser.loginId)
 
   const overlayPins = [
     ...(mapScope === 'team' && showOverlay ? publicPersonalPins : []),

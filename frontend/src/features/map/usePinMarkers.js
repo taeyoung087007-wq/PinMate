@@ -81,6 +81,16 @@ function createOverlayPinElement({ pin, meta }) {
   tag.textContent = tagText
 
   wrap.append(body, label, tag)
+
+  // 여러 명이 저장한 곳이면 개수 배지
+  if (pin.overlayCount > 1) {
+    const badge = document.createElement('span')
+    badge.className = styles.pinBadge
+    badge.style.background = isFriend ? '#2b7fff' : '#6C63FF'
+    badge.textContent = String(pin.overlayCount)
+    wrap.appendChild(badge)
+  }
+
   return wrap
 }
 
