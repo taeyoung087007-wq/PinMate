@@ -209,6 +209,9 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     })
   }, [scopePins, activeCategory, activeMember, showOnlyApproved])
 
+  // 오버레이 핀과 같은 장소의 지도 핀은 숨긴다 — 같은 곳이 두 번 찍히지 않게
+  const mapPins = filteredPins.filter(p => !overlayPins.some(o => isSamePlace(p, o)))
+
   // 현재 모임 정보
   const currentTeam = teams.find(t => String(t.id) === String(selectedTeamId)) || teamDetail
   const allApprovedCount = pins.filter(p => p.isAllApproved).length
@@ -492,7 +495,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         {/* 지도에서 에러가 나도 상단바·하단 메뉴는 남긴다. 다시 시도하면 원인일 수 있는 길찾기·검색 상태를 비운다 */}
         <ErrorBoundary onReset={() => { setRouteTarget(null); setFocusPlace(null) }}>
           <MapCanvas
-            pins={filteredPins}
+            pins={mapPins}
             members={members}
             onSelectPin={setSelectedPin}
             selectedPin={selectedPin}
