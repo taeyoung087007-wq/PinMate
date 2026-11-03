@@ -24,6 +24,17 @@ describe('groupFriendOverlayPins', () => {
 
     const result = groupFriendOverlayPins(overlays, scopePins, 'admin')
 
+    // 나(admin) + ds_kim1 + 친구 태영 = 3명
+    expect(result[0].overlayCount).toBe(3)
+    expect(result[0].overlayTag).toBe('나 외 2명이 추천')
+  })
+
+  it('친구 핀을 내 지도에 추가하면 나까지 세서 2명이 된다', () => {
+    const overlays = [{ friend: friend(1, '태영'), pins: [place('이자카야 탕', 36.62, 127.31, '태영')] }]
+    const myPins = [{ name: '이자카야 탕', lat: 36.62, lng: 127.31 }]
+
+    const result = groupFriendOverlayPins(overlays, [], 'admin', myPins)
+
     expect(result[0].overlayCount).toBe(2)
     expect(result[0].overlayTag).toBe('나 외 1명이 추천')
   })

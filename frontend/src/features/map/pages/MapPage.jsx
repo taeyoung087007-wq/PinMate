@@ -183,7 +183,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   // 친구 지도 오버레이: 선택한 친구들(중첩)의 공개 핀을 같은 장소끼리 묶는다
   // - 여러 친구가 같은 곳을 저장하면 핀 하나 + 'N명이 추천'
   // - 팀 핀과 겹치면 추천인 수를 합산해 '나 외 N명이 추천'
-  const friendOverlayPins = groupFriendOverlayPins(friendOverlays, scopePins, currentUser.loginId)
+  const friendOverlayPins = groupFriendOverlayPins(friendOverlays, scopePins, currentUser.loginId, personalPins)
 
   const overlayPins = [
     ...(mapScope === 'team' && showOverlay ? publicPersonalPins : []),
