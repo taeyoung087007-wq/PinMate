@@ -103,3 +103,9 @@ export function distanceMeters(lat1, lng1, lat2, lng2) {
   const dx = (lng2 - lng1) * 111_320 * Math.cos((lat1 * Math.PI) / 180)
   return Math.hypot(dx, dy)
 }
+
+// 같은 장소: 이름이 같고(공백·대소문자 무시) 50m 안. 서버(selectSamePinId)와 같은 기준
+const SAME_PLACE_METERS = 50
+const nameKey = name => (name || '').replace(/\s/g, '').toLowerCase()
+export const isSamePlace = (a, b) =>
+  nameKey(a.name) === nameKey(b.name) && distanceMeters(a.lat, a.lng, b.lat, b.lng) < SAME_PLACE_METERS
