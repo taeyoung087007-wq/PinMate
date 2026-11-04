@@ -510,41 +510,15 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   }
 
   // 하단 탭 변경 핸들러
+  // 하단 탭의 시트는 한 번에 하나만 연다. 지도 말고 다른 탭을 열면 장소 상세도 닫는다 (시트끼리 겹쳐 보이지 않게)
   const handleTabChange = (tabId) => {
     setActiveTab(tabId)
-    if (tabId === 'map') {
-      setShowTeamDrawer(false)
-      setShowListPanel(false)
-      setShowFriendPanel(false)
-      setShowNotificationPanel(false)
-    } else if (tabId === 'teams') {
-      setShowListPanel(false)
-      setShowFriendPanel(false)
-      setShowNotificationPanel(false)
-      setShowTeamDrawer(true)
-    } else if (tabId === 'places') {
-      setShowTeamDrawer(false)
-      setShowFriendPanel(false)
-      setShowNotificationPanel(false)
-      setShowListPanel(true)
-    } else if (tabId === 'friends') {
-      setShowTeamDrawer(false)
-      setShowListPanel(false)
-      setShowNotificationPanel(false)
-      setShowFriendPanel(true)
-    } else if (tabId === 'notifications') {
-      setShowTeamDrawer(false)
-      setShowListPanel(false)
-      setShowFriendPanel(false)
-      setShowNotificationPanel(true)
-      sync.load()
-    } else if (tabId === 'settings') {
-      setShowTeamDrawer(false)
-      setShowListPanel(false)
-      setShowFriendPanel(false)
-      setShowNotificationPanel(false)
-      setSelectedPin(null)
-    }
+    setShowTeamDrawer(tabId === 'teams')
+    setShowListPanel(tabId === 'places')
+    setShowFriendPanel(tabId === 'friends')
+    setShowNotificationPanel(tabId === 'notifications')
+    if (tabId !== 'map') setSelectedPin(null)
+    if (tabId === 'notifications') sync.load()
   }
 
   return (
@@ -625,7 +599,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
                 aria-pressed={showOnlyApproved}
                 onClick={() => setShowOnlyApproved(p => !p)}
               >
-                <Star size={12} fill={showOnlyApproved ? 'var(--warning)' : 'none'} color="var(--warning)" />
+                <Star size={12} fill={showOnlyApproved ? 'currentColor' : 'none'} color={showOnlyApproved ? 'currentColor' : 'var(--warning)'} />
                 <span>모두인정</span>
                 <span className={styles.chipCount}>{allApprovedCount}</span>
               </button>
@@ -664,7 +638,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
                     key={m.id}
                     className={`${styles.chip} ${styles.touchArea} ${isMemberActive ? styles.chipActive : ''}`}
                     aria-pressed={isMemberActive}
-                    style={isMemberActive ? { borderColor: m.avatarColor, color: m.avatarColor } : {}}
+                    style={isMemberActive ? { borderColor: m.avatarColor } : {}}
                     onClick={() => setActiveMember(p => p === m.id ? 'all' : m.id)}
                   >
                     <span className={styles.memberDot} style={{ background: m.avatarColor }} />
@@ -681,7 +655,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         {friendLayers.pendingCount > 0 && (
           <button
             className={styles.friendRequestBanner}
-            onClick={() => { setShowListPanel(false); setShowFriendPanel(true); setActiveTab('friends') }}
+            onClick={() => handleTabChange('friends')}
           >
             <Users size={14} />
             <span>친구 요청 {friendLayers.pendingCount}건</span>
@@ -708,7 +682,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       {/* 지도 레이어 (내 공개 핀·모임원 공유 핀·친구 지도 선택). 내 지도·모임 지도 모두에서 */}
       {(mapScope === 'team' || friendLayers.friends.length > 0 || publicPersonalPins.length > 0) && (
         <button
-          className={`${styles.layerBtn} ${(showLayerPanel || visibleFriendOverlays.length > 0 || memberLayer.overlays.length > 0 || showOverlay) ? styles.layerBtnActive : ''} ${showFriendPanel ? styles.hideOnNarrow : ''}`}
+          className={`${styles.layerBtn} ${(showLayerPanel || visibleFriendOverlays.length > 0 || memberLayer.overlays.length > 0 || showOverlay) ? styles.layerBtnActive : ''} ${(showFriendPanel || showListPanel || showNotificationPanel) ? styles.hideOnNarrow : ''}`}
           onClick={() => setShowLayerPanel(v => !v)}
           aria-pressed={showLayerPanel}
           title="지도 레이어"
