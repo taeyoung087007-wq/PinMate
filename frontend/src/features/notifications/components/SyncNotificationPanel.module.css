@@ -1,0 +1,239 @@
+.panel {
+  position: absolute;
+  top: 176px;
+  /* 우측 레이어 버튼 열을 비켜 왼쪽에 둔다 */
+  right: 74px;
+  width: 360px;
+  max-width: calc(100% - 32px);
+  max-height: calc(100% - 192px - var(--bottom-nav-h));
+  display: flex;
+  flex-direction: column;
+  z-index: 26;
+  overflow: hidden;
+  border-radius: var(--radius-xl) !important;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.count {
+  background: var(--primary-glow);
+  color: var(--primary-light);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 0 12px;
+}
+
+.notice {
+  padding: 20px 18px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.group {
+  padding-top: 6px;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 16px 6px;
+}
+
+.groupName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+}
+
+.groupCount {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: rgba(108, 99, 255, 0.22);
+  color: var(--primary-light);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.groupActions {
+  display: flex;
+  gap: 8px;
+}
+
+.textBtn {
+  padding: 2px 0;
+  background: none;
+  border: none;
+  color: var(--primary-light);
+  font-family: var(--font-base);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.textBtn:hover {
+  text-decoration: underline;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.rowHandled {
+  opacity: 0.55;
+}
+
+.icon {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.iconAdded {
+  background: rgba(46, 204, 113, 0.18);
+  color: var(--success);
+}
+
+.iconDeleted {
+  background: rgba(255, 71, 87, 0.18);
+  color: var(--danger);
+}
+
+.info {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.primaryBtn,
+.dangerBtn,
+.ghostBtn {
+  padding: 5px 10px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-base);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primaryBtn {
+  border: 1px solid rgba(108, 99, 255, 0.5);
+  background: rgba(108, 99, 255, 0.2);
+  color: var(--primary-light);
+}
+
+.primaryBtn:hover {
+  background: rgba(108, 99, 255, 0.32);
+}
+
+.dangerBtn {
+  border: 1px solid rgba(255, 71, 87, 0.5);
+  background: rgba(255, 71, 87, 0.16);
+  color: var(--danger);
+}
+
+.dangerBtn:hover {
+  background: rgba(255, 71, 87, 0.28);
+}
+
+.ghostBtn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.ghostBtn:hover {
+  background: var(--bg-hover);
+}
+
+.primaryBtn:disabled,
+.dangerBtn:disabled,
+.ghostBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.handledTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* 좁은 화면: 패널이 화면 폭을 쓰고 우측 버튼은 숨긴다 */
+@media (max-width: 520px) {
+  .panel {
+    left: 16px;
+    right: 16px;
+    width: auto;
+    max-height: calc(100% - 150px - var(--bottom-nav-h));
+  }
+}

@@ -89,3 +89,9 @@
   background: var(--primary);
   box-shadow: 0 0 8px var(--primary-glow);
 }
+
+/* 탭이 6개라 좁은 화면에서는 라벨을 조금 줄여 겹치지 않게 한다 */
+@media (max-width: 420px) {
+  .navInner { padding: 0 4px; }
+  .label { font-size: 10px; }
+}

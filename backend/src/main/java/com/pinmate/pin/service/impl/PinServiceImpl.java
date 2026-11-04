@@ -4,7 +4,9 @@ import com.pinmate.cmmn.util.Constants;
 import com.pinmate.cmmn.util.ParamUtil;
 import com.pinmate.pin.dao.PinDAO;
 import com.pinmate.pin.service.PinService;
+import com.pinmate.sync.service.SyncNotificationService;
 import com.pinmate.team.dao.TeamDAO;
+import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,9 @@ public class PinServiceImpl implements PinService {
 
 	@Autowired
 	private TeamDAO teamDAO;
+
+	@Resource(name = "SyncNotificationService")
+	private SyncNotificationService syncNotificationService;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -79,7 +84,11 @@ public class PinServiceImpl implements PinService {
 		}
 
 		updateConsensus(placeId, teamId, false);
-		return toItem(pinDAO.selectPinById(placeId));
+
+		// 팀원에게 '장소가 추가됐다'고 알린다 (내 지도에 담을지 나중에 고를 수 있게)
+		Map<String, Object> saved = pinDAO.selectPinById(placeId);
+		syncNotificationService.notifyPinAdded(teamId, userId, saved);
+		return toItem(saved);
 	}
 
 	@Override
@@ -142,8 +151,13 @@ public class PinServiceImpl implements PinService {
 
 	@Override
 	@Transactional
-	public void deletePin(Long placeId) throws Exception {
+	public void deletePin(Long placeId, Long userId) throws Exception {
+		// 알림에 남길 장소 정보를 지우기 전에 읽어둔다
+		Map<String, Object> pin = pinDAO.selectPinById(placeId);
 		pinDAO.deletePin(placeId);
+		if (pin != null) {
+			syncNotificationService.notifyPinDeleted((Long) pin.get("team_id"), userId, pin);
+		}
 	}
 
 	// 요청자가 속한 팀의 핀. 없거나 다른 팀의 핀이면 null (존재 여부를 드러내지 않는다)
