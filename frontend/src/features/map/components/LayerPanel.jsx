@@ -1,4 +1,4 @@
-import { X, Layers, Check } from 'lucide-react'
+import { X, Layers, Check, Users } from 'lucide-react'
 import styles from './LayerPanel.module.css'
 
 // 밝은 아바타 배경에는 어두운 글자색
@@ -13,7 +13,8 @@ function isLightColor(hex) {
 
 /**
  * 지도 레이어 선택 패널
- * - 내 공개 핀(팀 지도에서만) 켜고 끄기
+ * - 내 공개 핀(모임 지도에서만) 켜고 끄기
+ * - 모임원이 공개한 핀(모임 지도에서만) 켜고 끄기
  * - 친구 목록에서 한 명을 골라 그 친구의 공개 핀을 겹쳐 보기
  */
 export default function LayerPanel({
@@ -22,6 +23,10 @@ export default function LayerPanel({
   showMine = false,
   showMineOption = false,
   onToggleMine,
+  showMembersOption = false,
+  showMembers = false,
+  memberCount = 0,
+  onToggleMembers,
   onSelectFriend,
   onSelectAll,
   onClear,
@@ -44,6 +49,16 @@ export default function LayerPanel({
           <span className={styles.avatar} style={{ background: 'var(--primary)', color: '#fff' }}>나</span>
           <span className={styles.name}>내 공개 핀</span>
           <span className={styles.check}>{showMine && <Check size={14} />}</span>
+        </button>
+      )}
+
+      {showMembersOption && (
+        <button className={`${styles.row} ${showMembers ? styles.rowActive : ''}`} onClick={onToggleMembers}>
+          <span className={styles.avatar} style={{ background: '#3d7bfd', color: '#fff' }}>
+            <Users size={12} />
+          </span>
+          <span className={styles.name}>모임원 공유 핀{memberCount > 0 ? ` ${memberCount}` : ''}</span>
+          <span className={styles.check}>{showMembers && <Check size={14} />}</span>
         </button>
       )}
 

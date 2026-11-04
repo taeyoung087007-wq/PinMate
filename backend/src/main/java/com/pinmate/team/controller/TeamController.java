@@ -90,6 +90,31 @@ public class TeamController {
 		return result;
 	}
 
+	// 모임원이 공개한 개인 장소 (모임 지도 오버레이)
+	@ResponseBody
+	@GetMapping("teams/{teamId}/personal-places")
+	public Response teamPublicPlaces(@PathVariable("teamId") Long teamId, HttpSession session) {
+		Response result = null;
+
+		try {
+			List<Map<String, Object>> data = teamService.selectTeamPublicPlaces(teamId, SessionUtil.getUserId(session));
+			result = (data == null)
+					? Response.of(Constants.NO_PERMISSION, "모임원만 볼 수 있습니다.", null)
+					: Response.of(Constants.SUCCESS, data);
+		} catch (NullPointerException npe) {
+			logger.error("모임원 장소 조회 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "모임원 장소 조회 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("모임원 장소 조회 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "모임원 장소 조회 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("모임원 장소 조회 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "모임원 장소 조회 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
 	// 모임 생성 (name)
 	@ResponseBody
 	@PostMapping("teams")

@@ -29,6 +29,11 @@ public class TeamDAO {
 		return sqlSession.selectList(TeamDAO.SQL_PATH + ".selectTeamMembers", teamId);
 	}
 
+	//모임원이 공개한 개인 장소 (나 제외)
+	public List<Map<String, Object>> selectTeamPublicPlaces(Long teamId, Long userId) {
+		return sqlSession.selectList(TeamDAO.SQL_PATH + ".selectTeamPublicPlaces", Map.of("teamId", teamId, "userId", userId));
+	}
+
 	//사용자가 속한 모든 팀의 멤버 (team_id 포함)
 	public List<Map<String, Object>> selectTeamMembersByUserId(Long userId) {
 		return sqlSession.selectList(TeamDAO.SQL_PATH + ".selectTeamMembersByUserId", userId);

@@ -11,6 +11,9 @@ public interface TeamService {
 	// 참여 중인 팀 단건. 없거나 참여하지 않은 팀이면 null
 	Map<String, Object> selectTeam(Long teamId, Long userId) throws Exception;
 
+	// 모임원이 공개한 개인 장소 (나 제외). 모임원이 아니면 null
+	List<Map<String, Object>> selectTeamPublicPlaces(Long teamId, Long userId) throws Exception;
+
 	// 팀 생성 (생성자를 owner 로 등록하고 초대 코드 발급)
 	Map<String, Object> insertTeam(String name, Long userId) throws Exception;
 

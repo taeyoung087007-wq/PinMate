@@ -5,6 +5,10 @@ export const fetchTeam = (teamId) => request(`/teams/${encodeURIComponent(teamId
 
 export const fetchPins = (teamId) => request(`/pins?teamId=${encodeURIComponent(teamId)}`)
 
+/** 모임원이 공개한 개인 장소 (모임 지도 오버레이). 나는 빠진다 */
+export const fetchTeamMemberPins = (teamId) =>
+  request(`/teams/${encodeURIComponent(teamId)}/personal-places`)
+
 export const createPinApi = (pinData) => post('/pins', pinData)
 
 // ── 내 지도(개인 장소). 팀과 무관하게 나만 보는 장소 ──────────────────────
