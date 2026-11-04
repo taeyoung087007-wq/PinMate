@@ -3,6 +3,7 @@ package com.pinmate.pin.service.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -97,5 +98,18 @@ class PinServiceImplInsertTest {
         service.insertPin(param(true), USER_ID);
 
         verify(pinDAO).insertRecommendation(Map.of("placeId", PLACE_ID, "userId", USER_ID, "comment", "꼬치 맛집"));
+    }
+
+    @Test
+    @DisplayName("카카오 장소 ID를 같은 장소 확인과 저장에 함께 넘긴다")
+    void passesKakaoPlaceId() throws Exception {
+        givenInsertSucceeds(List.of());
+        Map<String, Object> p = param(false);
+        p.put("kakaoPlaceId", "1476643694");
+
+        service.insertPin(p, USER_ID);
+
+        verify(pinDAO).selectSamePinId(argThat(m -> "1476643694".equals(m.get("kakaoPlaceId"))));
+        verify(pinDAO).insertPin(argThat(m -> "1476643694".equals(m.get("kakaoPlaceId"))));
     }
 }

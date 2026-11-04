@@ -7,7 +7,7 @@
 
 | 설계 | 구현 |
 |---|---|
-| 같은 장소 = 카카오 장소 ID (`kakao_place_id`) | **이름이 같고 50m 안** (모임 행 잠금으로 동시 등록 차단). `kakao_place_id` 는 아직 없음 |
+| 같은 장소 = 카카오 장소 ID (`kakao_place_id`) | 카카오 장소 ID가 같거나 **이름이 같고 50m 안** (V12). ID 가 없는 기존 행·직접 찍은 핀은 이름 + 50m 로만 |
 | 경로 `/api/me/places` | `/api/personal/places` |
 | 가져오기 `GET …/import-candidates` + `POST …/import` | 후보는 화면이 내 장소 목록으로 고르고, `POST /api/teams/{teamId}/import-personal-places` 하나 |
 | `POST /api/pins` 에 `alsoPersonal` | 모임 등록 성공 뒤 화면이 `POST /api/personal/places` 를 한 번 더 부름. 기본값은 모임마다 `team_members.sync_to_personal` |
@@ -167,5 +167,5 @@ sequenceDiagram
 | 결정 | 4.2 '내 지도에도 저장' 기본값 | 모임마다 사람마다 설정 (기본 꺼짐) |
 | 결정 | 4.3 '나도 추천'도 알림을 만들지 | 만들지 않음 |
 | 결정 | 개인 지도를 어디에 둘지 | 지도 레이어로 분리, 처음엔 내 지도로 들어감 |
-| 확인 | 카카오 JS SDK `services.Places` 결과에 `id` 가 오는지 | 미확인 (`kakao_place_id` 도입 때 확인) |
+| 확인 | 카카오 JS SDK `services.Places` 결과에 `id` 가 오는지 | 확인함 — `id`, `place_url` 이 옴 (2026-11-04) |
 | 확인 | 카카오 장소 ID가 시간이 지나도 바뀌지 않는지 | 미확인 |

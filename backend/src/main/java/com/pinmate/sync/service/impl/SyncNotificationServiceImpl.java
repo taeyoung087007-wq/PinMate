@@ -123,7 +123,8 @@ public class SyncNotificationServiceImpl implements SyncNotificationService {
 				"address", notification.get("address"),
 				"latitude", notification.get("latitude"),
 				"longitude", notification.get("longitude"),
-				"memo", notification.get("memo"));
+				"memo", notification.get("memo"),
+				"kakaoPlaceId", notification.get("kakao_place_id"));
 
 		if ("added".equals(notification.get("type"))) {
 			syncNotificationDAO.insertPersonalFromNotification(param);   // 이미 있으면 건너뛴다
@@ -149,7 +150,8 @@ public class SyncNotificationServiceImpl implements SyncNotificationService {
 				"address", pin.get("address"),
 				"latitude", pin.get("latitude"),
 				"longitude", pin.get("longitude"),
-				"memo", pin.get("memo"));
+				"memo", pin.get("memo"),
+				"kakaoPlaceId", pin.get("kakao_place_id"));
 	}
 
 	private static String toFrontendCategory(String cat) {

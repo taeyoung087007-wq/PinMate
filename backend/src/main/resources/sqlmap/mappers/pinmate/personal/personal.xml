@@ -13,6 +13,7 @@
 		p.address,
 		p.latitude,
 		p.longitude,
+		p.kakao_place_id,
 		COALESCE(u.login_id, p.user_id::text) AS login_id,
 		p.memo,
 		p.is_public,
@@ -35,12 +36,12 @@
 		 WHERE p.personal_place_id = #{personalPlaceId}
 	</select>
 
-	<!-- param: userId, name, category, roadAddress, address, latitude, longitude, source(search/manual), memo, visibility(private/friends/team/all). 실행 후 param.personalPlaceId 에 생성된 키가 들어간다 -->
+	<!-- param: userId, name, category, roadAddress, address, latitude, longitude, source(search/manual), kakaoPlaceId, memo, visibility(private/friends/team/all). 실행 후 param.personalPlaceId 에 생성된 키가 들어간다 -->
 	<insert id="insertPersonalPlace" parameterType="map" useGeneratedKeys="true" keyProperty="personalPlaceId" keyColumn="personal_place_id">
 		INSERT INTO personal_places (user_id, name, category, road_address, address,
-		                             latitude, longitude, source, memo, is_public, visibility, created_at, updated_at)
+		                             latitude, longitude, source, kakao_place_id, memo, is_public, visibility, created_at, updated_at)
 		VALUES (#{userId}, #{name}, #{category}, #{roadAddress}, #{address},
-		        #{latitude}, #{longitude}, #{source}, #{memo}, (#{visibility} != 'private'), #{visibility}, now(), now())
+		        #{latitude}, #{longitude}, #{source}, #{kakaoPlaceId,jdbcType=VARCHAR}, #{memo}, (#{visibility} != 'private'), #{visibility}, now(), now())
 	</insert>
 
 	<!-- 공개 범위만 바꾼다 (param: personalPlaceId, visibility). is_public 은 호환용으로 함께 맞춘다 -->

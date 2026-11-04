@@ -13,6 +13,7 @@
 		p.address,
 		p.latitude,
 		p.longitude,
+		p.kakao_place_id,
 		p.created_by,
 		COALESCE(u.login_id, p.created_by::text) AS created_by_login_id,
 		(SELECT r.comment FROM recommendations r WHERE r.place_id = p.place_id AND r.user_id = p.created_by LIMIT 1) AS memo,
@@ -61,23 +62,27 @@
 		 ORDER BY r.place_id, r.created_at ASC
 	</select>
 
-	<!-- 같은 장소 판정: 같은 팀, 공백·대소문자 무시한 이름이 같고 위경도 차가 약 50m 안. param: teamId, name, latitude, longitude -->
+	<!--
+		같은 장소 판정 (같은 팀). 카카오 장소 ID가 같거나, 공백·대소문자 무시한 이름이 같고 위경도 차가 약 50m 안.
+		ID 가 없는 장소(기존 행·직접 찍은 핀)는 이름 + 50m 로만 판정된다. param: teamId, name, latitude, longitude, kakaoPlaceId
+	-->
 	<select id="selectSamePinId" parameterType="map" resultType="long">
 		SELECT place_id
 		  FROM places
 		 WHERE team_id = #{teamId}
-		   AND lower(replace(name, ' ', '')) = lower(replace(#{name}, ' ', ''))
-		   AND abs(latitude - #{latitude}) &lt; 0.0005
-		   AND abs(longitude - #{longitude}) &lt; 0.0006
+		   AND (kakao_place_id = #{kakaoPlaceId,jdbcType=VARCHAR}
+		        OR (lower(replace(name, ' ', '')) = lower(replace(#{name}, ' ', ''))
+		            AND abs(latitude - #{latitude}) &lt; 0.0005
+		            AND abs(longitude - #{longitude}) &lt; 0.0006))
 		 LIMIT 1
 	</select>
 
-	<!-- param: teamId, name, category, roadAddress, address, latitude, longitude, source(search/manual), createdBy. 실행 후 param.placeId 에 생성된 키가 들어간다 -->
+	<!-- param: teamId, name, category, roadAddress, address, latitude, longitude, source(search/manual), kakaoPlaceId, createdBy. 실행 후 param.placeId 에 생성된 키가 들어간다 -->
 	<insert id="insertPin" parameterType="map" useGeneratedKeys="true" keyProperty="placeId" keyColumn="place_id">
 		INSERT INTO places (team_id, name, category, road_address, address,
-		                    latitude, longitude, source, created_by, created_at, updated_at)
+		                    latitude, longitude, source, kakao_place_id, created_by, created_at, updated_at)
 		VALUES (#{teamId}, #{name}, #{category}, #{roadAddress}, #{address},
-		        #{latitude}, #{longitude}, #{source}, #{createdBy}, now(), now())
+		        #{latitude}, #{longitude}, #{source}, #{kakaoPlaceId,jdbcType=VARCHAR}, #{createdBy}, now(), now())
 	</insert>
 
 	<!-- param: placeId, userId -->

@@ -297,6 +297,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         memo: pin.memo,
         visibility: 'all',
         source: 'search',
+        kakaoPlaceId: pin.kakaoPlaceId ?? null,
       })
       setPersonalPins(prev => [saved, ...prev])
       setSelectedPin(saved)   // 내 핀으로 바뀌어 '내가 저장한 장소'로 확인된다

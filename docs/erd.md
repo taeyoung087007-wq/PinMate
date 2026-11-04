@@ -1,6 +1,6 @@
 # PinMate ERD
 
-> 기준: `backend/src/main/resources/db/migration/V1` ~ `V11` (2026-11-04). 1장은 처음 스키마(V1), 2장은 그 뒤에 추가된 것입니다. 컬럼 설명은 Drive `02.설계/PinMate_DB 정의서`에 있습니다.
+> 기준: `backend/src/main/resources/db/migration/V1` ~ `V12` (2026-11-04). 1장은 처음 스키마(V1), 2장은 그 뒤에 추가된 것입니다. 컬럼 설명은 Drive `02.설계/PinMate_DB 정의서`에 있습니다.
 > GitHub에서 이 파일을 열면 다이어그램이 그림으로 보입니다.
 
 ## 1. 처음 스키마 (V1)
@@ -107,7 +107,7 @@ erDiagram
 | `users` | 탈퇴해도 행을 지우지 않고 `status = withdrawn` (FK가 깨지지 않게) |
 | `event_logs` | `team_id`·`place_id` 에 FK가 없음. 대상이 지워져도 로그는 남김 (현재 기록 코드 없음) |
 
-## 2. 추가된 스키마 (V4 ~ V11: 아바타 · 내 지도 · 친구 · 동기화 알림)
+## 2. 추가된 스키마 (V4 ~ V12: 아바타 · 내 지도 · 친구 · 동기화 알림 · 카카오 장소 ID)
 
 > 설계 배경: [personal-map.md](personal-map.md). 아래 그림은 새로 생기거나 바뀐 부분과 그 이웃만 그립니다.
 
@@ -121,6 +121,10 @@ erDiagram
     teams ||--o{ sync_notifications : "모임 (CASCADE)"
     teams ||--o{ team_members : "멤버"
     places |o..o{ sync_notifications : "pin_id, FK 없음"
+
+    places {
+        varchar kakao_place_id "V12, UNIQUE (team_id, kakao_place_id)"
+    }
 
     users {
         varchar avatar_id "V4, 프로필 아바타"
@@ -142,6 +146,7 @@ erDiagram
         varchar memo
         boolean is_public "V6, 예전 공개 여부 (visibility 로 대체)"
         varchar visibility "V11, private / friends / team / all"
+        varchar kakao_place_id "V12, UNIQUE (user_id, kakao_place_id)"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -167,6 +172,7 @@ erDiagram
         numeric latitude
         numeric longitude
         varchar memo
+        varchar kakao_place_id "V12, 장소 정보 복사본"
         timestamptz created_at
         timestamptz handled_at
     }
@@ -179,11 +185,12 @@ erDiagram
 | `friendships` | 친구 요청·수락. 같은 두 사람 사이에는 방향과 상관없이 한 행만 (`LEAST/GREATEST` UNIQUE), 나 자신은 불가 |
 | `team_members.sync_to_personal` | 모임마다, 사람마다 '내 지도에도 저장' 기본값 |
 | `sync_notifications` | 동기화 알림(F-71, F-72). 받는 사람마다 한 행이라 사람별 반영·무시 상태를 따로 가짐 |
+| `kakao_place_id` (V12) | 같은 가게 판별 키(F-36). 값이 있는 행끼리만 UNIQUE 라 기존 행(NULL)·직접 찍은 핀은 '이름 + 50m' 로 판별 |
 | `sync_notifications.pin_id` FK 없음 | 모임 장소가 삭제된 뒤에도 '삭제됨' 알림을 보여 줘야 해서. 장소 정보는 행에 복사해 둠 |
 
 ### 아직 안 한 것
 
 | 제안 | 내용 |
 |---|---|
-| `places.kakao_place_id`, `personal_places.kakao_place_id` | 같은 장소 판별(F-36) 공용 키. 지금은 '이름이 같고 50m 안'으로 판별하고, DB 제약이 없어 모임 행 잠금으로 중복을 막음 |
+| 기존 행 `kakao_place_id` 채우기 | V12 이전 장소는 NULL. 다시 검색해 채우는 작업은 하지 않음 |
 | `places.source_link` 삭제 | 네이버 검색 링크용으로 만들었지만 쓰지 않음 |

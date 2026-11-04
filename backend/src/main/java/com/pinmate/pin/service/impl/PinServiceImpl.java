@@ -60,7 +60,8 @@ public class PinServiceImpl implements PinService {
 		// 같은 팀의 등록을 한 줄로 세운 뒤 중복을 본다 (버튼 연타로 두 요청이 동시에 와도 하나만 들어가게)
 		teamDAO.lockTeam(teamId);
 		Map<String, Object> same = ParamUtil.map("teamId", teamId, "name", param.get("name"),
-				"latitude", BigDecimal.valueOf((Double) param.get("lat")), "longitude", BigDecimal.valueOf((Double) param.get("lng")));
+				"latitude", BigDecimal.valueOf((Double) param.get("lat")), "longitude", BigDecimal.valueOf((Double) param.get("lng")),
+				"kakaoPlaceId", param.get("kakaoPlaceId"));
 		Long sameId = pinDAO.selectSamePinId(same);
 		if (sameId != null) {
 			return ParamUtil.map("duplicateOf", toItem(pinDAO.selectPinById(sameId)));
@@ -78,6 +79,7 @@ public class PinServiceImpl implements PinService {
 				"latitude", BigDecimal.valueOf((Double) param.get("lat")),
 				"longitude", BigDecimal.valueOf((Double) param.get("lng")),
 				"source", param.get("source"),
+				"kakaoPlaceId", param.get("kakaoPlaceId"),
 				"createdBy", userId);
 		pinDAO.insertPin(pin);                     // useGeneratedKeys → pin.placeId
 		Long placeId = ((Number) pin.get("placeId")).longValue();
@@ -192,7 +194,8 @@ public class PinServiceImpl implements PinService {
 					"teamId", teamId,
 					"name", place.get("name"),
 					"latitude", place.get("latitude"),
-					"longitude", place.get("longitude")));
+					"longitude", place.get("longitude"),
+					"kakaoPlaceId", place.get("kakao_place_id")));
 
 			// 이미 팀에 있는 장소면 내 추천만 더한다 (이미 추천했으면 그대로 둔다)
 			if (sameId != null) {
@@ -218,6 +221,7 @@ public class PinServiceImpl implements PinService {
 					"longitude", place.get("longitude"),
 					// 개인 장소 조회는 source 를 가져오지 않는다. 팀 장소는 필수라 기본값을 쓴다
 					"source", place.get("source") == null ? "search" : place.get("source"),
+					"kakaoPlaceId", place.get("kakao_place_id"),
 					"createdBy", userId);
 			pinDAO.insertPin(pin);
 			Long placeId = ((Number) pin.get("placeId")).longValue();
@@ -285,6 +289,7 @@ public class PinServiceImpl implements PinService {
 		item.put("roadAddress", row.get("road_address"));
 		item.put("lat", toDouble(row.get("latitude")));
 		item.put("lng", toDouble(row.get("longitude")));
+		item.put("kakaoPlaceId", row.get("kakao_place_id"));   // 같은 장소 판별 키. 직접 찍은 핀·기존 행은 null
 		item.put("addedBy", row.get("created_by_login_id"));
 		item.put("recommenders", recommenders);
 		item.put("memo", row.get("memo"));

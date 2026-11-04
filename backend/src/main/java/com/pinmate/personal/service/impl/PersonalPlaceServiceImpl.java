@@ -51,6 +51,7 @@ public class PersonalPlaceServiceImpl implements PersonalPlaceService {
 				"latitude", BigDecimal.valueOf((Double) param.get("lat")),
 				"longitude", BigDecimal.valueOf((Double) param.get("lng")),
 				"source", param.get("source"),
+				"kakaoPlaceId", param.get("kakaoPlaceId"),
 				"memo", param.get("memo"),
 				"visibility", visibility);
 		personalPlaceDAO.insertPersonalPlace(place);   // useGeneratedKeys → place.personalPlaceId
@@ -104,6 +105,7 @@ public class PersonalPlaceServiceImpl implements PersonalPlaceService {
 		item.put("roadAddress", row.get("road_address"));
 		item.put("lat", toDouble(row.get("latitude")));
 		item.put("lng", toDouble(row.get("longitude")));
+		item.put("kakaoPlaceId", row.get("kakao_place_id"));   // 같은 장소 판별 키. 직접 찍은 핀·기존 행은 null
 		item.put("addedBy", loginId);
 		// 개인 장소에는 추천 개념이 없다. 다만 상세 패널이 '내가 등록한 장소'로 보고 메모를 고칠 수 있게 본인만 넣는다
 		item.put("recommenders", loginId == null ? List.of() : List.of(loginId));

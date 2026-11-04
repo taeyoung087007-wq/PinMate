@@ -105,7 +105,7 @@ export default function AddPinModal({ teamId, personal = false, onClose, onAdd, 
         setError('이 장소의 좌표를 찾지 못했습니다. 지도에서 직접 선택해 주세요.')
         return
       }
-      setSelected({ ...found[0], name: place.name })
+      setSelected({ ...found[0], name: place.name, kakaoPlaceId: place.kakaoPlaceId })
       setName(place.name)
       setStep('detail')
     } catch (err) {
@@ -156,6 +156,7 @@ export default function AddPinModal({ teamId, personal = false, onClose, onAdd, 
       recommend: personal ? false : recommend,   // 개인 장소에는 추천 개념이 없다
       syncToPersonal: personal ? false : syncToPersonal,   // 모임 장소를 내 지도에도 저장할지
       visibility: personal ? visibility : undefined,       // 내 지도 핀 공개 범위 (기본 전체)
+      kakaoPlaceId: selected.kakaoPlaceId ?? null,          // 검색·주변 가게로 고른 경우에만 있다
       source,
     })
     setAdding(false)

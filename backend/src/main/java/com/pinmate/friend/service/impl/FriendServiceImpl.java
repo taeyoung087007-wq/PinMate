@@ -117,6 +117,7 @@ public class FriendServiceImpl implements FriendService {
 			item.put("roadAddress", row.get("road_address"));
 			item.put("lat", toDouble(row.get("latitude")));
 			item.put("lng", toDouble(row.get("longitude")));
+			item.put("kakaoPlaceId", row.get("kakao_place_id"));   // 같은 장소 판별 키. 직접 찍은 핀·기존 행은 null
 			item.put("memo", row.get("memo"));
 			item.put("owner", row.get("nickname"));
 			item.put("ownerLoginId", row.get("login_id"));

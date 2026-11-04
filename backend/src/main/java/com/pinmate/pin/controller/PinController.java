@@ -9,6 +9,7 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -84,6 +85,7 @@ public class PinController {
 		Double lng = ParamUtil.dbl(param, "lng");
 		boolean recommend = Boolean.TRUE.equals(param.get("recommend"));
 		String memo = recommend ? ParamUtil.str(param, "memo") : "";   // 추천평은 추천할 때만 남긴다
+		String kakaoPlaceId = ParamUtil.str(param, "kakaoPlaceId");
 
 		if (teamId == null) {
 			return Response.invalid("팀 ID가 필요합니다.");
@@ -103,6 +105,9 @@ public class PinController {
 		if (memo.length() > MEMO_MAX) {
 			return Response.invalid("한 줄 추천평은 100자 이하로 입력해주세요.");
 		}
+		if (!kakaoPlaceId.isEmpty() && !ParamUtil.isKakaoPlaceId(kakaoPlaceId)) {
+			return Response.invalid("장소 ID 값이 올바르지 않습니다.");
+		}
 
 		Response result = null;
 
@@ -117,6 +122,7 @@ public class PinController {
 					"lng", lng,
 					"memo", memo.isEmpty() ? null : memo,
 					"recommend", recommend,
+					"kakaoPlaceId", kakaoPlaceId.isEmpty() ? null : kakaoPlaceId,
 					"source", "manual".equals(ParamUtil.str(param, "source")) ? "manual" : "search"), SessionUtil.getUserId(session));
 			if (data == null) {
 				result = Response.of(Constants.NOT_FOUND, "모임을 찾을 수 없습니다.", null);
@@ -125,6 +131,9 @@ public class PinController {
 			} else {
 				result = Response.of(Constants.SUCCESS, data);
 			}
+		} catch (DuplicateKeyException dke) {
+			// 같은 카카오 장소가 동시에 두 번 들어오면 DB UNIQUE 가 막는다
+			result = Response.of(Constants.DUPLICATE_PLACE, "이미 이 모임에 등록된 장소예요.", null);
 		} catch (NullPointerException npe) {
 			logger.error("장소 등록 중 NullPointerException이 발생했습니다.", npe);
 			result = Response.of(Constants.FAIL, "장소 등록 중 오류가 발생했습니다.", null);
