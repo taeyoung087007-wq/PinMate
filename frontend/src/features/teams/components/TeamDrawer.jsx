@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Plus, Users, MapPin, Star, Link2, Check, ChevronRight } from 'lucide-react'
+import { X, Plus, Users, MapPin, Star, Link2, ChevronRight } from 'lucide-react'
 import TeamDetailView from './TeamDetailView'
 import { parseInviteCode } from '../api'
 import MemberAvatar from '../../../components/MemberAvatar/MemberAvatar'

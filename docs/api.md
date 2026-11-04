@@ -1,7 +1,7 @@
 # PinMate API 명세서
 
-> 기준: `main` 브랜치 코드 (2026-10-27). API를 바꾸는 PR은 이 문서도 함께 고칩니다.
-> 개인 지도·동기화 알림 API는 아직 구현되지 않았습니다 → [제안 API](#제안-api-미구현)
+> 기준: `main` 브랜치 코드 (2026-11-04). API를 바꾸는 PR은 이 문서도 함께 고칩니다.
+> 계정 설정 API(`/api/users/me`…)는 아직 이 문서에 없습니다 (계정 담당이 정리 예정).
 
 ## 목차
 
@@ -14,8 +14,10 @@
 7. [길찾기 · 대중교통](#7-길찾기--대중교통)
 8. [기타](#8-기타)
 9. [프론트에서 직접 부르는 외부 API](#9-프론트에서-직접-부르는-외부-api)
-10. [제안 API (미구현)](#제안-api-미구현)
-11. [알려진 불일치](#알려진-불일치)
+10. [내 지도 (personal)](#10-내-지도-personal)
+11. [친구 (friends)](#11-친구-friends)
+12. [동기화 알림 (sync-notifications)](#12-동기화-알림-sync-notifications)
+13. [알려진 불일치](#알려진-불일치)
 
 ---
 
@@ -211,10 +213,13 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
       "color": "#6C63FF",
       "avatarColor": "#6C63FF",
       "initials": "민",
+      "avatarId": "cat",
+      "avatarBg": "#FFD6A5",
       "role": "owner",
       "online": true
     }
-  ]
+  ],
+  "mySyncToPersonal": false
 }
 ```
 
@@ -225,6 +230,8 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 | `members` | owner 먼저, 나머지는 참여 순. `id` 는 `login_id` |
 | `members[].role` | `owner` / `admin` / `member` |
 | `members[].online` | 최근 90초 안에 heartbeat를 보냈으면 `true` ([6. 접속 상태](#6-접속-상태-presence)) |
+| `members[].avatarId`, `avatarBg` | 프로필 아바타와 배경색 |
+| `mySyncToPersonal` | **단건 조회에만** 있음. 이 모임에서 장소를 추가할 때 '내 지도에도 저장'을 기본으로 켤지 (사람마다 다름) |
 
 ### `GET /api/teams` — 내 모임 목록
 
@@ -272,6 +279,36 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 - 나간 사람의 추천은 `recommenders` 에 남지만 판정에서는 빠지고, 기준 인원이 줄었으므로 **모두 인정을 다시 판정**합니다.
 
 성공 `00` (`data: null`). 실패: `91`, `99`
+
+### `GET /api/teams/{teamId}/personal-places` — 모임원이 공개한 내 지도 장소
+
+모임 지도 오버레이용. 다른 모임원의 개인 장소 중 공개 범위가 `team`·`all` 인 것 (나는 빠짐, 최근 등록 순).
+
+성공 `00` — [오버레이 장소](#오버레이-장소-친구모임원) 배열 (`id` 는 `m-{개인 장소 ID}`). 모임원이 아니면 `92`.
+
+### `PATCH /api/teams/{teamId}/sync-setting` — '내 지도에도 저장' 기본값
+
+| 본문 | 타입 | 규칙 |
+|---|---|---|
+| `syncToPersonal` | boolean | `true` 가 아니면 모두 `false` |
+
+성공 `00` — `{ "syncToPersonal": true }`. 모임원이 아니면 `92`.
+
+- 서버는 값만 저장합니다. 실제로 내 지도에 저장하는 건 화면이 `POST /api/pins` 성공 뒤 `POST /api/personal/places` 를 한 번 더 부르는 방식입니다.
+
+### `POST /api/teams/{teamId}/import-personal-places` — 내 지도 장소를 모임으로 가져오기 (F-68)
+
+| 본문 | 타입 | 필수 | 규칙 |
+|---|---|---|---|
+| `ids` | number[] | ✔ | 내 개인 장소 ID. 비면 `90` |
+
+성공 `00` — `{ "imported": 1, "recommended": 1, "skipped": 0 }`
+
+- 모임에 같은 장소(이름 같고 50m 안)가 있으면 새로 만들지 않고 **내 추천만 더함**(`recommended`). 이미 추천했으면 `skipped`.
+- 없으면 새 모임 장소로 등록하고 내 추천을 붙임(`imported`). 개인 장소의 메모가 한 줄 평이 되고, 다른 모임원에게 `added` 알림이 갑니다.
+- 내 장소가 아니거나 없는 ID는 `skipped`.
+
+실패: `90`, `92` (모임원이 아님), `99`
 
 ---
 
@@ -350,7 +387,8 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 실패: `90`, `91` (참여하지 않은 모임), `31` (같은 장소가 이미 있음, `data` 에 기존 장소 객체), `99`
 
 - 같은 장소: 같은 모임에서 **이름이 같고(공백·대소문자 무시) 약 50m 안**. 모임 행 잠금으로 동시에 두 번 눌러도 하나만 들어갑니다.
-- 카카오 장소 ID로 판별하는 방식(F-36)은 [제안 API](#제안-api-미구현) 참고.
+- 등록하면 나를 뺀 모임원에게 [동기화 알림](#12-동기화-알림-sync-notifications) `added` 가 갑니다.
+- 카카오 장소 ID로 판별하는 방식(F-36)은 아직 없습니다 (`places.kakao_place_id` 미도입).
 
 ### `PATCH /api/pins/{pinId}` — 장소 수정
 
@@ -368,7 +406,7 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 
 ### `DELETE /api/pins/{pinId}` — 장소 삭제
 
-권한: 등록자 또는 모임 owner. 본문 `{}`. 추천 기록도 함께 지워집니다.
+권한: 등록자 또는 모임 owner. 본문 `{}`. 추천 기록도 함께 지워지고, 그 장소를 내 지도에 가진 모임원에게 `deleted` 알림이 갑니다 (처리 안 한 `added` 알림은 지워짐).
 
 성공 `00` (`data: null`). 실패: `91`, `92`, `99`
 
@@ -508,11 +546,11 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 
 ---
 
-## 제안 API (미구현)
+## 10. 내 지도 (personal)
 
-> 설계 초안: [personal-map.md](personal-map.md). 팀 검토 후 확정합니다. 공통 규칙(세션, 필수 헤더, 응답 형식)은 위와 같습니다.
+나만 쓰는 개인 장소. 모임 장소(`places`)와 따로 저장합니다(`personal_places`). 추천·모두 인정이 없습니다.
 
-### 개인 핀 객체 (제안)
+### 개인 장소 객체
 
 ```json
 {
@@ -523,81 +561,148 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
   "roadAddress": "서울 마포구 ○○로 12",
   "lat": 37.5622,
   "lng": 126.9235,
-  "source": "search",
-  "kakaoPlaceId": "12345678",
+  "addedBy": "minji01",
+  "recommenders": ["minji01"],
   "memo": "다음엔 수육도",
-  "createdAt": "2026-10-27T01:00:00Z"
+  "visibility": "all",
+  "isPublic": true,
+  "isAllApproved": false,
+  "consensusAchievedAt": null,
+  "consensusMemberCount": null,
+  "createdAt": "2026-10-27T01:00:00Z",
+  "personal": true
 }
 ```
 
-### 개인 지도 (F-66, F-67)
+| 필드 | 설명 |
+|---|---|
+| `visibility` | 공개 범위. `private`(나만) / `friends`(친구) / `team`(모임원) / `all`(친구 + 모임원) |
+| `isPublic` | `visibility` 가 `private` 가 아니면 `true` (예전 화면 호환) |
+| `recommenders` | 본인만 들어 있음. 상세 패널이 '내가 등록한 장소'로 보고 메모를 고칠 수 있게 하려는 값 |
+| `isAllApproved` 등 | 모임 장소 객체와 모양을 맞추려고 항상 `false` / `null` |
+
+### `GET /api/personal/places` — 내 장소 목록
+
+성공 `00` — 개인 장소 객체 배열.
+
+### `POST /api/personal/places` — 내 장소 등록
+
+| 본문 | 타입 | 필수 | 규칙 |
+|---|---|---|---|
+| `name` | string | ✔ | 1~100자 |
+| `category` | string | | [카테고리](#카테고리) 7개 중 하나. 비우면 `etc` |
+| `address`, `roadAddress` | string | | 200자 이하. `roadAddress` 를 비우면 `address` 로 채움 |
+| `lat`, `lng` | number | ✔ | -90 ~ 90 / -180 ~ 180 |
+| `memo` | string | | 100자 이하 |
+| `visibility` | string | | 위 4개 중 하나. **빼면 `all`** |
+| `isPublic` | boolean | | 예전 화면 호환. `visibility` 가 없을 때 `false` 면 `private` |
+| `source` | string | | `manual` 이면 `manual`, 그 외 `search` |
+
+성공 `00` — 등록한 개인 장소 객체. 실패: `90`, `99`
+
+- 같은 장소 중복 확인은 없습니다 (모임 장소와 달리 `31` 을 돌려주지 않음).
+
+### `PATCH /api/personal/places/{id}` — 내 장소 수정
+
+본문 `name`(필수), `category`, `memo`(빼거나 `""` 이면 지움). 주소·좌표는 바꿀 수 없습니다.
+
+성공 `00` — 수정된 개인 장소 객체. 실패: `90`, `91`, `92` (남의 장소), `99`
+
+### `PATCH /api/personal/places/{id}/visibility` — 공개 범위 변경
+
+본문 `{ "visibility": "friends" }` (또는 예전 방식 `{ "isPublic": true }`). 성공 `00` — 개인 장소 객체. 실패: `90`, `91`, `92`, `99`
+
+### `DELETE /api/personal/places/{id}` — 내 장소 삭제
+
+본문 `{}`. 성공 `00` (`data: null`). 실패: `91`, `92`, `99`
+
+### 오버레이 장소 (친구·모임원)
+
+`GET /api/friends/{id}/places`, `GET /api/teams/{teamId}/personal-places` 가 돌려주는, 다른 사람이 공개한 개인 장소입니다.
+
+```json
+{
+  "id": "f-7",
+  "name": "연남동 칼국수집",
+  "category": "food",
+  "address": "…",
+  "roadAddress": "…",
+  "lat": 37.5622,
+  "lng": 126.9235,
+  "memo": "다음엔 수육도",
+  "owner": "민지",
+  "ownerLoginId": "minji01",
+  "ownerColor": "#FFD6A5",
+  "personal": true,
+  "isPublic": true
+}
+```
+
+- `id`: 친구 장소는 `f-{개인 장소 ID}`, 모임원 장소는 `m-{개인 장소 ID}` (모임 장소 ID와 겹치지 않게).
+- 모임원 장소에는 `ownerId`(`user_id`)가 더 있습니다.
+
+---
+
+## 11. 친구 (friends)
+
+사용자 객체: `{ "id": "12", "loginId": "minji01", "nickname": "민지", "avatarId": "cat", "avatarBg": "#FFD6A5" }`. **`id` 는 `user_id`** 입니다(모임 멤버의 `id` 는 `login_id`). 검색·요청 목록에서는 `status`(`pending` / `accepted`), `direction`(`incoming` / `outgoing`)이 붙습니다.
 
 | 메서드 | 경로 | 본문 / 쿼리 | 성공 `data` | 실패 |
 |---|---|---|---|---|
-| GET | `/api/me/places` | | 개인 핀 배열 | |
-| POST | `/api/me/places` | `name`, `category`, `address`, `roadAddress`, `lat`, `lng`, `memo`, `source`, `kakaoPlaceId` (규칙은 `POST /api/pins` 와 같음) | 개인 핀 | `90`, `31`(이미 저장한 장소, `data` 에 기존 개인 핀) |
-| PATCH | `/api/me/places/{id}` | `name`, `category`, `memo` | 개인 핀 | `90`, `91` |
-| DELETE | `/api/me/places/{id}` | `{}` | `null` | `91` |
+| GET | `/api/friends` | | `{ "friends": [], "incoming": [], "outgoing": [], "pendingCount": 1 }` — 받은 요청 수 | `99` |
+| GET | `/api/friends/search` | `?q=` 아이디·닉네임, 30자 이하. 비면 `[]` | 사용자 배열 (관계 상태 포함) | `90` |
+| POST | `/api/friends/requests` | `{ "userId": 12 }` | `{ "status": "pending" }`. 상대가 먼저 보낸 요청이 있으면 바로 수락돼 `accepted`, 이미 친구면 `already` | `90`(나 자신 등), `91`(없는 사용자) |
+| POST | `/api/friends/requests/{requesterId}/accept` | `{}` | `null` | `91`(받은 요청 없음) |
+| DELETE | `/api/friends/{userId}` | `{}` | `null`. 거절·요청 취소·친구 끊기를 모두 이걸로 함 (방향 무관) | `91`(관계 없음) |
+| GET | `/api/friends/{friendId}/places` | | 친구가 `friends`·`all` 로 공개한 [오버레이 장소](#오버레이-장소-친구모임원) 배열 (`id` 는 `f-…`) | `92`(친구가 아님) |
 
-- 다른 사람의 개인 핀 ID로 요청하면 `91` (존재 여부를 숨김).
+---
 
-### 팀으로 가져오기 (F-68)
+## 12. 동기화 알림 (sync-notifications)
 
-| 메서드 | 경로 | 본문 / 쿼리 | 성공 `data` |
-|---|---|---|---|
-| GET | `/api/teams/{teamId}/import-candidates` | | `[ { ...개인 핀, "inTeam": true, "teamPinId": "101" } ]` — 팀에 같은 장소가 있으면 `inTeam` |
-| POST | `/api/teams/{teamId}/import` | `{ "personalPlaceIds": [7, 8] }` | `{ "created": 1, "merged": 1, "pins": [ 장소 객체 ] }` |
+모임 장소가 추가·삭제되면, 내 지도에도 반영할지 고르라는 알림입니다 (F-71, F-72).
 
-- 같은 장소면 기존 팀 장소에 내 추천을 추가(`merged`), 없으면 새 팀 장소 등록(`created`). 개인 핀의 `memo` 가 한 줄 평이 됩니다.
-- 새로 생긴 팀 장소는 다른 팀원에게 동기화 알림(`added`)을 만듭니다.
+- `added`: 모임에 장소가 생기면 **나를 뺀 모임원 모두**에게. (장소 등록, 내 지도에서 가져오기로 새로 생긴 경우)
+- `deleted`: 모임 장소가 지워지면 **그 장소를 내 지도에 가진 모임원**에게. 처리 안 한 `added` 알림은 함께 지워집니다.
+- 이미 있는 장소에 추천만 더한 경우는 알림이 없습니다.
 
-### 기존 API 변경 (F-36, F-69, F-70)
-
-| API | 추가 | 설명 |
-|---|---|---|
-| `POST /api/pins` | 본문 `kakaoPlaceId` | 검색 등록이면 카카오 장소 ID. 같은 장소 판별 키 |
-| 〃 | 본문 `alsoPersonal: boolean` | `true` 면 내 개인 지도에도 저장 |
-| 〃 | 결과 코드 `31` DUPLICATE_PLACE | **구현됨** (지금은 이름 + 50m 기준). 카카오 ID가 생기면 그 기준을 더함 → 화면은 "○○님이 등록한 곳이에요. 나도 추천할까요?" |
-| `POST /api/pins/{pinId}/recommend` | 본문 `alsoPersonal: boolean` | 추천할 때 `true` 면 개인 지도에 저장, 취소할 때 `true` 면 개인 지도에서도 삭제 |
-| `DELETE /api/pins/{pinId}` | 쿼리 `?alsoPersonal=true` | 개인 지도에서도 삭제 |
-
-- 직접 찍은 핀(`source=manual`)은 카카오 ID가 없으므로, **이름이 비슷하고 50m 이내**인 팀 장소가 있으면 `31` 대신 확인 질문용으로 `data.candidates` 를 돌려주는 방식을 검토합니다. `[결정 필요]`
-
-### 동기화 알림 (F-71, F-72)
-
-#### 알림 객체 (제안)
+### 알림 객체
 
 ```json
 {
   "id": "55",
   "teamId": "1",
   "teamName": "주말 맛집 원정대",
-  "eventType": "added",
-  "actor": { "id": "junho_k", "nickname": "준호" },
-  "place": { "pinId": "101", "name": "연남동 칼국수집", "category": "food", "address": "…", "roadAddress": "…", "lat": 37.5622, "lng": 126.9235, "kakaoPlaceId": "12345678" },
-  "inMyMap": false,
+  "type": "added",
   "status": "pending",
-  "createdAt": "2026-10-27T01:00:00Z"
+  "name": "연남동 칼국수집",
+  "category": "food",
+  "address": "…",
+  "roadAddress": "…",
+  "lat": 37.5622,
+  "lng": 126.9235,
+  "memo": "면이 쫄깃해요",
+  "actorLoginId": "junho_k",
+  "actorNickname": "준호",
+  "createdAt": "2026-10-27T01:00:00Z",
+  "handledAt": null
 }
 ```
 
-- `place.pinId`: 팀 장소가 삭제됐으면 `null`.
-- `inMyMap`: 내 개인 지도에 같은 장소가 이미 있는지.
+| 필드 | 설명 |
+|---|---|
+| `type` | `added` / `deleted` |
+| `status` | `pending`(처리 안 함) / `applied`(반영) / `ignored`(무시) |
+| 장소 필드 | 알림을 만들 때의 장소 정보를 복사해 둔 것 (모임 장소가 지워져도 남음) |
 
-| 메서드 | 경로 | 본문 / 쿼리 | 성공 `data` |
-|---|---|---|---|
-| GET | `/api/sync-notifications` | `?status=pending`(기본) / `applied` / `dismissed` / `all`, `?teamId=` | 알림 배열 (최근 순) |
-| GET | `/api/sync-notifications/count` | `?teamId=` | `{ "pending": 3 }` |
-| POST | `/api/sync-notifications/{id}/apply` | `{}` | 처리한 알림. `added` → 개인 지도에 저장(이미 있으면 건너뜀), `deleted` → 개인 지도에서 삭제 |
-| POST | `/api/sync-notifications/{id}/dismiss` | `{}` | 처리한 알림 |
-| POST | `/api/sync-notifications/apply-all` | `{ "teamId": 1 }` | `{ "applied": 3 }` |
-| POST | `/api/sync-notifications/dismiss-all` | `{ "teamId": 1 }` | `{ "dismissed": 3 }` |
-
-- 이미 처리한 알림을 다시 처리하면 아무것도 바꾸지 않고 현재 상태를 돌려줍니다.
-- 다른 사람의 알림 ID면 `91`.
-
----|---|---|
-| `31` | DUPLICATE_PLACE | 같은 장소가 이미 있음. `data` 에 기존 항목 |
+| 메서드 | 경로 | 본문 | 성공 `data` | 실패 |
+|---|---|---|---|---|
+| GET | `/api/sync-notifications` | | `{ "pendingCount": 3, "items": [ 알림 ] }` — 최근 100개, 최근 순 | `99` |
+| GET | `/api/sync-notifications/count` | | `{ "pending": 3 }` (배지용) | `99` |
+| POST | `/api/sync-notifications/{id}/apply` | `{}` | `null`. `added` → 내 지도에 저장, `deleted` → 내 지도에서 삭제 | `91`(내 알림이 아님) |
+| POST | `/api/sync-notifications/{id}/ignore` | `{}` | `null` | `91` |
+| POST | `/api/sync-notifications/apply-all` | `{ "teamId": 1 }` | `null`. 그 모임의 처리 안 한 알림 모두 반영 | `90`(모임 없음) |
+| POST | `/api/sync-notifications/ignore-all` | `{ "teamId": 1 }` | `null` | `90` |
 
 ---
 
@@ -607,8 +712,10 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 
 | # | 내용 | 영향 |
 |---|---|---|
-| 1 | 로그인 응답 `id` 는 `user_id`, 모임 멤버·추천인·방문자의 `id` 는 `login_id` | 프론트에서 "나"를 찾을 때 `loginId` 로 비교해야 함 (`PinDetailPanel.jsx` 가 그렇게 함) |
+| 1 | 로그인 응답 `id` 는 `user_id`, 모임 멤버·추천인의 `id` 는 `login_id` | 프론트에서 "나"를 찾을 때 `loginId` 로 비교해야 함 (`PinDetailPanel.jsx` 가 그렇게 함) |
 | 3 | DB 정의서는 팀 하위 리소스 경로를 `/teams/{teamId}/places/{placeId}` 로 제안했지만, 구현은 `/pins/{pinId}` + 서비스에서 팀 멤버 확인 | 동작상 문제없음. 경로 규칙을 통일할지 결정 필요 |
 | 4 | 장소 수정·삭제 권한이 owner만. 기획(F-18)·DB 정의서는 owner·admin | admin 지정 API(F-54)가 생길 때 같이 고침 |
 | 5 | 초대 코드가 `team{팀ID}_{16진수 6자리}` 형식. 기획(F-55)은 "추측하기 어려운 무작위 값" | IP당 시도 제한으로 완화 중. F-58 재발급과 함께 고침 |
 | 7 | 추천인별 한 줄 평은 저장(`recommendations.comment`)되지만 API는 등록자 것만 내려줌 | F-17 "사람별 한 줄 평" 미완 |
+| 8 | 친구 사용자 객체의 `id` 는 `user_id`, 모임 멤버의 `id` 는 `login_id` | 친구와 모임원을 같은 사람으로 맞출 때 `loginId` 로 비교해야 함 |
+| 9 | 남의 개인 장소를 고치려 하면 `92`(권한 없음). 모임 리소스는 존재를 숨기려고 `91` | 개인 장소 ID가 있는지는 드러남. 맞출지 결정 필요 |

@@ -1,9 +1,9 @@
 # PinMate ERD
 
-> 기준: `backend/src/main/resources/db/migration/V1__init_schema.sql` (2026-10-27). 컬럼 설명은 Drive `02.설계/PinMate_DB 정의서`에 있습니다.
+> 기준: `backend/src/main/resources/db/migration/V1` ~ `V11` (2026-11-04). 1장은 처음 스키마(V1), 2장은 그 뒤에 추가된 것입니다. 컬럼 설명은 Drive `02.설계/PinMate_DB 정의서`에 있습니다.
 > GitHub에서 이 파일을 열면 다이어그램이 그림으로 보입니다.
 
-## 1. 현재 스키마
+## 1. 처음 스키마 (V1)
 
 ```mermaid
 erDiagram
@@ -107,64 +107,83 @@ erDiagram
 | `users` | 탈퇴해도 행을 지우지 않고 `status = withdrawn` (FK가 깨지지 않게) |
 | `event_logs` | `team_id`·`place_id` 에 FK가 없음. 대상이 지워져도 로그는 남김 (현재 기록 코드 없음) |
 
-## 2. 제안 반영 후 (개인 지도 · 동기화 알림 · 같은 장소 판별)
+## 2. 추가된 스키마 (V4 ~ V11: 아바타 · 내 지도 · 친구 · 동기화 알림)
 
-> **상태: 제안 — 미구현.** 설계 설명: [personal-map.md](personal-map.md). 아래 그림은 바뀌거나 새로 생기는 부분과 그 이웃만 그립니다.
+> 설계 배경: [personal-map.md](personal-map.md). 아래 그림은 새로 생기거나 바뀐 부분과 그 이웃만 그립니다.
 
 ```mermaid
 erDiagram
-    users ||--o{ personal_places : "개인 핀 (신규)"
-    users ||--o{ sync_notifications : "받는 사람 (신규)"
-    users ||--o{ sync_notifications : "변경한 팀원 (신규)"
-    teams ||--o{ sync_notifications : "팀 (신규, CASCADE)"
-    teams ||--o{ places : "장소"
-    places |o..o{ sync_notifications : "place_id, FK 없음"
-    places }o..o{ personal_places : "kakao_place_id 로 같은 장소 판별"
+    users ||--o{ personal_places : "내 지도 장소"
+    users ||--o{ friendships : "요청 보냄"
+    users ||--o{ friendships : "요청 받음"
+    users ||--o{ sync_notifications : "받는 사람"
+    users ||--o{ sync_notifications : "변경한 팀원"
+    teams ||--o{ sync_notifications : "모임 (CASCADE)"
+    teams ||--o{ team_members : "멤버"
+    places |o..o{ sync_notifications : "pin_id, FK 없음"
 
+    users {
+        varchar avatar_id "V4, 프로필 아바타"
+        varchar avatar_bg "V4, 아바타 배경색"
+    }
+    team_members {
+        boolean sync_to_personal "V9, '내 지도에도 저장' 기본값"
+    }
     personal_places {
         bigint personal_place_id PK
-        bigint user_id FK
+        bigint user_id FK "CASCADE"
         varchar name
-        varchar category "CHECK 7종"
+        varchar category "CHECK 7종 (places 와 같음)"
         varchar road_address
         varchar address
         numeric latitude
         numeric longitude
         varchar source "search / manual"
-        varchar kakao_place_id "UNIQUE (user_id, kakao_place_id)"
         varchar memo
+        boolean is_public "V6, 예전 공개 여부 (visibility 로 대체)"
+        varchar visibility "V11, private / friends / team / all"
         timestamptz created_at
         timestamptz updated_at
     }
-    places {
-        bigint place_id PK
-        bigint team_id FK
-        varchar kakao_place_id "신규, UNIQUE (team_id, kakao_place_id)"
-        varchar source_link "삭제 검토"
+    friendships {
+        bigint requester_id PK "FK"
+        bigint addressee_id PK "FK"
+        varchar status "pending / accepted"
+        timestamptz created_at
+        timestamptz accepted_at
     }
     sync_notifications {
         bigint notification_id PK
-        bigint user_id FK "받는 사람"
+        bigint recipient_id FK "받는 사람"
         bigint team_id FK "CASCADE"
-        bigint place_id "FK 없음"
-        varchar event_type "added / deleted"
-        bigint actor_user_id FK
+        bigint pin_id "FK 없음"
+        bigint actor_id FK "변경한 팀원"
+        varchar type "added / deleted"
+        varchar status "pending / applied / ignored"
         varchar name "장소 정보 복사본"
         varchar category
         varchar road_address
         varchar address
         numeric latitude
         numeric longitude
-        varchar kakao_place_id
-        varchar status "pending / applied / dismissed"
+        varchar memo
         timestamptz created_at
-        timestamptz resolved_at
+        timestamptz handled_at
     }
 ```
 
 | 변경 | 이유 |
 |---|---|
-| `personal_places` 신규 | 개인 지도(F-66, F-67). 팀 장소(`places`)와 섞지 않아야 추천·모두 인정 규칙이 개인 핀에 걸리지 않음 |
-| `places.kakao_place_id` 추가 | 같은 장소 판별(F-36)과 개인 핀 ↔ 팀 장소 연결(F-68 ~ F-72) 공용 키. 부분 UNIQUE로 동시 등록 중복도 DB에서 막음 |
-| `sync_notifications` 신규 | 동기화 알림 탭(F-71, F-72). 받는 사람마다 한 행이라 사람별 반영·무시 상태를 따로 가짐 |
-| `sync_notifications.place_id` FK 없음 | 팀 장소가 삭제된 뒤에도 '삭제됨' 알림을 보여 줘야 해서. 장소 정보는 행에 복사해 둠 |
+| `personal_places` | 내 지도(F-66, F-67). 모임 장소(`places`)와 섞지 않아야 추천·모두 인정 규칙이 개인 장소에 걸리지 않음 |
+| `personal_places.visibility` | 친구·모임원에게 보여 줄 범위. `is_public` 은 V11에서 `visibility` 로 옮겼고 컬럼만 남아 있음 |
+| `friendships` | 친구 요청·수락. 같은 두 사람 사이에는 방향과 상관없이 한 행만 (`LEAST/GREATEST` UNIQUE), 나 자신은 불가 |
+| `team_members.sync_to_personal` | 모임마다, 사람마다 '내 지도에도 저장' 기본값 |
+| `sync_notifications` | 동기화 알림(F-71, F-72). 받는 사람마다 한 행이라 사람별 반영·무시 상태를 따로 가짐 |
+| `sync_notifications.pin_id` FK 없음 | 모임 장소가 삭제된 뒤에도 '삭제됨' 알림을 보여 줘야 해서. 장소 정보는 행에 복사해 둠 |
+
+### 아직 안 한 것
+
+| 제안 | 내용 |
+|---|---|
+| `places.kakao_place_id`, `personal_places.kakao_place_id` | 같은 장소 판별(F-36) 공용 키. 지금은 '이름이 같고 50m 안'으로 판별하고, DB 제약이 없어 모임 행 잠금으로 중복을 막음 |
+| `places.source_link` 삭제 | 네이버 검색 링크용으로 만들었지만 쓰지 않음 |

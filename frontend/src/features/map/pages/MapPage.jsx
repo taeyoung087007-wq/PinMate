@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   MapPin, Star, Users, Home, Layers,
-  X, Sparkles
+  X
 } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { getCurrentUser, setCurrentUserStorage } from '../../../lib/currentUser'
@@ -92,7 +92,6 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const [mapScope, setMapScope] = useState('personal') // 'team' | 'personal' — 처음 들어오면 내 지도
   const [personalFocusKey, setPersonalFocusKey] = useState(1) // 내 지도로 들어올 때마다 지도를 내 핀에 맞춘다
   const [personalPins, setPersonalPins] = useState([])
-  const [personalLoadState, setPersonalLoadState] = useState('idle') // 'idle' | 'loading' | 'ready' | 'error'
   const [showOverlay, setShowOverlay] = useState(true) // 모임 지도 위에 내 공개 핀을 겹쳐 볼지
   const [showFriendPanel, setShowFriendPanel] = useState(false)
   const [friendPendingCount, setFriendPendingCount] = useState(0) // 받은 친구 요청 수 (배지)
@@ -172,16 +171,9 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   useEffect(() => {
     if (personalLoadedRef.current) return
     personalLoadedRef.current = true
-    setPersonalLoadState('loading')
     fetchPersonalPins()
-      .then(data => {
-        setPersonalPins(data)
-        setPersonalLoadState('ready')
-      })
-      .catch(e => {
-        setPersonalLoadState('error')
-        setError(`내 지도를 불러오지 못했습니다: ${e.message}`)
-      })
+      .then(setPersonalPins)
+      .catch(e => setError(`내 지도를 불러오지 못했습니다: ${e.message}`))
   }, [])
 
   // 4. 모임원이 공개한 핀은 모임 지도에서만 보여준다 (내 지도에는 노출하지 않는다)
