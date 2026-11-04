@@ -8,7 +8,6 @@ import { getCurrentUser, setCurrentUserStorage } from '../../../lib/currentUser'
 import {
   fetchTeam,
   fetchPins,
-  fetchTeamMemberPins,
   importPersonalPlaces,
   createPinApi,
   toggleRecommendationApi,
@@ -21,7 +20,7 @@ import {
   updatePersonalVisibilityApi
 } from '../api'
 import { fetchTeams, createTeamApi, joinTeamApi } from '../../teams/api'
-import { distanceMeters } from '../places'
+import { isSamePlace } from '../places'
 import { groupLayerPins } from '../overlayGrouping'
 import MapCanvas from '../components/MapCanvas'
 import ErrorBoundary from '../../../components/ErrorBoundary/ErrorBoundary'
@@ -37,16 +36,11 @@ import TeamCreateModal from '../../teams/components/TeamCreateModal'
 import SettingsPage from '../../auth/pages/SettingsPage'
 import FriendPanel from '../../friends/components/FriendPanel'
 import SyncNotificationPanel from '../../notifications/components/SyncNotificationPanel'
-import {
-  fetchSyncNotifications,
-  fetchSyncNotificationCount,
-  applySyncNotification,
-  ignoreSyncNotification,
-  applyAllSyncNotifications,
-  ignoreAllSyncNotifications,
-} from '../../notifications/api'
+import { useSyncNotifications } from '../../notifications/useSyncNotifications'
 import LayerPanel from '../components/LayerPanel'
-import { fetchFriends, fetchFriendPlaces } from '../../friends/api'
+import { useFriendLayers } from '../useFriendLayers'
+import { useMemberPins } from '../useMemberPins'
+import { useDragScroll } from '../../../lib/useDragScroll'
 import styles from './MapPage.module.css'
 
 /** 카테고리 필터 목록 */
@@ -94,18 +88,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const [personalPins, setPersonalPins] = useState([])
   const [showOverlay, setShowOverlay] = useState(true) // 모임 지도 위에 내 공개 핀을 겹쳐 볼지
   const [showFriendPanel, setShowFriendPanel] = useState(false)
-  const [friendPendingCount, setFriendPendingCount] = useState(0) // 받은 친구 요청 수 (배지)
-  const [friendOverlays, setFriendOverlays] = useState([]) // [{ friend, pins, key }] — 여러 친구 중첩 가능
-  const [memberPins, setMemberPins] = useState([]) // 모임원이 공개한 핀 (모임 지도에서만)
-  const [showMemberPins, setShowMemberPins] = useState(false)
-  const memberPinsTeamRef = useRef(null) // 어느 모임의 핀을 이미 불러왔는지
   const [showLayerPanel, setShowLayerPanel] = useState(false)
-  const [friends, setFriends] = useState([])
   const [showNotificationPanel, setShowNotificationPanel] = useState(false)
-  const [syncItems, setSyncItems] = useState([])
-  const [syncPendingCount, setSyncPendingCount] = useState(0) // 처리 안 한 동기화 알림 수 (배지)
-  const [syncLoading, setSyncLoading] = useState(false)
-  const [syncBusyId, setSyncBusyId] = useState(null)
   const [importTarget, setImportTarget] = useState(null) // { teamId, teamName, places } — 개인 핀 가져오기 모달
   const [notice, setNotice] = useState('') // 짧게 보여주는 성공 안내
 
@@ -176,50 +160,21 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       .catch(e => setError(`내 지도를 불러오지 못했습니다: ${e.message}`))
   }, [])
 
-  // 4. 모임원이 공개한 핀은 모임 지도에서만 보여준다 (내 지도에는 노출하지 않는다)
-  //    모임을 바꿀 때마다 새로 읽고, 이미 읽은 모임이면 다시 요청하지 않는다
-  useEffect(() => {
-    if (mapScope !== 'team' || !selectedTeamId) return
-    const key = String(selectedTeamId)
-    if (memberPinsTeamRef.current === key) return
-    memberPinsTeamRef.current = key
+  // 반영하면 내 지도가 바뀌므로 개인 장소도 다시 읽는다
+  const refreshPersonalPins = async () => {
+    try {
+      setPersonalPins(await fetchPersonalPins())
+    } catch {
+      // 지도는 그대로 두고 알림만 갱신한다
+    }
+  }
 
-    fetchTeamMemberPins(selectedTeamId)
-      .then(places => {
-        if (memberPinsTeamRef.current !== key) return // 그새 다른 모임으로 바뀌었으면 버린다
-        setMemberPins(places)
-        setShowMemberPins(places.length > 0)
-      })
-      .catch(() => {
-        if (memberPinsTeamRef.current !== key) return
-        setMemberPins([])
-        setShowMemberPins(false)
-      })
-  }, [mapScope, selectedTeamId])
+  // 4. 친구 지도 레이어, 모임원 공유 핀 레이어, 동기화 알림
+  const friendLayers = useFriendLayers({ onError: setError })
+  const memberLayer = useMemberPins({ mapScope, teamId: selectedTeamId, onError: setError })
+  const sync = useSyncNotifications({ onError: setError, onApplied: refreshPersonalPins })
 
-  // 5. 받은 친구 요청 수는 앱을 열 때 한 번 불러 배지로 보여준다
-  useEffect(() => {
-    let cancelled = false
-    fetchFriends()
-      .then(data => {
-        if (cancelled) return
-        setFriendPendingCount(data.pendingCount ?? 0)
-        setFriends(data.friends ?? [])
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [])
-
-  // 6. 동기화 알림 개수는 앱을 열 때 한 번 읽어 배지로 보여준다
-  useEffect(() => {
-    let cancelled = false
-    fetchSyncNotificationCount()
-      .then(data => { if (!cancelled) setSyncPendingCount(data.pending ?? 0) })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [])
-
-  // 7. 성공 안내는 잠시 뒤 사라진다
+  // 5. 성공 안내는 잠시 뒤 사라진다
   useEffect(() => {
     if (!notice) return undefined
     const timer = setTimeout(() => setNotice(''), 3500)
@@ -232,24 +187,10 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   // 모임 지도 위에 겹쳐 그릴 내 공개 핀
   const publicPersonalPins = personalPins.filter(p => p.visibility === 'team' || p.visibility === 'all')
 
-  // 모임원 공유 핀: 모임 지도에서만, 모임원별로 묶어 친구 오버레이와 같은 모양으로 만든다
-  const memberOverlays = useMemo(() => {
-    if (mapScope !== 'team' || !showMemberPins) return []
-    const byOwner = new Map()
-    memberPins.forEach(pin => {
-      const id = pin.ownerId || pin.ownerLoginId
-      if (!byOwner.has(id)) {
-        byOwner.set(id, { friend: { id, nickname: pin.owner, loginId: pin.ownerLoginId }, pins: [] })
-      }
-      byOwner.get(id).pins.push(pin)
-    })
-    return [...byOwner.values()]
-  }, [mapScope, showMemberPins, memberPins])
-
   // 친구 레이어는 내 지도에서만 쓴다 (모임 지도에는 내 핀·모임원 핀만)
   const visibleFriendOverlays = useMemo(
-    () => (mapScope === 'personal' ? friendOverlays : []),
-    [mapScope, friendOverlays]
+    () => (mapScope === 'personal' ? friendLayers.overlays : []),
+    [mapScope, friendLayers.overlays]
   )
 
   // 레이어 출처별로 따로 묶는다. 친구 지도는 내 지도 전용, 모임원 공유 핀·내 공개 핀은 모임 지도 전용
@@ -261,7 +202,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   )
 
   const memberOverlayPins = groupLayerPins(
-    'member', memberOverlays, scopePins, currentUser.loginId, personalPins
+    'member', memberLayer.overlays, scopePins, currentUser.loginId, personalPins
   )
 
   const overlayPins = [
@@ -330,52 +271,13 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const closeFriendPanel = () => {
     setShowFriendPanel(false)
     setActiveTab(tab => (tab === 'friends' ? 'map' : tab))
-    fetchFriends()
-      .then(data => {
-        setFriendPendingCount(data.pendingCount ?? 0)
-        setFriends(data.friends ?? [])
-      })
-      .catch(() => {})
+    friendLayers.refresh()
   }
 
-  // 친구 레이어를 켜고 끈다 (여러 명 동시에 중첩 가능)
-  const handleToggleFriendOverlay = async friend => {
-    if (friendOverlays.some(o => String(o.friend.id) === String(friend.id))) {
-      setFriendOverlays(prev => prev.filter(o => String(o.friend.id) !== String(friend.id)))
-      return
-    }
-    try {
-      const places = await fetchFriendPlaces(friend.id)
-      setFriendOverlays(prev => [...prev, { friend, pins: places, key: Date.now() }])
-      if (places.length === 0) {
-        setError(`${friend.nickname || friend.loginId}님이 공개한 장소가 없습니다.`)
-      }
-    } catch (e) {
-      setError(`친구 지도를 불러오지 못했습니다: ${e.message}`)
-    }
-  }
-
+  // 레이어 끄기: 친구 지도와 모임원 공유 핀을 함께 끈다
   const clearFriendOverlays = () => {
-    setFriendOverlays([])
-    setShowMemberPins(false)
-  }
-
-  // 모임원 공유 핀 레이어 켜고 끄기
-  const handleToggleMemberPins = async () => {
-    if (showMemberPins) {
-      setShowMemberPins(false)
-      return
-    }
-    if (!selectedTeamId) return
-    try {
-      const places = await fetchTeamMemberPins(selectedTeamId)
-      memberPinsTeamRef.current = String(selectedTeamId)
-      setMemberPins(places)
-      setShowMemberPins(places.length > 0)
-      if (places.length === 0) setError('모임원이 공개한 장소가 없습니다.')
-    } catch (e) {
-      setError(`모임원 공유 핀을 불러오지 못했습니다: ${e.message}`)
-    }
+    friendLayers.clear()
+    memberLayer.hide()
   }
 
   // 친구 지도에서 본 핀을 내 지도에 추가한다 (공개로 저장)
@@ -403,97 +305,10 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     }
   }
 
-  // 친구 레이어 모두 선택 (아직 안 켠 친구만 불러와서 더한다)
-  const handleSelectAllFriends = async () => {
-    const missing = friends.filter(f => !friendOverlays.some(o => String(o.friend.id) === String(f.id)))
-    if (missing.length === 0) return
-    const results = await Promise.all(missing.map(async (friend, index) => {
-      try {
-        return { friend, pins: await fetchFriendPlaces(friend.id), key: Date.now() + index }
-      } catch {
-        return null
-      }
-    }))
-    setFriendOverlays(prev => [...prev, ...results.filter(Boolean)])
-  }
-
-  // 동기화 알림 목록 (모임별 추가·삭제 내역)
-  const loadSyncNotifications = async () => {
-    setSyncLoading(true)
-    try {
-      const data = await fetchSyncNotifications()
-      setSyncItems(data.items ?? [])
-      setSyncPendingCount(data.pendingCount ?? 0)
-    } catch (e) {
-      setError(`알림을 불러오지 못했습니다: ${e.message}`)
-    } finally {
-      setSyncLoading(false)
-    }
-  }
-
-  // 반영하면 내 지도가 바뀌므로 개인 장소도 다시 읽는다
-  const refreshPersonalPins = async () => {
-    try {
-      setPersonalPins(await fetchPersonalPins())
-    } catch {
-      // 지도는 그대로 두고 알림만 갱신한다
-    }
-  }
-
-  const handleApplyNotification = async item => {
-    setSyncBusyId(item.id)
-    try {
-      await applySyncNotification(item.id)
-      await Promise.all([loadSyncNotifications(), refreshPersonalPins()])
-    } catch (e) {
-      setError(`알림을 반영하지 못했습니다: ${e.message}`)
-    } finally {
-      setSyncBusyId(null)
-    }
-  }
-
-  const handleIgnoreNotification = async item => {
-    setSyncBusyId(item.id)
-    try {
-      await ignoreSyncNotification(item.id)
-      await loadSyncNotifications()
-    } catch (e) {
-      setError(`알림을 무시하지 못했습니다: ${e.message}`)
-    } finally {
-      setSyncBusyId(null)
-    }
-  }
-
-  const handleApplyAllNotifications = async teamId => {
-    setSyncBusyId(`team-${teamId}`)
-    try {
-      await applyAllSyncNotifications(teamId)
-      await Promise.all([loadSyncNotifications(), refreshPersonalPins()])
-    } catch (e) {
-      setError(`알림을 반영하지 못했습니다: ${e.message}`)
-    } finally {
-      setSyncBusyId(null)
-    }
-  }
-
-  const handleIgnoreAllNotifications = async teamId => {
-    setSyncBusyId(`team-${teamId}`)
-    try {
-      await ignoreAllSyncNotifications(teamId)
-      await loadSyncNotifications()
-    } catch (e) {
-      setError(`알림을 무시하지 못했습니다: ${e.message}`)
-    } finally {
-      setSyncBusyId(null)
-    }
-  }
-
   const closeNotificationPanel = () => {
     setShowNotificationPanel(false)
     setActiveTab(tab => (tab === 'notifications' ? 'map' : tab))
-    fetchSyncNotificationCount()
-      .then(data => setSyncPendingCount(data.pending ?? 0))
-      .catch(() => {})
+    sync.refreshCount()
   }
 
   // 새 모임 생성 완료 핸들러
@@ -721,7 +536,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       setShowListPanel(false)
       setShowFriendPanel(false)
       setShowNotificationPanel(true)
-      loadSyncNotifications()
+      sync.load()
     } else if (tabId === 'settings') {
       setShowTeamDrawer(false)
       setShowListPanel(false)
@@ -862,19 +677,19 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         </div>
 
         {/* 대기 중인 친구 요청이 있으면 지도 위에 바로 보여준다 */}
-        {friendPendingCount > 0 && (
+        {friendLayers.pendingCount > 0 && (
           <button
             className={styles.friendRequestBanner}
             onClick={() => { setShowListPanel(false); setShowFriendPanel(true); setActiveTab('friends') }}
           >
             <Users size={14} />
-            <span>친구 요청 {friendPendingCount}건</span>
+            <span>친구 요청 {friendLayers.pendingCount}건</span>
             <span className={styles.friendRequestAction}>확인</span>
           </button>
         )}
 
         {/* 지도 위 레이어가 켜져 있으면 무엇이 겹쳐 있는지 보여준다 */}
-        {(visibleFriendOverlays.length > 0 || memberOverlays.length > 0) && (
+        {(visibleFriendOverlays.length > 0 || memberLayer.overlays.length > 0) && (
           <button className={styles.friendOverlayChip} onClick={clearFriendOverlays}>
             <MapPin size={13} />
             <span>
@@ -882,7 +697,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
                 ? (visibleFriendOverlays.length === 1
                   ? `${visibleFriendOverlays[0].friend.nickname || visibleFriendOverlays[0].friend.loginId}님 지도`
                   : `친구 ${visibleFriendOverlays.length}명 지도`)
-                : `모임원 공유 핀 ${memberPins.length}곳`}
+                : `모임원 공유 핀 ${memberLayer.pins.length}곳`}
             </span>
             <span className={styles.friendOverlayClose}>끄기</span>
           </button>
@@ -890,17 +705,17 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       </div>
 
       {/* 지도 레이어 (내 공개 핀·모임원 공유 핀·친구 지도 선택). 내 지도·모임 지도 모두에서 */}
-      {(mapScope === 'team' || friends.length > 0 || publicPersonalPins.length > 0) && (
+      {(mapScope === 'team' || friendLayers.friends.length > 0 || publicPersonalPins.length > 0) && (
         <button
-          className={`${styles.layerBtn} ${(showLayerPanel || visibleFriendOverlays.length > 0 || memberOverlays.length > 0 || showOverlay) ? styles.layerBtnActive : ''} ${showFriendPanel ? styles.hideOnNarrow : ''}`}
+          className={`${styles.layerBtn} ${(showLayerPanel || visibleFriendOverlays.length > 0 || memberLayer.overlays.length > 0 || showOverlay) ? styles.layerBtnActive : ''} ${showFriendPanel ? styles.hideOnNarrow : ''}`}
           onClick={() => setShowLayerPanel(v => !v)}
           aria-pressed={showLayerPanel}
           title="지도 레이어"
         >
           <Layers size={18} />
-          {(publicPersonalPins.length + (mapScope === 'team' ? memberPins.length : 0)) > 0 && (
+          {(publicPersonalPins.length + (mapScope === 'team' ? memberLayer.pins.length : 0)) > 0 && (
             <span className={styles.layerCount}>
-              {publicPersonalPins.length + (mapScope === 'team' ? memberPins.length : 0)}
+              {publicPersonalPins.length + (mapScope === 'team' ? memberLayer.pins.length : 0)}
             </span>
           )}
         </button>
@@ -972,13 +787,13 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       {/* 5-1-1. 동기화 알림 패널 */}
       {showNotificationPanel && (
         <SyncNotificationPanel
-          items={syncItems}
-          loading={syncLoading}
-          busyId={syncBusyId}
-          onApply={handleApplyNotification}
-          onIgnore={handleIgnoreNotification}
-          onApplyAll={handleApplyAllNotifications}
-          onIgnoreAll={handleIgnoreAllNotifications}
+          items={sync.items}
+          loading={sync.loading}
+          busyId={sync.busyId}
+          onApply={sync.apply}
+          onIgnore={sync.ignore}
+          onApplyAll={sync.applyAll}
+          onIgnoreAll={sync.ignoreAll}
           onClose={closeNotificationPanel}
         />
       )}
@@ -986,18 +801,18 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       {/* 5-2. 지도 레이어 선택 패널 */}
       {showLayerPanel && (
         <LayerPanel
-          friends={friends}
+          friends={friendLayers.friends}
           showFriends={mapScope === 'personal'}
           activeFriendIds={visibleFriendOverlays.map(o => o.friend.id)}
           showMine={showOverlay}
           showMineOption={mapScope === 'team'}
           onToggleMine={() => setShowOverlay(v => !v)}
           showMembersOption={mapScope === 'team'}
-          showMembers={showMemberPins}
-          memberCount={memberPins.length}
-          onToggleMembers={handleToggleMemberPins}
-          onSelectFriend={handleToggleFriendOverlay}
-          onSelectAll={handleSelectAllFriends}
+          showMembers={memberLayer.show}
+          memberCount={memberLayer.pins.length}
+          onToggleMembers={memberLayer.toggle}
+          onSelectFriend={friendLayers.toggle}
+          onSelectAll={friendLayers.selectAll}
           onClear={clearFriendOverlays}
           onClose={() => setShowLayerPanel(false)}
         />
@@ -1079,72 +894,9 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         onTabChange={handleTabChange}
         placeCount={filteredPins.length}
         teamCount={teams.length}
-        friendCount={friendPendingCount}
-        notificationCount={syncPendingCount}
+        friendCount={friendLayers.pendingCount}
+        notificationCount={sync.pendingCount}
       />
     </div>
   )
-}
-
-// 같은 장소: 이름이 같고(공백·대소문자 무시) 50m 안. 서버(selectSamePinId)와 같은 기준
-const SAME_PLACE_METERS = 50
-const nameKey = name => (name || '').replace(/\s/g, '').toLowerCase()
-const isSamePlace = (pin, place) =>
-  nameKey(pin.name) === nameKey(place.name) && distanceMeters(pin.lat, pin.lng, place.lat, place.lng) < SAME_PLACE_METERS
-
-/**
- * 가로로 넘치는 칩 줄을 마우스로도 넘길 수 있게 한다 (터치는 브라우저가 원래 스크롤한다)
- * - 끌어서 넘기기. 끈 뒤 손을 떼면 칩이 눌리지 않게 클릭을 막는다
- * - 세로 휠을 가로 스크롤로
- */
-function useDragScroll() {
-  const ref = useRef(null)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    let startX = 0
-    let startLeft = 0
-    let dragging = false
-    let moved = false
-
-    const onDown = e => {
-      if (e.pointerType !== 'mouse' || e.button !== 0) return
-      dragging = true
-      moved = false
-      startX = e.clientX
-      startLeft = el.scrollLeft
-    }
-    const onMove = e => {
-      if (!dragging) return
-      const dx = e.clientX - startX
-      if (Math.abs(dx) > 5) moved = true
-      if (moved) el.scrollLeft = startLeft - dx
-    }
-    const onUp = () => { dragging = false }
-    const onClick = e => {
-      if (!moved) return
-      e.stopPropagation()
-      e.preventDefault()
-      moved = false
-    }
-    const onWheel = e => {
-      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || el.scrollWidth <= el.clientWidth) return
-      el.scrollLeft += e.deltaY
-      e.preventDefault()
-    }
-
-    el.addEventListener('pointerdown', onDown)
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    el.addEventListener('click', onClick, true)
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => {
-      el.removeEventListener('pointerdown', onDown)
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      el.removeEventListener('click', onClick, true)
-      el.removeEventListener('wheel', onWheel)
-    }
-  }, [])
-  return ref
 }

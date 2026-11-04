@@ -1,11 +1,4 @@
-import { distanceMeters } from './places'
-
-const SAME_PLACE_METERS = 50
-const nameKey = name => (name || '').replace(/\s/g, '').toLowerCase()
-
-const samePlace = (a, b) =>
-  nameKey(a.name) === nameKey(b.name) &&
-  distanceMeters(a.lat, a.lng, b.lat, b.lng) < SAME_PLACE_METERS
+import { isSamePlace } from './places'
 
 /**
  * 친구 오버레이 핀을 같은 장소끼리 묶는다.
@@ -23,7 +16,7 @@ export function groupFriendOverlayPins(friendOverlays, scopePins = [], myLoginId
 
   friendOverlays.forEach(({ friend, pins = [] }) => {
     pins.forEach(pin => {
-      const group = groups.find(g => samePlace(g.pin, pin))
+      const group = groups.find(g => isSamePlace(g.pin, pin))
       if (group) {
         if (!group.owners.some(o => String(o.id) === String(friend.id))) {
           group.owners.push({ id: friend.id, name: friend.nickname || friend.loginId })
@@ -35,9 +28,9 @@ export function groupFriendOverlayPins(friendOverlays, scopePins = [], myLoginId
   })
 
   return groups.map((group, index) => {
-    const match = scopePins.find(p => samePlace(p, group.pin))
+    const match = scopePins.find(p => isSamePlace(p, group.pin))
     const recommenders = match?.recommenders ?? []
-    const hasMyPin = myPins.some(p => samePlace(p, group.pin))
+    const hasMyPin = myPins.some(p => isSamePlace(p, group.pin))
 
     // 같은 곳을 가진 사람을 중복 없이 센다 (친구들 + 나 + 팀 추천인)
     const people = new Set()
