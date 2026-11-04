@@ -379,11 +379,15 @@ export default function MapCanvas({
     })
   }, [focusPlace, status, pickLocation])
 
-  // 친구 지도를 선택하면 그 친구의 핀들이 화면에 들어오도록 지도를 맞춘다
+  // 친구 지도·내 지도를 선택하면 그 핀들이 화면에 들어오도록 지도를 맞춘다
+  // 같은 key 로는 다시 맞추지 않는다 (핀을 추가·삭제해도 지도가 튀지 않게)
+  const lastFocusKeyRef = useRef(null)
   useEffect(() => {
     const maps = window.kakao?.maps
     const map = mapRef.current
     if (!maps || !map || status !== 'ready' || !focusPlaces?.places?.length) return
+    if (focusPlaces.key && lastFocusKeyRef.current === focusPlaces.key) return
+    if (focusPlaces.key) lastFocusKeyRef.current = focusPlaces.key
 
     if (focusPlaces.places.length === 1) {
       const p = focusPlaces.places[0]

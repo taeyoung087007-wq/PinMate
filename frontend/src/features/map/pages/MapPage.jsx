@@ -22,7 +22,7 @@ import {
 } from '../api'
 import { fetchTeams, createTeamApi, joinTeamApi } from '../../teams/api'
 import { distanceMeters } from '../places'
-import { groupFriendOverlayPins } from '../overlayGrouping'
+import { groupLayerPins } from '../overlayGrouping'
 import MapCanvas from '../components/MapCanvas'
 import ErrorBoundary from '../../../components/ErrorBoundary/ErrorBoundary'
 import TopSearch from '../components/TopSearch'
@@ -89,7 +89,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const [error, setError] = useState('')
 
   // 내 지도(개인 장소) 상태. mapScope 가 'personal' 이면 팀 핀 대신 개인 핀을 보여준다
-  const [mapScope, setMapScope] = useState('team') // 'team' | 'personal'
+  const [mapScope, setMapScope] = useState('personal') // 'team' | 'personal' — 처음 들어오면 내 지도
+  const [personalFocusKey, setPersonalFocusKey] = useState(1) // 내 지도로 들어올 때마다 지도를 내 핀에 맞춘다
   const [personalPins, setPersonalPins] = useState([])
   const [personalLoadState, setPersonalLoadState] = useState('idle') // 'idle' | 'loading' | 'ready' | 'error'
   const [showOverlay, setShowOverlay] = useState(true) // 모임 지도 위에 내 공개 핀을 겹쳐 볼지
@@ -237,7 +238,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const scopePins = mapScope === 'personal' ? personalPins : pins
 
   // 모임 지도 위에 겹쳐 그릴 내 공개 핀
-  const publicPersonalPins = personalPins.filter(p => p.isPublic)
+  const publicPersonalPins = personalPins.filter(p => p.visibility === 'team' || p.visibility === 'all')
 
   // 모임원 공유 핀: 모임 지도에서만, 모임원별로 묶어 친구 오버레이와 같은 모양으로 만든다
   const memberOverlays = useMemo(() => {
@@ -253,29 +254,46 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     return [...byOwner.values()]
   }, [mapScope, showMemberPins, memberPins])
 
-  // 친구 지도 + 모임원 공유 핀을 같은 장소끼리 묶는다
+  // 친구 레이어는 내 지도에서만 쓴다 (모임 지도에는 내 핀·모임원 핀만)
+  const visibleFriendOverlays = useMemo(
+    () => (mapScope === 'personal' ? friendOverlays : []),
+    [mapScope, friendOverlays]
+  )
+
+  // 레이어 출처별로 따로 묶는다. 친구 지도는 내 지도 전용, 모임원 공유 핀·내 공개 핀은 모임 지도 전용
   // - 여러 사람이 같은 곳을 저장하면 핀 하나 + 'N명이 추천'
-  // - 팀 핀과 겹치면 추천인 수를 합산해 '나 외 N명이 추천'
-  const friendOverlayPins = groupFriendOverlayPins(
-    [...friendOverlays, ...memberOverlays],
-    scopePins,
-    currentUser.loginId,
-    personalPins
+  // - 지금 지도 핀과 겹치면 추천인 수를 합산해 '나 외 N명이 추천'
+  // - overlayKind 를 붙여 친구 / 모임원 / 내 공개 핀의 테두리·태그를 서로 다르게 그린다
+  const friendOverlayPins = groupLayerPins(
+    'friend', visibleFriendOverlays, scopePins, currentUser.loginId, personalPins
+  )
+
+  const memberOverlayPins = groupLayerPins(
+    'member', memberOverlays, scopePins, currentUser.loginId, personalPins
   )
 
   const overlayPins = [
-    ...(mapScope === 'team' && showOverlay ? publicPersonalPins : []),
+    ...(mapScope === 'team' && showOverlay
+      ? publicPersonalPins.map(pin => ({ ...pin, overlayKind: 'mine' }))
+      : []),
     ...friendOverlayPins,
+    ...memberOverlayPins,
   ]
 
   // 선택한 친구들의 핀이 모두 보이도록 지도를 맞출 때 쓴다 (모임원 핀은 자동으로 맞추지 않는다)
+  // 지도를 맞출 대상: 친구 지도를 고르면 그 핀들, 내 지도면 내 핀들
   const focusPlaces = useMemo(() => {
-    if (friendOverlays.length === 0) return null
-    return {
-      places: friendOverlays.flatMap(o => o.pins),
-      key: friendOverlays.map(o => o.key).join('-'),
+    if (visibleFriendOverlays.length > 0) {
+      return {
+        places: visibleFriendOverlays.flatMap(o => o.pins),
+        key: visibleFriendOverlays.map(o => o.key).join('-'),
+      }
     }
-  }, [friendOverlays])
+    if (mapScope === 'personal' && personalPins.length > 0) {
+      return { places: personalPins, key: `personal-${personalFocusKey}` }
+    }
+    return null
+  }, [visibleFriendOverlays, mapScope, personalPins, personalFocusKey])
 
   // 필터링된 핀 목록
   const filteredPins = useMemo(() => {
@@ -308,6 +326,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     setActiveCategory('all')
     setShowOnlyApproved(false)
     setSelectedPin(null)
+    setPersonalFocusKey(Date.now())   // 내 지도로 들어오면 내 핀들이 보이게 지도를 맞춘다
   }
 
   const closePlaceList = () => {
@@ -382,7 +401,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         lat: pin.lat,
         lng: pin.lng,
         memo: pin.memo,
-        isPublic: true,
+        visibility: 'all',
         source: 'search',
       })
       setPersonalPins(prev => [saved, ...prev])
@@ -563,7 +582,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       // '내 지도에도 저장' 을 체크했으면 개인 장소로도 저장한다 (팀 등록은 이미 성공)
       if (newPinData.syncToPersonal) {
         try {
-          const personal = await createPersonalPinApi({ ...newPinData, isPublic: true })
+          const personal = await createPersonalPinApi({ ...newPinData, visibility: 'all' })
           setPersonalPins(prev => [personal, ...prev])
         } catch {
           setError('모임에는 저장했지만 내 지도에는 저장하지 못했습니다.')
@@ -618,15 +637,21 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   // 이 id 가 내 지도(개인) 핀인지. 모임 지도 위 오버레이 핀도 개인 핀으로 취급한다
   const isPersonalPinId = pinId => personalPins.some(p => p.id === pinId)
 
-  // 공개/비공개 전환 (공개한 핀만 모임 지도에 겹쳐 보인다)
-  const handleToggleVisibility = async (pinId, isPublic) => {
+  // 공개 범위 변경 (private 나만 / friends 친구 / team 모임 / all 전체)
+  const handleSetVisibility = async (pinId, visibility) => {
     try {
-      const updated = await updatePersonalVisibilityApi(pinId, isPublic)
+      const updated = await updatePersonalVisibilityApi(pinId, visibility)
       setPersonalPins(prev => prev.map(p => (p.id === updated.id ? updated : p)))
       setSelectedPin(updated)
     } catch (e) {
       setError(`공개 설정 변경에 실패했습니다: ${e.message}`)
     }
+  }
+
+  // 모임 지도에서만 빼기: 전체 → 친구, 모임만 → 나만
+  const handleUnshareFromTeam = async pin => {
+    const next = pin.visibility === 'all' ? 'friends' : 'private'
+    await handleSetVisibility(pin.id, next)
   }
 
   // 장소 수정 핸들러 (성공 여부를 돌려줘 패널이 수정 모드를 닫을 수 있게 한다)
@@ -857,17 +882,15 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         )}
 
         {/* 지도 위 레이어가 켜져 있으면 무엇이 겹쳐 있는지 보여준다 */}
-        {(friendOverlays.length > 0 || memberOverlays.length > 0) && (
+        {(visibleFriendOverlays.length > 0 || memberOverlays.length > 0) && (
           <button className={styles.friendOverlayChip} onClick={clearFriendOverlays}>
             <MapPin size={13} />
             <span>
-              {friendOverlays.length > 0 && memberOverlays.length > 0
-                ? `친구 ${friendOverlays.length}명 · 모임원 ${memberPins.length}곳`
-                : friendOverlays.length > 0
-                  ? (friendOverlays.length === 1
-                    ? `${friendOverlays[0].friend.nickname || friendOverlays[0].friend.loginId}님 지도`
-                    : `친구 ${friendOverlays.length}명 지도`)
-                  : `모임원 공유 핀 ${memberPins.length}곳`}
+              {visibleFriendOverlays.length > 0
+                ? (visibleFriendOverlays.length === 1
+                  ? `${visibleFriendOverlays[0].friend.nickname || visibleFriendOverlays[0].friend.loginId}님 지도`
+                  : `친구 ${visibleFriendOverlays.length}명 지도`)
+                : `모임원 공유 핀 ${memberPins.length}곳`}
             </span>
             <span className={styles.friendOverlayClose}>끄기</span>
           </button>
@@ -877,7 +900,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       {/* 지도 레이어 (내 공개 핀·모임원 공유 핀·친구 지도 선택). 내 지도·모임 지도 모두에서 */}
       {(mapScope === 'team' || friends.length > 0 || publicPersonalPins.length > 0) && (
         <button
-          className={`${styles.layerBtn} ${(showLayerPanel || friendOverlays.length > 0 || memberOverlays.length > 0 || showOverlay) ? styles.layerBtnActive : ''} ${showFriendPanel ? styles.hideOnNarrow : ''}`}
+          className={`${styles.layerBtn} ${(showLayerPanel || visibleFriendOverlays.length > 0 || memberOverlays.length > 0 || showOverlay) ? styles.layerBtnActive : ''} ${showFriendPanel ? styles.hideOnNarrow : ''}`}
           onClick={() => setShowLayerPanel(v => !v)}
           aria-pressed={showLayerPanel}
           title="지도 레이어"
@@ -932,7 +955,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           onRecommend={selectedPin?.personal ? undefined : opts => handleRecommend(selectedPin.id, opts)}
           onUpdate={selectedPin?.owner ? undefined : handleUpdatePin}
           onDelete={selectedPin?.owner ? undefined : handleDeletePin}
-          onToggleVisibility={selectedPin?.personal && !selectedPin?.owner ? isPublic => handleToggleVisibility(selectedPin.id, isPublic) : undefined}
+          onSetVisibility={selectedPin?.personal && !selectedPin?.owner ? visibility => handleSetVisibility(selectedPin.id, visibility) : undefined}
+          onUnshare={selectedPin?.personal && !selectedPin?.owner ? () => handleUnshareFromTeam(selectedPin) : undefined}
           onRoute={pin => { setRouteTarget(pin); setRoutePanelOpen(true); setSelectedPin(null); setShowListPanel(false) }}
         />
       )}
@@ -971,7 +995,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       {showLayerPanel && (
         <LayerPanel
           friends={friends}
-          activeFriendIds={friendOverlays.map(o => o.friend.id)}
+          showFriends={mapScope === 'personal'}
+          activeFriendIds={visibleFriendOverlays.map(o => o.friend.id)}
           showMine={showOverlay}
           showMineOption={mapScope === 'team'}
           onToggleMine={() => setShowOverlay(v => !v)}

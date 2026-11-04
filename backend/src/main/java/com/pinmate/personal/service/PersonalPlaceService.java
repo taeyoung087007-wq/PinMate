@@ -20,7 +20,8 @@ public interface PersonalPlaceService {
 	Map<String, Object> update(Long personalPlaceId, Map<String, Object> param) throws Exception;
 
 	// 공개/비공개 전환. 공개한 핀만 모임 지도에 오버레이된다. 권한은 selectEditCode 로 먼저 확인한다
-	Map<String, Object> updateVisibility(Long personalPlaceId, boolean isPublic) throws Exception;
+	// 공개 범위 변경 (private / friends / team / all)
+	Map<String, Object> updateVisibility(Long personalPlaceId, String visibility) throws Exception;
 
 	// 개인 장소 삭제. 권한은 selectEditCode 로 먼저 확인한다
 	void delete(Long personalPlaceId, Long userId) throws Exception;

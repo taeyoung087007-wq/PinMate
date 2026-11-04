@@ -25,6 +25,20 @@ function formatCreatedAt(value) {
  * - 팀원 과반이 추천하면 과반 인정, 전원이면 모두 인정
  * - 등록자·팀 owner 에게만 수정/삭제 버튼 노출
  */
+const VISIBILITY_OPTIONS = [
+  { value: 'private', label: '나만' },
+  { value: 'friends', label: '친구' },
+  { value: 'team', label: '모임' },
+  { value: 'all', label: '전체' },
+]
+
+const VISIBILITY_HINT = {
+  private: '나만 볼 수 있어요.',
+  friends: '친구가 내 지도 레이어로 볼 수 있어요.',
+  team: '이 모임 지도에만 보여요.',
+  all: '친구와 모임 모두 볼 수 있어요.',
+}
+
 export default function PinDetailPanel({
   pin,
   members,
@@ -39,7 +53,8 @@ export default function PinDetailPanel({
   onUpdate,
   onDelete,
   onRoute,
-  onToggleVisibility,
+  onSetVisibility,
+  onUnshare,
 }) {
   // 하단 시트: 그랩 핸들을 아래로 쓸면 닫는다 (중앙 정렬 transform 은 유지)
   const { panelRef, handleRef } = usePanelDrag(onClose, { axis: 'y', sign: 1, baseTransform: 'translateX(-50%)' })
@@ -242,21 +257,31 @@ export default function PinDetailPanel({
             </div>
           )}
 
-          {/* 내 지도 공개 여부: 공개한 핀만 모임 지도에 겹쳐 보인다 */}
-          {personal && onToggleVisibility && (
-            <button
-              className={`${styles.visibilityToggle} ${pin.isPublic ? styles.visibilityOn : ''}`}
-              onClick={() => onToggleVisibility(!pin.isPublic)}
-              aria-pressed={pin.isPublic}
-              title="공개하면 모임 지도 위에 내 핀이 겹쳐 보입니다"
-            >
-              <span className={styles.visibilityDot} />
-              <span className={styles.visibilityText}>
-                <strong>{pin.isPublic ? '모임 지도에 공개 중' : '비공개'}</strong>
-                <small>{pin.isPublic ? '모임 지도 위에 내 핀이 겹쳐 보입니다' : '나만 볼 수 있습니다'}</small>
-              </span>
-              <span className={styles.visibilitySwitch} aria-hidden="true" />
-            </button>
+          {/* 내 지도 공개 범위: 고른 대상에게만 핀이 보인다 */}
+          {personal && onSetVisibility && (
+            <div className={styles.visibilityBlock}>
+              <div className={styles.visibilityLabel}>공개 범위</div>
+              <div className={styles.visibilityChips} role="group" aria-label="공개 범위">
+                {VISIBILITY_OPTIONS.map(option => {
+                  const current = pin.visibility || (pin.isPublic ? 'all' : 'private')
+                  const active = current === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`${styles.visibilityChip} ${active ? styles.visibilityChipOn : ''}`}
+                      onClick={() => onSetVisibility(option.value)}
+                      aria-pressed={active}
+                    >
+                      {option.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className={styles.visibilityHint}>
+                {VISIBILITY_HINT[pin.visibility || (pin.isPublic ? 'all' : 'private')]}
+              </p>
+            </div>
           )}
 
           {/* 추천한 멤버 섹션 (팀 지도에서만) */}
@@ -318,7 +343,7 @@ export default function PinDetailPanel({
                 </button>
                 <button
                   className="btn btn-secondary"
-                  onClick={() => { setDeletePrompt(false); onToggleVisibility?.(false) }}
+                  onClick={() => { setDeletePrompt(false); onUnshare?.() }}
                 >
                   공유만 해제
                 </button>

@@ -96,12 +96,25 @@ class PersonalPlaceServiceImplPermissionTest {
     }
 
     @Test
-    @DisplayName("공개 여부를 바꾸면 is_public 만 갱신된다")
-    void updateVisibilityWritesFlag() throws Exception {
+    @DisplayName("공개 범위가 team 이면 visibility 와 isPublic 을 함께 내려준다")
+    void mapsVisibilityScope() throws Exception {
+        Map<String, Object> row = existingPlace();
+        row.put("visibility", "team");
+        given(personalPlaceDAO.selectPersonalPlacesByUserId(OWNER_ID)).willReturn(List.of(row));
+
+        Map<String, Object> item = service.selectList(OWNER_ID).get(0);
+
+        assertThat(item.get("visibility")).isEqualTo("team");
+        assertThat(item.get("isPublic")).isEqualTo(true);
+    }
+
+    @Test
+    @DisplayName("공개 범위를 바꾸면 visibility 를 갱신한다")
+    void updateVisibilityWritesScope() throws Exception {
         given(personalPlaceDAO.selectPersonalPlaceById(PLACE_ID)).willReturn(existingPlace());
 
-        service.updateVisibility(PLACE_ID, true);
+        service.updateVisibility(PLACE_ID, "friends");
 
-        verify(personalPlaceDAO).updatePersonalVisibility(Map.of("personalPlaceId", PLACE_ID, "isPublic", true));
+        verify(personalPlaceDAO).updatePersonalVisibility(Map.of("personalPlaceId", PLACE_ID, "visibility", "friends"));
     }
 }

@@ -54,3 +54,22 @@ export function groupFriendOverlayPins(friendOverlays, scopePins = [], myLoginId
     return { ...group.pin, overlayTag: tag, overlayIndex: index, overlayCount: count }
   })
 }
+
+/**
+ * 레이어 출처(kind)를 붙여 오버레이 핀을 묶는다.
+ * 친구 지도 / 모임원 공유 핀을 같은 모양으로 섞지 않고, 지도 위에서 서로 다른
+ * 테두리·태그로 그릴 수 있도록 구분값을 심는다.
+ *
+ * @param {'friend'|'member'} kind 출처
+ * @param {Array<{ friend: object, pins: Array }>} overlays
+ * @param {Array} scopePins 지금 보고 있는 지도의 핀
+ * @param {string|null} myLoginId
+ * @param {Array} myPins 내 개인 핀
+ */
+export function groupLayerPins(kind, overlays, scopePins = [], myLoginId = null, myPins = []) {
+  return groupFriendOverlayPins(overlays, scopePins, myLoginId, myPins).map(pin => ({
+    ...pin,
+    overlayKind: kind,
+    overlayTag: kind === 'member' ? `모임원 · ${pin.overlayTag || '공유'}` : pin.overlayTag,
+  }))
+}

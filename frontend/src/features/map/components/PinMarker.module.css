@@ -131,6 +131,17 @@
   box-shadow: 0 0 0 3px rgba(64, 196, 255, 0.3), 0 3px 12px rgba(0, 0, 0, 0.4);
 }
 
+/* 모임원이 내 지도에서 공유한 핀: 친구 핀(파랑)·내 공개 핀(보라)과 구분되는 초록 테두리 */
+.pinWrapMember {
+  transform: translate(10px, -12px);
+}
+
+.pinWrapMember .pinBody {
+  border-style: solid;
+  border-color: #6ee7c0;
+  box-shadow: 0 0 0 3px rgba(12, 166, 120, 0.3), 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
 /* 친구 지도 핀 위 태그 */
 .friendTag {
   position: absolute;
@@ -140,6 +151,22 @@
   padding: 1px 6px;
   border-radius: 999px;
   background: #2b7fff;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* 모임원 공유 핀 위 태그 */
+.memberTag {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #0ca678;
   color: #fff;
   font-size: 9px;
   font-weight: 700;

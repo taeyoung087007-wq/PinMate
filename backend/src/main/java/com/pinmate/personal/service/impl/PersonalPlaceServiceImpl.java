@@ -37,6 +37,11 @@ public class PersonalPlaceServiceImpl implements PersonalPlaceService {
 		String address = (String) param.get("address");
 		String roadAddress = (String) param.get("roadAddress");
 
+		String visibility = (String) param.get("visibility");
+		if (visibility == null) {
+			visibility = Boolean.FALSE.equals(param.get("isPublic")) ? "private" : "all";
+		}
+
 		Map<String, Object> place = ParamUtil.map(
 				"userId", userId,
 				"name", param.get("name"),
@@ -47,7 +52,7 @@ public class PersonalPlaceServiceImpl implements PersonalPlaceService {
 				"longitude", BigDecimal.valueOf((Double) param.get("lng")),
 				"source", param.get("source"),
 				"memo", param.get("memo"),
-				"isPublic", !Boolean.FALSE.equals(param.get("isPublic")));   // 기본 공개
+				"visibility", visibility);
 		personalPlaceDAO.insertPersonalPlace(place);   // useGeneratedKeys → place.personalPlaceId
 		Long personalPlaceId = ((Number) place.get("personalPlaceId")).longValue();
 
@@ -75,8 +80,9 @@ public class PersonalPlaceServiceImpl implements PersonalPlaceService {
 
 	@Override
 	@Transactional
-	public Map<String, Object> updateVisibility(Long personalPlaceId, boolean isPublic) throws Exception {
-		personalPlaceDAO.updatePersonalVisibility(ParamUtil.map("personalPlaceId", personalPlaceId, "isPublic", isPublic));
+	public Map<String, Object> updateVisibility(Long personalPlaceId, String visibility) throws Exception {
+		personalPlaceDAO.updatePersonalVisibility(ParamUtil.map(
+				"personalPlaceId", personalPlaceId, "visibility", visibility));
 		return toItem(personalPlaceDAO.selectPersonalPlaceById(personalPlaceId));
 	}
 
@@ -102,7 +108,12 @@ public class PersonalPlaceServiceImpl implements PersonalPlaceService {
 		// 개인 장소에는 추천 개념이 없다. 다만 상세 패널이 '내가 등록한 장소'로 보고 메모를 고칠 수 있게 본인만 넣는다
 		item.put("recommenders", loginId == null ? List.of() : List.of(loginId));
 		item.put("memo", row.get("memo"));
-		item.put("isPublic", Boolean.TRUE.equals(row.get("is_public")));
+		String visibility = (String) row.get("visibility");
+		if (visibility == null) {
+			visibility = Boolean.TRUE.equals(row.get("is_public")) ? "all" : "private";
+		}
+		item.put("visibility", visibility);
+		item.put("isPublic", !"private".equals(visibility));
 		item.put("isAllApproved", false);
 		item.put("consensusAchievedAt", null);
 		item.put("consensusMemberCount", null);

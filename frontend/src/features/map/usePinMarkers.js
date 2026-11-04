@@ -53,16 +53,22 @@ function createPinElement({ pin, meta, memberColor, majority, isSelected }) {
   return wrap
 }
 
-/** 내 지도 공개 핀: 기본 핀과 구분되게 점선 테두리 + '내 지도' 태그를 붙인다 */
+/** 레이어 핀: 출처(친구 / 모임원 / 내 공개)마다 테두리·태그 색을 달리한다 */
 function createOverlayPinElement({ pin, meta }) {
-  const isFriend = Boolean(pin.owner)
-  const tagText = pin.overlayTag || (isFriend ? pin.owner : '내 지도')
+  const kind = pin.overlayKind || (pin.owner ? 'friend' : 'mine')
+  const isFriend = kind === 'friend'
+  const isMember = kind === 'member'
+  const tagText = pin.overlayTag || (isFriend ? pin.owner : isMember ? '모임원' : '내 지도')
+
+  const wrapClass = isFriend ? styles.pinWrapFriend : isMember ? styles.pinWrapMember : styles.pinWrapPersonal
+  const tagClass = isFriend ? styles.friendTag : isMember ? styles.memberTag : styles.personalTag
+  const badgeColor = isFriend ? '#2b7fff' : isMember ? '#0ca678' : '#6C63FF'
 
   const wrap = document.createElement('div')
-  wrap.className = `${styles.pinWrap} ${isFriend ? styles.pinWrapFriend : styles.pinWrapPersonal}`
+  wrap.className = `${styles.pinWrap} ${wrapClass}`
   wrap.title = `${pin.name} (${tagText})`
-  // 친구를 여러 명 겹쳐 켜면 친구마다 핀을 조금씩 더 비껴 그려 서로 구분되게
-  if (isFriend) {
+  // 친구·모임원을 여러 명 겹쳐 켜면 사람마다 핀을 조금씩 더 비껴 그려 서로 구분되게
+  if (isFriend || isMember) {
     const index = pin.overlayIndex ?? 0
     wrap.style.transform = `translate(${10 + index * 14}px, ${-12 - index * 14}px)`
   }
@@ -77,7 +83,7 @@ function createOverlayPinElement({ pin, meta }) {
   label.textContent = pin.name
 
   const tag = document.createElement('span')
-  tag.className = isFriend ? styles.friendTag : styles.personalTag
+  tag.className = tagClass
   tag.textContent = tagText
 
   wrap.append(body, label, tag)
@@ -86,7 +92,7 @@ function createOverlayPinElement({ pin, meta }) {
   if (pin.overlayCount > 1) {
     const badge = document.createElement('span')
     badge.className = styles.pinBadge
-    badge.style.background = isFriend ? '#2b7fff' : '#6C63FF'
+    badge.style.background = badgeColor
     badge.textContent = String(pin.overlayCount)
     wrap.appendChild(badge)
   }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupFriendOverlayPins } from './overlayGrouping'
+import { groupFriendOverlayPins, groupLayerPins } from './overlayGrouping'
 
 const friend = (id, nickname) => ({ id, nickname })
 const place = (name, lat, lng, owner) => ({ name, lat, lng, owner })
@@ -51,5 +51,41 @@ describe('groupFriendOverlayPins', () => {
     const overlays = [{ friend: friend(1, '태영'), pins: [place('A', 36.62, 127.31, '태영')] }]
 
     expect(groupFriendOverlayPins(overlays, [], 'admin')[0].overlayTag).toBe('태영')
+  })
+})
+
+describe('groupLayerPins', () => {
+  const overlays = [
+    { friend: friend(1, '태영'), pins: [place('이자카야 탕', 36.62, 127.31, '태영')] },
+    { friend: friend(2, '무능한아기'), pins: [place('이자카야 탕', 36.62, 127.31, '무능한아기')] },
+  ]
+
+  it('친구 레이어는 overlayKind 가 friend 고 태그를 그대로 쓴다', () => {
+    const [pin] = groupLayerPins('friend', overlays, [], 'admin')
+
+    expect(pin.overlayKind).toBe('friend')
+    expect(pin.overlayTag).toBe('2명이 추천')
+  })
+
+  it('모임원 레이어는 overlayKind 가 member 고 태그에 모임원이 붙는다', () => {
+    const [pin] = groupLayerPins('member', overlays, [], 'admin')
+
+    expect(pin.overlayKind).toBe('member')
+    expect(pin.overlayTag).toBe('모임원 · 2명이 추천')
+  })
+
+  it('모임원 한 명이면 모임원 · 이름 태그', () => {
+    const [pin] = groupLayerPins('member', overlays.slice(0, 1), [], 'admin')
+
+    expect(pin.overlayTag).toBe('모임원 · 태영')
+  })
+
+  it('출처가 달라도 같은 장소끼리 묶는 결과의 좌표·개수는 같다', () => {
+    const asFriend = groupLayerPins('friend', overlays, [], 'admin')[0]
+    const asMember = groupLayerPins('member', overlays, [], 'admin')[0]
+
+    expect(asMember.lat).toBe(asFriend.lat)
+    expect(asMember.lng).toBe(asFriend.lng)
+    expect(asMember.overlayCount).toBe(asFriend.overlayCount)
   })
 })

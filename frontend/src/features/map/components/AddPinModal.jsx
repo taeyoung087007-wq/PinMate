@@ -18,6 +18,20 @@ const PICKER_LEVEL = 4
  * - 좌표는 반드시 실제 주소에서 나온다 (임의 좌표 생성 없음)
  * - initialPlace: 메인 지도에서 이미 고른 위치 { name, address, lat, lng } 가 있으면 상세 입력부터 시작
  */
+const VISIBILITY_OPTIONS = [
+  { value: 'private', label: '나만' },
+  { value: 'friends', label: '친구' },
+  { value: 'team', label: '모임' },
+  { value: 'all', label: '전체' },
+]
+
+const VISIBILITY_HINT = {
+  private: '나만 볼 수 있어요.',
+  friends: '친구가 내 지도 레이어로 볼 수 있어요.',
+  team: '모임 지도에만 보여요.',
+  all: '친구와 모임 모두 볼 수 있어요.',
+}
+
 export default function AddPinModal({ teamId, personal = false, onClose, onAdd, initialPlace = null, defaultSyncToPersonal = false }) {
   const [step, setStep] = useState(initialPlace ? 'detail' : 'search') // 'search' | 'detail'
   const [mode, setMode] = useState('search') // 'search' | 'map'
@@ -35,7 +49,7 @@ export default function AddPinModal({ teamId, personal = false, onClose, onAdd, 
   const [memo, setMemo] = useState('')
   const [recommend, setRecommend] = useState(false) // 다녀와 봤으면 등록하면서 바로 추천 (SNS 에서 보고 찍어두기만 하면 끔)
   const [syncToPersonal, setSyncToPersonal] = useState(defaultSyncToPersonal) // 모임에 추가하면서 내 지도에도 같이 저장 (모임 설정이 켜져 있으면 기본 체크)
-  const [isPublic, setIsPublic] = useState(true) // 내 지도 핀은 기본 공개 (비공개는 선택)
+  const [visibility, setVisibility] = useState('all') // 내 지도 핀 공개 범위: private/friends/team/all
   const [adding, setAdding] = useState(false) // 버튼을 연달아 눌러 같은 장소가 두 번 들어가지 않게
 
   // 검색: 상호명(카카오 Places)과 주소(카카오 Geocoder)를 동시에 조회해 합친다
@@ -141,7 +155,7 @@ export default function AddPinModal({ teamId, personal = false, onClose, onAdd, 
       memo: (personal || recommend) ? memo.trim() : '',
       recommend: personal ? false : recommend,   // 개인 장소에는 추천 개념이 없다
       syncToPersonal: personal ? false : syncToPersonal,   // 모임 장소를 내 지도에도 저장할지
-      isPublic: personal ? isPublic : undefined,           // 내 지도 핀 공개 여부 (기본 공개)
+      visibility: personal ? visibility : undefined,       // 내 지도 핀 공개 범위 (기본 전체)
       source,
     })
     setAdding(false)
@@ -342,13 +356,23 @@ export default function AddPinModal({ teamId, personal = false, onClose, onAdd, 
             )}
 
             {personal && (
-              <label className={styles.recommendCheck}>
-                <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} />
-                <span>
-                  모임 지도에 공개
-                  <small>체크하면 모임 지도 위에 내 핀이 겹쳐 보입니다. 끄면 나만 봅니다.</small>
-                </span>
-              </label>
+              <div className={styles.visibilityField}>
+                <label className={styles.label}>공개 범위</label>
+                <div className={styles.visibilityChips} role="group" aria-label="공개 범위">
+                  {VISIBILITY_OPTIONS.map(option => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`${styles.visibilityChip} ${visibility === option.value ? styles.visibilityChipOn : ''}`}
+                      onClick={() => setVisibility(option.value)}
+                      aria-pressed={visibility === option.value}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <span className={styles.visibilityHint}>{VISIBILITY_HINT[visibility]}</span>
+              </div>
             )}
 
             <div className={styles.actions}>
