@@ -6,6 +6,7 @@ import com.pinmate.cmmn.util.ParamUtil;
 import com.pinmate.cmmn.util.RequestUtil;
 import com.pinmate.cmmn.util.Response;
 import com.pinmate.cmmn.util.SessionUtil;
+import com.pinmate.pin.service.PinService;
 import com.pinmate.team.service.TeamService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +41,9 @@ public class TeamController {
 
 	@Resource(name = "TeamService")
 	private TeamService teamService;
+
+	@Resource(name = "PinService")
+	private PinService pinService;
 
 	@Autowired
 	private LoginAttemptLimiter loginAttemptLimiter;
@@ -138,6 +143,36 @@ public class TeamController {
 		} catch (Exception e) {
 			logger.error("동기화 설정 변경 중 알 수 없는 오류가 발생했습니다.", e);
 			result = Response.of(Constants.FAIL, "동기화 설정 변경 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
+	// 내 지도(개인 핀)를 모임 지도로 가져오기 (F-68). 같은 장소는 내 추천으로 합치고, 없으면 새 장소로 등록
+	@ResponseBody
+	@PostMapping("teams/{teamId}/import-personal-places")
+	public Response importPersonalPlaces(@PathVariable("teamId") Long teamId,
+			@RequestBody HashMap<String, Object> param, HttpSession session) {
+		Response result = null;
+
+		try {
+			List<Long> ids = new ArrayList<>();
+			if (param.get("ids") instanceof List<?> raw) {
+				for (Object value : raw) {
+					if (value instanceof Number number) ids.add(number.longValue());
+				}
+			}
+			if (ids.isEmpty()) {
+				return Response.of(Constants.INVALID, "가져올 장소를 골라주세요.", null);
+			}
+
+			Map<String, Object> data = pinService.importPersonalPlaces(teamId, SessionUtil.getUserId(session), ids);
+			result = (data == null)
+					? Response.of(Constants.NO_PERMISSION, "모임원만 가져올 수 있습니다.", null)
+					: Response.of(Constants.SUCCESS, data);
+		} catch (Exception e) {
+			logger.error("개인 장소 가져오기 중 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "장소를 가져오지 못했습니다.", null);
 		}
 
 		return result;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Check, MapPin, LogOut, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Check, MapPin, LogOut, Trash2, Download } from 'lucide-react'
 import { fetchTeam, deleteTeamApi, leaveTeamApi, updateTeamSyncSetting } from '../api'
 import { getCurrentUser } from '../../../lib/currentUser'
 import { buildInviteLink, inviteBase } from '../inviteLink'
@@ -18,7 +18,7 @@ const REFRESH_MS = 30_000
  * - 멤버 목록 (온라인 먼저, 페이지네이션)
  * - 하단: 모임 나가기 (모임장이면 모임 삭제도). 나가거나 지우면 onLeft(teamId)
  */
-export default function TeamDetailView({ teamId, onBack, onEnter, onLeft }) {
+export default function TeamDetailView({ teamId, onBack, onEnter, onImportPersonal, onLeft }) {
   const [team, setTeam] = useState(null)
   const [error, setError] = useState('')
   const [revealed, setRevealed] = useState(false)
@@ -230,6 +230,13 @@ export default function TeamDetailView({ teamId, onBack, onEnter, onLeft }) {
         <MapPin size={16} />
         이 모임 지도 보기
       </button>
+
+      {onImportPersonal && (
+        <button type="button" className="btn btn-secondary" onClick={() => onImportPersonal(team.id, team.name)}>
+          <Download size={15} />
+          내 장소 가져오기
+        </button>
+      )}
 
       <div className={styles.dangerRow}>
         <button type="button" className="btn btn-secondary" onClick={handleLeave} disabled={busy}>
