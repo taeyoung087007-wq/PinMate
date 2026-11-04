@@ -30,9 +30,9 @@
     <meta name="twitter:title" content="PinMate — 친구들과 함께 만드는 지도" />
     <meta name="twitter:description" content="친구끼리 팀을 만들어 맛집, 카페, 명소를 하나의 지도에 모아보세요." />
     <meta name="twitter:image" content="%VITE_PUBLIC_URL%/og-image.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Pretendard 는 Google Fonts 에 없다. 공식 배포(jsDelivr)의 가변 폰트, 쓰는 글자만 내려받는 dynamic subset -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>

@@ -2,9 +2,6 @@
    PinMate Design System — index.css
    ============================================ */
 
-/* ---------- Google Fonts ---------- */
-@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
-
 /* ---------- CSS Variables ---------- */
 :root {
   /* Brand Colors */
@@ -62,7 +59,8 @@
   --radius-full: 9999px;
 
   /* Typography */
-  --font-base: 'Pretendard', 'Inter', -apple-system, sans-serif;
+  /* 글꼴은 index.html 에서 불러온다. 못 받아오면 OS 한글 글꼴로 */
+  --font-base: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 
   /* Transitions */
   --ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
