@@ -14,6 +14,9 @@ public interface TeamService {
 	// 모임원이 공개한 개인 장소 (나 제외). 모임원이 아니면 null
 	List<Map<String, Object>> selectTeamPublicPlaces(Long teamId, Long userId) throws Exception;
 
+	// 모임 장소를 내 지도에도 자동 저장할지 (사람마다·모임마다 따로). 모임원이 아니면 false
+	boolean updateSyncSetting(Long teamId, Long userId, boolean syncToPersonal) throws Exception;
+
 	// 팀 생성 (생성자를 owner 로 등록하고 초대 코드 발급)
 	Map<String, Object> insertTeam(String name, Long userId) throws Exception;
 

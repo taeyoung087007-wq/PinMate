@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -110,6 +111,33 @@ public class TeamController {
 		} catch (Exception e) {
 			logger.error("모임원 장소 조회 중 알 수 없는 오류가 발생했습니다.", e);
 			result = Response.of(Constants.FAIL, "모임원 장소 조회 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
+	// 모임 장소를 내 지도에도 자동 저장할지 (사람마다·모임마다 따로)
+	@ResponseBody
+	@PatchMapping("teams/{teamId}/sync-setting")
+	public Response updateSyncSetting(@PathVariable("teamId") Long teamId, @RequestBody HashMap<String, Object> param,
+			HttpSession session) {
+		Response result = null;
+
+		try {
+			boolean syncToPersonal = Boolean.TRUE.equals(param.get("syncToPersonal"));
+			boolean updated = teamService.updateSyncSetting(teamId, SessionUtil.getUserId(session), syncToPersonal);
+			result = updated
+					? Response.of(Constants.SUCCESS, ParamUtil.map("syncToPersonal", syncToPersonal))
+					: Response.of(Constants.NO_PERMISSION, "모임원만 설정할 수 있습니다.", null);
+		} catch (NullPointerException npe) {
+			logger.error("동기화 설정 변경 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "동기화 설정 변경 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("동기화 설정 변경 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "동기화 설정 변경 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("동기화 설정 변경 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "동기화 설정 변경 중 오류가 발생했습니다.", null);
 		}
 
 		return result;

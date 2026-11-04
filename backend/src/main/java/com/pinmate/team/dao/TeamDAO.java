@@ -29,6 +29,17 @@ public class TeamDAO {
 		return sqlSession.selectList(TeamDAO.SQL_PATH + ".selectTeamMembers", teamId);
 	}
 
+	//내 '모임 장소를 내 지도에도 자동 저장' 설정 (멤버가 아니면 null)
+	public Boolean selectSyncSetting(Long teamId, Long userId) {
+		return sqlSession.selectOne(TeamDAO.SQL_PATH + ".selectSyncSetting", Map.of("teamId", teamId, "userId", userId));
+	}
+
+	//같은 설정을 켜고 끈다
+	public int updateSyncSetting(Long teamId, Long userId, boolean syncToPersonal) {
+		return sqlSession.update(TeamDAO.SQL_PATH + ".updateSyncSetting",
+				Map.of("teamId", teamId, "userId", userId, "syncToPersonal", syncToPersonal));
+	}
+
 	//모임원이 공개한 개인 장소 (나 제외)
 	public List<Map<String, Object>> selectTeamPublicPlaces(Long teamId, Long userId) {
 		return sqlSession.selectList(TeamDAO.SQL_PATH + ".selectTeamPublicPlaces", Map.of("teamId", teamId, "userId", userId));

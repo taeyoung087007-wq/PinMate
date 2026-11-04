@@ -48,6 +48,20 @@
 		 ORDER BY (CASE WHEN tm.role = 'owner' THEN 0 ELSE 1 END), tm.joined_at ASC
 	</select>
 
+	<!-- 내 '모임 장소를 내 지도에도 자동 저장' 설정. 멤버가 아니면 null. param: teamId, userId -->
+	<select id="selectSyncSetting" parameterType="map" resultType="java.lang.Boolean">
+		SELECT sync_to_personal
+		  FROM team_members
+		 WHERE team_id = #{teamId} AND user_id = #{userId}
+	</select>
+
+	<!-- 같은 설정을 켜고 끈다. param: teamId, userId, syncToPersonal -->
+	<update id="updateSyncSetting" parameterType="map">
+		UPDATE team_members
+		   SET sync_to_personal = #{syncToPersonal}
+		 WHERE team_id = #{teamId} AND user_id = #{userId}
+	</update>
+
 	<!-- 모임원이 공개한 개인 장소 (모임 지도 오버레이). 내 핀은 따로 그리므로 뺀다. param: teamId, userId -->
 	<select id="selectTeamPublicPlaces" parameterType="map" resultType="java.util.HashMap">
 		SELECT p.personal_place_id,

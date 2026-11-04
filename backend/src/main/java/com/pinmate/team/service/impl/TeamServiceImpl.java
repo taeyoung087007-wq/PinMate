@@ -55,11 +55,20 @@ public class TeamServiceImpl implements TeamService {
 		List<Map<String, Object>> members = teamDAO.selectTeamMembers(teamId);
 		if (!isMember(members, userId)) return null;
 
-		return toItem(team, members);
+		Map<String, Object> item = toItem(team, members);
+		// 이 모임에서 내가 '내 지도에도 자동 저장'을 켰는지 (사람마다 다르다)
+		item.put("mySyncToPersonal", Boolean.TRUE.equals(teamDAO.selectSyncSetting(teamId, userId)));
+		return item;
 	}
 
-	// 모임원이 공개한 개인 장소. 모임원이 아니면 null (팀 존재 여부를 드러내지 않는다)
 	@Override
+	@Transactional
+	public boolean updateSyncSetting(Long teamId, Long userId, boolean syncToPersonal) throws Exception {
+		// 멤버가 아니면 바뀐 행이 없어 false 가 된다
+		return teamDAO.updateSyncSetting(teamId, userId, syncToPersonal) > 0;
+	}
+
+	// 모임원이 공개한 개인 장소. 모임원이 아니면 null (팀 존재 여부를 드러내지 않는다)	@Override
 	@Transactional(readOnly = true)
 	public List<Map<String, Object>> selectTeamPublicPlaces(Long teamId, Long userId) throws Exception {
 		if (!teamDAO.isTeamMember(teamId, userId)) return null;

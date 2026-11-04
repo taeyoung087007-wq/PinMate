@@ -271,3 +271,71 @@
 .dangerRow > :global(.btn) {
   flex: 1;
 }
+
+/* 내 지도 동기화 설정 */
+.syncSection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.syncText {
+  flex: 1;
+  min-width: 0;
+}
+
+.syncTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.syncDesc {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.switch {
+  flex-shrink: 0;
+  position: relative;
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-hover);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.switchOn {
+  border-color: rgba(108, 99, 255, 0.7);
+  background: var(--primary);
+}
+
+.switch:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.knob {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translateY(-50%);
+  transition: left var(--transition);
+}
+
+.switchOn .knob {
+  left: 21px;
+}

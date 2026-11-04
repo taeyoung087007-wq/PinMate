@@ -18,7 +18,7 @@ const PICKER_LEVEL = 4
  * - 좌표는 반드시 실제 주소에서 나온다 (임의 좌표 생성 없음)
  * - initialPlace: 메인 지도에서 이미 고른 위치 { name, address, lat, lng } 가 있으면 상세 입력부터 시작
  */
-export default function AddPinModal({ teamId, personal = false, onClose, onAdd, initialPlace = null }) {
+export default function AddPinModal({ teamId, personal = false, onClose, onAdd, initialPlace = null, defaultSyncToPersonal = false }) {
   const [step, setStep] = useState(initialPlace ? 'detail' : 'search') // 'search' | 'detail'
   const [mode, setMode] = useState('search') // 'search' | 'map'
   const [query, setQuery] = useState('')
@@ -34,7 +34,7 @@ export default function AddPinModal({ teamId, personal = false, onClose, onAdd, 
   const [name, setName] = useState(initialPlace?.name ?? '')
   const [memo, setMemo] = useState('')
   const [recommend, setRecommend] = useState(false) // 다녀와 봤으면 등록하면서 바로 추천 (SNS 에서 보고 찍어두기만 하면 끔)
-  const [syncToPersonal, setSyncToPersonal] = useState(false) // 모임에 추가하면서 내 지도에도 같이 저장
+  const [syncToPersonal, setSyncToPersonal] = useState(defaultSyncToPersonal) // 모임에 추가하면서 내 지도에도 같이 저장 (모임 설정이 켜져 있으면 기본 체크)
   const [isPublic, setIsPublic] = useState(true) // 내 지도 핀은 기본 공개 (비공개는 선택)
   const [adding, setAdding] = useState(false) // 버튼을 연달아 눌러 같은 장소가 두 번 들어가지 않게
 

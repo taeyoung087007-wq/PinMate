@@ -440,7 +440,20 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   }
 
   // 추천 토글 핸들러
-  const handleRecommend = async (pinId) => {
+  // 내 지도에 같은 장소가 있으면 함께 지운다 (모임 핀 삭제·추천 취소에서 선택했을 때)
+  const deletePersonalCopyOf = async pin => {
+    const copy = personalPins.find(p => isSamePlace(p, pin))
+    if (!copy) return
+    try {
+      await deletePersonalPinApi(copy.id)
+      setPersonalPins(prev => prev.filter(p => p.id !== copy.id))
+    } catch (e) {
+      setError(`내 지도에서 삭제하지 못했습니다: ${e.message}`)
+    }
+  }
+
+  const handleRecommend = async (pinId, opts = {}) => {
+    const target = pins.find(p => p.id === pinId)
     try {
       const { pin, reachedAllApproved } = await toggleRecommendationApi(pinId, currentUser.id)
       setPins(prev => prev.map(p => p.id === pin.id ? pin : p))
@@ -448,6 +461,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       if (reachedAllApproved) {
         setCelebrationPin(pin)
       }
+      if (opts.deletePersonal && target) await deletePersonalCopyOf(target)
     } catch (e) {
       setError(`추천 처리에 실패했습니다: ${e.message}`)
     }
@@ -505,7 +519,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   }
 
   // 장소 삭제 핸들러
-  const handleDeletePin = async (pinId) => {
+  const handleDeletePin = async (pinId, opts = {}) => {
     if (isPersonalPinId(pinId)) {
       try {
         await deletePersonalPinApi(pinId)
@@ -516,10 +530,12 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       }
       return
     }
+    const target = pins.find(p => p.id === pinId)
     try {
       await deletePinApi(pinId)
       setPins(prev => prev.filter(p => p.id !== pinId))
       setSelectedPin(null)
+      if (opts.deletePersonal && target) await deletePersonalCopyOf(target)
     } catch (e) {
       setError(`장소 삭제에 실패했습니다: ${e.message}`)
     }
@@ -745,10 +761,11 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           personal={Boolean(selectedPin?.personal)}
           ownerName={selectedPin?.owner}
           overlay={Boolean(selectedPin?.personal) && !selectedPin?.owner && mapScope === 'team'}
+          hasPersonalCopy={mapScope === 'team' && personalPins.some(p => isSamePlace(p, selectedPin))}
           onAddToMyMap={selectedPin?.owner ? () => handleAddFriendPinToMyMap(selectedPin) : undefined}
           alreadyAdded={selectedPin?.owner ? personalPins.some(p => isSamePlace(p, selectedPin)) : false}
           onClose={() => setSelectedPin(null)}
-          onRecommend={selectedPin?.personal ? undefined : () => handleRecommend(selectedPin.id)}
+          onRecommend={selectedPin?.personal ? undefined : opts => handleRecommend(selectedPin.id, opts)}
           onUpdate={selectedPin?.owner ? undefined : handleUpdatePin}
           onDelete={selectedPin?.owner ? undefined : handleDeletePin}
           onToggleVisibility={selectedPin?.personal && !selectedPin?.owner ? isPublic => handleToggleVisibility(selectedPin.id, isPublic) : undefined}
@@ -817,6 +834,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           teamId={selectedTeamId}
           personal={mapScope === 'personal'}
           initialPlace={pickedPlace}
+          defaultSyncToPersonal={Boolean(teamDetail?.mySyncToPersonal)}
           onClose={() => setShowAddPinModal(false)}
           onAdd={handleAddPin}
         />

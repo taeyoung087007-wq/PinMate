@@ -30,6 +30,7 @@ export default function PinDetailPanel({
   members,
   personal = false,
   overlay = false,
+  hasPersonalCopy = false,
   ownerName,
   onAddToMyMap,
   alreadyAdded = false,
@@ -64,6 +65,8 @@ export default function PinDetailPanel({
   const [saving, setSaving] = useState(false)
   const [draft, setDraft] = useState({ name: '', category: '', memo: '' })
   const [deletePrompt, setDeletePrompt] = useState(false) // 모임 지도 위 오버레이 핀 삭제 선택
+  const [teamDeletePrompt, setTeamDeletePrompt] = useState(false) // 모임 핀 삭제 + 내 지도에도 있는 경우
+  const [recommendPrompt, setRecommendPrompt] = useState(false) // 추천 취소 + 내 지도에도 있는 경우
 
   const startEdit = () => {
     setDraft({ name: pin.name, category: pin.category, memo: pin.memo || '' })
@@ -88,12 +91,26 @@ export default function PinDetailPanel({
       setDeletePrompt(true)
       return
     }
+    // 모임 핀인데 내 지도에도 같은 장소가 있으면, 함께 지울지 먼저 묻는다
+    if (!personal && hasPersonalCopy) {
+      setTeamDeletePrompt(true)
+      return
+    }
     // 실수로 지우는 것을 막기 위해 한 번 확인한다
     const message = personal
       ? `'${pin.name}' 장소를 내 지도에서 삭제할까요?`
       : `'${pin.name}' 장소를 삭제할까요? 추천 기록도 함께 사라집니다.`
     if (!window.confirm(message)) return
     onDelete?.(pin.id)
+  }
+
+  // 추천 취소도 내 지도에 같은 장소가 있으면 함께 지울지 묻는다
+  const handleRecommendClick = () => {
+    if (isMeRecommended && hasPersonalCopy) {
+      setRecommendPrompt(true)
+      return
+    }
+    onRecommend?.()
   }
 
   // 카카오맵 검색 새 탭 열기
@@ -310,6 +327,54 @@ export default function PinDetailPanel({
             </div>
           )}
 
+          {/* 모임 핀 삭제: 내 지도에도 같은 장소가 있으면 함께 지울지 고른다 */}
+          {teamDeletePrompt && (
+            <div className={styles.deletePrompt}>
+              <p className={styles.deletePromptText}>
+                모임에서 이 장소를 삭제합니다. 내 지도에도 같은 장소가 있어요. 함께 삭제할까요?
+              </p>
+              <div className={styles.deletePromptActions}>
+                <button
+                  className="btn btn-danger"
+                  onClick={() => { setTeamDeletePrompt(false); onDelete?.(pin.id, { deletePersonal: true }) }}
+                >
+                  내 지도에서도 삭제
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => { setTeamDeletePrompt(false); onDelete?.(pin.id) }}
+                >
+                  모임에서만 삭제
+                </button>
+                <button className="btn btn-ghost" onClick={() => setTeamDeletePrompt(false)}>취소</button>
+              </div>
+            </div>
+          )}
+
+          {/* 추천 취소: 내 지도에도 같은 장소가 있으면 함께 지울지 고른다 */}
+          {recommendPrompt && (
+            <div className={styles.deletePrompt}>
+              <p className={styles.deletePromptText}>
+                추천을 취소합니다. 내 지도에도 같은 장소가 있어요. 함께 삭제할까요?
+              </p>
+              <div className={styles.deletePromptActions}>
+                <button
+                  className="btn btn-danger"
+                  onClick={() => { setRecommendPrompt(false); onRecommend?.({ deletePersonal: true }) }}
+                >
+                  함께 삭제
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => { setRecommendPrompt(false); onRecommend?.() }}
+                >
+                  추천만 취소
+                </button>
+                <button className="btn btn-ghost" onClick={() => setRecommendPrompt(false)}>취소</button>
+              </div>
+            </div>
+          )}
+
           {/* 액션 버튼들 */}
           <div className={styles.actions}>
             {/* 친구 지도 핀은 읽기 전용 — 내 지도에 추가할 수 있다 */}
@@ -327,7 +392,7 @@ export default function PinDetailPanel({
             {!personal && (
               <button
                 className={`btn ${isMeRecommended ? 'btn-danger' : 'btn-primary'} ${styles.recommendBtn}`}
-                onClick={onRecommend}
+                onClick={handleRecommendClick}
                 title="다녀와 보고 좋았으면 추천해 주세요"
               >
                 <Star size={15} fill={isMeRecommended ? 'var(--danger)' : 'white'} />

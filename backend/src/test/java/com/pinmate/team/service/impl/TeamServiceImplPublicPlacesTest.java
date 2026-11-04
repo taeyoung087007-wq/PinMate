@@ -91,4 +91,20 @@ class TeamServiceImplPublicPlacesTest {
 
         assertThat(service.selectTeamPublicPlaces(TEAM_ID, ME)).isEmpty();
     }
+
+    @Test
+    @DisplayName("모임원이면 '내 지도에도 자동 저장' 설정을 바꿀 수 있다")
+    void memberUpdatesSyncSetting() throws Exception {
+        given(teamDAO.updateSyncSetting(TEAM_ID, ME, true)).willReturn(1);
+
+        assertThat(service.updateSyncSetting(TEAM_ID, ME, true)).isTrue();
+    }
+
+    @Test
+    @DisplayName("모임원이 아니면 설정이 바뀌지 않는다")
+    void nonMemberCannotUpdateSyncSetting() throws Exception {
+        given(teamDAO.updateSyncSetting(TEAM_ID, ME, true)).willReturn(0);
+
+        assertThat(service.updateSyncSetting(TEAM_ID, ME, true)).isFalse();
+    }
 }
