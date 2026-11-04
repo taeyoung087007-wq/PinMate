@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, Minus, RotateCcw, LocateFixed } from 'lucide-react'
-import { CATEGORY_META } from '../categories'
-import { isMajority } from '../consensus'
 import { anchorContent } from '../overlayAnchor'
 import { usePanelDrag } from '../../../lib/usePanelDrag'
 import { usePinMarkers } from '../usePinMarkers'

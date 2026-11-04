@@ -1,7 +1,20 @@
-# 개인 지도 · 동기화 알림 탭 설계 (초안)
+# 개인 지도 · 동기화 알림 탭 설계
 
-> **상태: 제안 — 팀 검토 전.** 아래 내용은 아직 구현되지 않았습니다. `[결정 필요]` 표시는 팀이 정해야 하는 항목입니다.
-> 관련 문서: [API 명세서](api.md) "제안 API", [ERD](erd.md) "제안 반영 후", Drive `01.기획/기능 목록` F-66 ~ F-72, `02.설계/PinMate_DB 정의서`
+> **상태: 구현됨 (2026-11-04, PR #48 ~ #54).** 이 문서는 처음 설계를 남겨 둔 것입니다. 실제 동작은 [API 명세서](api.md) 10 ~ 12장, [ERD](erd.md) 2장이 기준입니다.
+> 관련 문서: Drive `01.기획/기능 목록` F-66 ~ F-72, `02.설계/PinMate_DB 정의서`
+
+## 0. 설계와 다르게 구현된 것
+
+| 설계 | 구현 |
+|---|---|
+| 같은 장소 = 카카오 장소 ID (`kakao_place_id`) | **이름이 같고 50m 안** (모임 행 잠금으로 동시 등록 차단). `kakao_place_id` 는 아직 없음 |
+| 경로 `/api/me/places` | `/api/personal/places` |
+| 가져오기 `GET …/import-candidates` + `POST …/import` | 후보는 화면이 내 장소 목록으로 고르고, `POST /api/teams/{teamId}/import-personal-places` 하나 |
+| `POST /api/pins` 에 `alsoPersonal` | 모임 등록 성공 뒤 화면이 `POST /api/personal/places` 를 한 번 더 부름. 기본값은 모임마다 `team_members.sync_to_personal` |
+| 추천·삭제 API 에 `alsoPersonal` | 상세 패널에서 '내 지도에서도 삭제'를 고르면 화면이 개인 장소 삭제 API를 따로 부름 |
+| 알림 `dismiss` / 컬럼 `user_id`, `event_type`, `resolved_at` | `ignore` / `recipient_id`, `type`, `handled_at` |
+| 개인 핀은 나만 봄 | 공개 범위 `visibility` (나만·친구·모임원·전체, 기본 전체). 친구·모임원 지도에 겹쳐 보임 |
+| 마지막 추천 취소 시 장소 삭제(F-38) | 없앰. 추천이 0명이어도 장소는 남음 |
 
 ## 1. 배경
 
@@ -142,31 +155,17 @@ sequenceDiagram
 - 인덱스 `(user_id, status)` — 배지 개수와 목록 조회용.
 - 받는 사람마다 한 행을 만드는 방식(fan-out)입니다. 팀이 2~6명이라 행 수 부담이 작고, 사람마다 반영·무시 상태를 따로 가질 수 있습니다.
 
-## 6. API (요약 — 상세는 [api.md](api.md) "제안 API")
+## 6. API
 
-| 메서드 | 경로 | 설명 |
-|---|---|---|
-| GET | `/api/me/places` | 내 개인 핀 목록 |
-| POST | `/api/me/places` | 개인 핀 등록 |
-| PATCH | `/api/me/places/{id}` | 이름·카테고리·메모 수정 |
-| DELETE | `/api/me/places/{id}` | 삭제 |
-| GET | `/api/teams/{teamId}/import-candidates` | 가져올 수 있는 내 개인 핀 (팀에 이미 있는지 표시) |
-| POST | `/api/teams/{teamId}/import` | 선택한 개인 핀을 팀으로 가져오기 |
-| POST | `/api/pins` | (변경) `kakaoPlaceId`, `alsoPersonal` 추가 |
-| POST | `/api/pins/{pinId}/recommend` | (변경) 본문 `alsoPersonal` 추가 |
-| DELETE | `/api/pins/{pinId}` | (변경) `?alsoPersonal=true` 추가 |
-| GET | `/api/sync-notifications` | 내 알림 목록 (`status`, `teamId` 거르기) |
-| GET | `/api/sync-notifications/count` | 처리 안 한 개수 (배지) |
-| POST | `/api/sync-notifications/{id}/apply` · `/dismiss` | 항목별 반영·무시 |
-| POST | `/api/sync-notifications/apply-all` · `/dismiss-all` | 팀 단위 일괄 처리 |
+실제 API는 [api.md](api.md) 10장(내 지도), 11장(친구), 12장(동기화 알림), 4장의 모임 하위 API(`personal-places`, `sync-setting`, `import-personal-places`)를 봅니다.
 
 ## 7. 확인·결정이 필요한 것
 
-| 구분 | 내용 |
-|---|---|
-| 결정 | 4.1 가져오는 범위 (전체 선택 후 해제 제안) |
-| 결정 | 4.2 '내 지도에도 저장' 기본값 (꺼짐 제안) |
-| 결정 | 4.3 '나도 추천'도 알림을 만들지 (만들지 않음 제안) |
-| 결정 | 개인 지도를 팀 지도 화면의 한 탭으로 둘지, 별도 화면으로 둘지 |
-| 확인 | 카카오 JS SDK `services.Places` 결과에 REST와 같은 `id` 필드가 오는지 (REST 문서에는 `id`·`place_url` 있음, SDK 결과 필드는 문서에 없음) |
-| 확인 | 카카오 장소 ID가 시간이 지나도 바뀌지 않는지 (공식 문서에 명시 없음) |
+| 구분 | 내용 | 상태 |
+|---|---|---|
+| 결정 | 4.1 가져오는 범위 | 제안대로 전체 선택된 상태로 보여 주고, 뺄 것만 해제 |
+| 결정 | 4.2 '내 지도에도 저장' 기본값 | 모임마다 사람마다 설정 (기본 꺼짐) |
+| 결정 | 4.3 '나도 추천'도 알림을 만들지 | 만들지 않음 |
+| 결정 | 개인 지도를 어디에 둘지 | 지도 레이어로 분리, 처음엔 내 지도로 들어감 |
+| 확인 | 카카오 JS SDK `services.Places` 결과에 `id` 가 오는지 | 미확인 (`kakao_place_id` 도입 때 확인) |
+| 확인 | 카카오 장소 ID가 시간이 지나도 바뀌지 않는지 | 미확인 |
