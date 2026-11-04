@@ -207,6 +207,25 @@
   display: flex;
 }
 
+/* 성공 안내 (가져오기 완료 등) */
+.noticeFloat {
+  position: absolute;
+  top: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  background: rgba(46, 204, 113, 0.95);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
 /* 지도 우측 원형 버튼 (내 지도 레이어) */
 .layerBtn {
   position: absolute;

@@ -9,6 +9,7 @@ import {
   fetchTeam,
   fetchPins,
   fetchTeamMemberPins,
+  importPersonalPlaces,
   createPinApi,
   toggleRecommendationApi,
   updatePinApi,
@@ -27,6 +28,7 @@ import ErrorBoundary from '../../../components/ErrorBoundary/ErrorBoundary'
 import TopSearch from '../components/TopSearch'
 import PinDetailPanel from '../components/PinDetailPanel'
 import AddPinModal from '../components/AddPinModal'
+import ImportPersonalPinsModal from '../components/ImportPersonalPinsModal'
 import PlaceListPanel from '../components/PlaceListPanel'
 import CelebrationModal from '../components/CelebrationModal'
 import BottomNav from '../../../components/BottomNav/BottomNav'
@@ -104,6 +106,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const [syncPendingCount, setSyncPendingCount] = useState(0) // 처리 안 한 동기화 알림 수 (배지)
   const [syncLoading, setSyncLoading] = useState(false)
   const [syncBusyId, setSyncBusyId] = useState(null)
+  const [importTarget, setImportTarget] = useState(null) // { teamId, teamName, places } — 개인 핀 가져오기 모달
+  const [notice, setNotice] = useState('') // 짧게 보여주는 성공 안내
 
   // UI 제어 상태
   const [activeTab, setActiveTab] = useState('map')
@@ -221,6 +225,13 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       .catch(() => {})
     return () => { cancelled = true }
   }, [])
+
+  // 7. 성공 안내는 잠시 뒤 사라진다
+  useEffect(() => {
+    if (!notice) return undefined
+    const timer = setTimeout(() => setNotice(''), 3500)
+    return () => clearTimeout(timer)
+  }, [notice])
 
   // 지금 보고 있는 지도의 핀 (내 지도면 개인 장소, 아니면 선택한 모임의 핀)
   const scopePins = mapScope === 'personal' ? personalPins : pins
@@ -480,6 +491,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     setTeams(prev => [newTeam, ...prev])
     setSelectedTeamId(newTeam.id)
     setShowTeamDrawer(false)
+    // 가져오기 확인은 생성 모달을 닫을 때 띄운다 (모달이 겹치지 않게)
     return newTeam
   }
 
@@ -489,7 +501,28 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     setTeams(prev => [team, ...prev.filter(t => String(t.id) !== String(team.id))])
     setSelectedTeamId(team.id)
     setActiveTab('map')
+    // 참여 직후에도 내 장소를 가져올지 물어본다
+    if (personalPins.length > 0) {
+      setImportTarget({ teamId: team.id, teamName: team.name, places: personalPins })
+    }
     return team
+  }
+
+  // 개인 핀을 모임으로 가져오기 (같은 장소는 내 추천으로 합쳐진다)
+  const handleImportPersonalPlaces = async ids => {
+    if (!importTarget) return
+    const { teamId } = importTarget
+    try {
+      const result = await importPersonalPlaces(teamId, ids.map(Number))
+      const total = (result.imported ?? 0) + (result.recommended ?? 0)
+      setImportTarget(null)
+      setNotice(total > 0 ? `모임에 ${total}곳을 가져왔습니다.` : '가져올 장소가 없었습니다.')
+      if (String(selectedTeamId) === String(teamId)) {
+        setPins(await fetchPins(teamId))
+      }
+    } catch (e) {
+      setError(`장소를 가져오지 못했습니다: ${e.message}`)
+    }
   }
 
   // 핀 추가 핸들러. 이미 있는 장소면 새로 만들지 않고 그 장소를 보여준다 (서버도 한 번 더 막는다)
@@ -858,12 +891,30 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         </button>
       )}
 
+      {/* 성공 안내 배너 */}
+      {notice && (
+        <div className={styles.noticeFloat} role="status">
+          <span>{notice}</span>
+          <button onClick={() => setNotice('')} className={styles.errorClose}><X size={12} /></button>
+        </div>
+      )}
+
       {/* 에러 알림 배너 */}
       {error && (
         <div className={styles.errorFloat}>
           <span>{error}</span>
           <button onClick={() => setError('')} className={styles.errorClose}><X size={12} /></button>
         </div>
+      )}
+
+      {/* 내 장소 가져오기 (모임 생성·참여 직후, 모임 상세에서) */}
+      {importTarget && (
+        <ImportPersonalPinsModal
+          places={importTarget.places}
+          teamName={importTarget.teamName}
+          onClose={() => setImportTarget(null)}
+          onImport={handleImportPersonalPlaces}
+        />
       )}
 
       {/* 4. 장소 상세 정보 패널 (하단 바텀시트) */}
@@ -943,6 +994,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         onSelectTeam={teamId => { selectTeam(teamId); handleTabChange('map') }}
         onOpenCreate={() => { setShowTeamDrawer(false); setShowCreateTeamModal(true); }}
         onJoinTeam={handleJoinTeam}
+        onImportPersonal={(teamId, teamName) => setImportTarget({ teamId, teamName, places: personalPins })}
         onLeftTeam={handleLeftTeam}
         onClose={() => { setShowTeamDrawer(false); setActiveTab('map'); }}
       />
@@ -950,7 +1002,13 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       {/* 7. 새 모임 생성 모달 */}
       {showCreateTeamModal && (
         <TeamCreateModal
-          onClose={() => setShowCreateTeamModal(false)}
+          onClose={createdTeam => {
+            setShowCreateTeamModal(false)
+            // 생성 모달을 닫으면 내 장소를 가져올지 물어본다
+            if (createdTeam && personalPins.length > 0) {
+              setImportTarget({ teamId: createdTeam.id, teamName: createdTeam.name, places: personalPins })
+            }
+          }}
           onCreateTeam={handleCreateTeam}
         />
       )}

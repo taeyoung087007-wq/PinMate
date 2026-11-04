@@ -27,4 +27,8 @@ public interface PinService {
 
 	// 핀 삭제 (추천 기록도 함께). 권한은 selectEditCode 로 먼저 확인한다. userId 는 알림을 남기는 사람
 	void deletePin(Long placeId, Long userId) throws Exception;
+
+	// 내 개인 핀을 팀 지도로 가져온다 (F-68). 같은 장소가 있으면 내 추천만 추가하고, 없으면 새 팀 장소로 등록한다
+	// 결과: imported(새로 등록) / recommended(기존 장소에 추천) / skipped. 팀 멤버가 아니면 null
+	Map<String, Object> importPersonalPlaces(Long teamId, Long userId, List<Long> personalPlaceIds) throws Exception;
 }
