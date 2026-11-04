@@ -2,6 +2,7 @@ package com.pinmate.pin.service.impl;
 
 import com.pinmate.cmmn.util.Constants;
 import com.pinmate.cmmn.util.ParamUtil;
+import com.pinmate.personal.dao.PersonalPlaceDAO;
 import com.pinmate.pin.dao.PinDAO;
 import com.pinmate.pin.service.PinService;
 import com.pinmate.sync.service.SyncNotificationService;
@@ -27,6 +28,9 @@ public class PinServiceImpl implements PinService {
 
 	@Autowired
 	private TeamDAO teamDAO;
+
+	@Autowired
+	private PersonalPlaceDAO personalPlaceDAO;
 
 	@Resource(name = "SyncNotificationService")
 	private SyncNotificationService syncNotificationService;
@@ -158,6 +162,73 @@ public class PinServiceImpl implements PinService {
 		if (pin != null) {
 			syncNotificationService.notifyPinDeleted((Long) pin.get("team_id"), userId, pin);
 		}
+	}
+
+	// 내 개인 핀을 팀 지도로 가져온다. 같은 장소는 내 추천으로 합치고, 없으면 새 팀 장소로 등록한다
+	@Override
+	@Transactional
+	public Map<String, Object> importPersonalPlaces(Long teamId, Long userId, List<Long> personalPlaceIds) throws Exception {
+		if (!teamDAO.isTeamMember(teamId, userId)) return null;
+		if (personalPlaceIds == null || personalPlaceIds.isEmpty()) {
+			return ParamUtil.map("imported", 0, "recommended", 0, "skipped", 0);
+		}
+
+		// 가져오기를 한 줄로 세운다 (연타로 같은 장소가 두 번 등록되지 않게)
+		teamDAO.lockTeam(teamId);
+
+		int imported = 0;
+		int recommended = 0;
+		int skipped = 0;
+
+		for (Long personalPlaceId : personalPlaceIds) {
+			Map<String, Object> place = personalPlaceDAO.selectPersonalPlaceById(personalPlaceId);
+			// 내 핀이 아니거나 없으면 건너뛴다
+			if (place == null || !userId.equals(((Number) place.get("user_id")).longValue())) {
+				skipped++;
+				continue;
+			}
+
+			Long sameId = pinDAO.selectSamePinId(ParamUtil.map(
+					"teamId", teamId,
+					"name", place.get("name"),
+					"latitude", place.get("latitude"),
+					"longitude", place.get("longitude")));
+
+			// 이미 팀에 있는 장소면 내 추천만 더한다 (이미 추천했으면 그대로 둔다)
+			if (sameId != null) {
+				if (pinDAO.countRecommendation(ParamUtil.map("placeId", sameId, "userId", userId)) == 0) {
+					pinDAO.insertRecommendation(ParamUtil.map(
+							"placeId", sameId, "userId", userId, "comment", place.get("memo")));
+					updateConsensus(sameId, teamId, false);
+					recommended++;
+				} else {
+					skipped++;
+				}
+				continue;
+			}
+
+			// 팀에 없는 장소면 새 팀 장소로 등록하고 내 추천을 붙인다
+			Map<String, Object> pin = ParamUtil.map(
+					"teamId", teamId,
+					"name", place.get("name"),
+					"category", place.get("category"),
+					"address", place.get("address"),
+					"roadAddress", place.get("road_address"),
+					"latitude", place.get("latitude"),
+					"longitude", place.get("longitude"),
+					// 개인 장소 조회는 source 를 가져오지 않는다. 팀 장소는 필수라 기본값을 쓴다
+					"source", place.get("source") == null ? "search" : place.get("source"),
+					"createdBy", userId);
+			pinDAO.insertPin(pin);
+			Long placeId = ((Number) pin.get("placeId")).longValue();
+			pinDAO.insertRecommendation(ParamUtil.map(
+					"placeId", placeId, "userId", userId, "comment", place.get("memo")));
+			updateConsensus(placeId, teamId, false);
+			syncNotificationService.notifyPinAdded(teamId, userId, pinDAO.selectPinById(placeId));
+			imported++;
+		}
+
+		return ParamUtil.map("imported", imported, "recommended", recommended, "skipped", skipped);
 	}
 
 	// 요청자가 속한 팀의 핀. 없거나 다른 팀의 핀이면 null (존재 여부를 드러내지 않는다)

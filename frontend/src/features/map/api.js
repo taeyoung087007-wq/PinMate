@@ -9,6 +9,10 @@ export const fetchPins = (teamId) => request(`/pins?teamId=${encodeURIComponent(
 export const fetchTeamMemberPins = (teamId) =>
   request(`/teams/${encodeURIComponent(teamId)}/personal-places`)
 
+/** 내 지도 핀을 모임으로 가져오기. 같은 장소는 내 추천으로 합치고, 없으면 새 장소로 등록 */
+export const importPersonalPlaces = (teamId, ids) =>
+  post(`/teams/${encodeURIComponent(teamId)}/import-personal-places`, { ids })
+
 export const createPinApi = (pinData) => post('/pins', pinData)
 
 // ── 내 지도(개인 장소). 팀과 무관하게 나만 보는 장소 ──────────────────────
