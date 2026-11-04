@@ -25,6 +25,6 @@ public interface PinService {
 	// 핀 수정 (이름·카테고리·등록자 추천평). 권한은 selectEditCode 로 먼저 확인한다. param: name, category, memo
 	Map<String, Object> updatePin(Long placeId, Map<String, Object> param) throws Exception;
 
-	// 핀 삭제 (추천 기록도 함께). 권한은 selectEditCode 로 먼저 확인한다
-	void deletePin(Long placeId) throws Exception;
+	// 핀 삭제 (추천 기록도 함께). 권한은 selectEditCode 로 먼저 확인한다. userId 는 알림을 남기는 사람
+	void deletePin(Long placeId, Long userId) throws Exception;
 }

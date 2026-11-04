@@ -34,6 +34,15 @@ import TeamDrawer from '../../teams/components/TeamDrawer'
 import TeamCreateModal from '../../teams/components/TeamCreateModal'
 import SettingsPage from '../../auth/pages/SettingsPage'
 import FriendPanel from '../../friends/components/FriendPanel'
+import SyncNotificationPanel from '../../notifications/components/SyncNotificationPanel'
+import {
+  fetchSyncNotifications,
+  fetchSyncNotificationCount,
+  applySyncNotification,
+  ignoreSyncNotification,
+  applyAllSyncNotifications,
+  ignoreAllSyncNotifications,
+} from '../../notifications/api'
 import LayerPanel from '../components/LayerPanel'
 import { fetchFriends, fetchFriendPlaces } from '../../friends/api'
 import styles from './MapPage.module.css'
@@ -90,6 +99,11 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const memberPinsTeamRef = useRef(null) // 어느 모임의 핀을 이미 불러왔는지
   const [showLayerPanel, setShowLayerPanel] = useState(false)
   const [friends, setFriends] = useState([])
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false)
+  const [syncItems, setSyncItems] = useState([])
+  const [syncPendingCount, setSyncPendingCount] = useState(0) // 처리 안 한 동기화 알림 수 (배지)
+  const [syncLoading, setSyncLoading] = useState(false)
+  const [syncBusyId, setSyncBusyId] = useState(null)
 
   // UI 제어 상태
   const [activeTab, setActiveTab] = useState('map')
@@ -195,6 +209,15 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         setFriendPendingCount(data.pendingCount ?? 0)
         setFriends(data.friends ?? [])
       })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  // 6. 동기화 알림 개수는 앱을 열 때 한 번 읽어 배지로 보여준다
+  useEffect(() => {
+    let cancelled = false
+    fetchSyncNotificationCount()
+      .then(data => { if (!cancelled) setSyncPendingCount(data.pending ?? 0) })
       .catch(() => {})
     return () => { cancelled = true }
   }, [])
@@ -370,6 +393,85 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       }
     }))
     setFriendOverlays(prev => [...prev, ...results.filter(Boolean)])
+  }
+
+  // 동기화 알림 목록 (모임별 추가·삭제 내역)
+  const loadSyncNotifications = async () => {
+    setSyncLoading(true)
+    try {
+      const data = await fetchSyncNotifications()
+      setSyncItems(data.items ?? [])
+      setSyncPendingCount(data.pendingCount ?? 0)
+    } catch (e) {
+      setError(`알림을 불러오지 못했습니다: ${e.message}`)
+    } finally {
+      setSyncLoading(false)
+    }
+  }
+
+  // 반영하면 내 지도가 바뀌므로 개인 장소도 다시 읽는다
+  const refreshPersonalPins = async () => {
+    try {
+      setPersonalPins(await fetchPersonalPins())
+    } catch {
+      // 지도는 그대로 두고 알림만 갱신한다
+    }
+  }
+
+  const handleApplyNotification = async item => {
+    setSyncBusyId(item.id)
+    try {
+      await applySyncNotification(item.id)
+      await Promise.all([loadSyncNotifications(), refreshPersonalPins()])
+    } catch (e) {
+      setError(`알림을 반영하지 못했습니다: ${e.message}`)
+    } finally {
+      setSyncBusyId(null)
+    }
+  }
+
+  const handleIgnoreNotification = async item => {
+    setSyncBusyId(item.id)
+    try {
+      await ignoreSyncNotification(item.id)
+      await loadSyncNotifications()
+    } catch (e) {
+      setError(`알림을 무시하지 못했습니다: ${e.message}`)
+    } finally {
+      setSyncBusyId(null)
+    }
+  }
+
+  const handleApplyAllNotifications = async teamId => {
+    setSyncBusyId(`team-${teamId}`)
+    try {
+      await applyAllSyncNotifications(teamId)
+      await Promise.all([loadSyncNotifications(), refreshPersonalPins()])
+    } catch (e) {
+      setError(`알림을 반영하지 못했습니다: ${e.message}`)
+    } finally {
+      setSyncBusyId(null)
+    }
+  }
+
+  const handleIgnoreAllNotifications = async teamId => {
+    setSyncBusyId(`team-${teamId}`)
+    try {
+      await ignoreAllSyncNotifications(teamId)
+      await loadSyncNotifications()
+    } catch (e) {
+      setError(`알림을 무시하지 못했습니다: ${e.message}`)
+    } finally {
+      setSyncBusyId(null)
+    }
+  }
+
+  const closeNotificationPanel = () => {
+    setShowNotificationPanel(false)
+    setActiveTab(tab => (tab === 'notifications' ? 'map' : tab))
+    fetchSyncNotificationCount()
+      .then(data => setSyncPendingCount(data.pending ?? 0))
+      .catch(() => {})
   }
 
   // 새 모임 생성 완료 핸들러
@@ -548,22 +650,33 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       setShowTeamDrawer(false)
       setShowListPanel(false)
       setShowFriendPanel(false)
+      setShowNotificationPanel(false)
     } else if (tabId === 'teams') {
       setShowListPanel(false)
       setShowFriendPanel(false)
+      setShowNotificationPanel(false)
       setShowTeamDrawer(true)
     } else if (tabId === 'places') {
       setShowTeamDrawer(false)
       setShowFriendPanel(false)
+      setShowNotificationPanel(false)
       setShowListPanel(true)
     } else if (tabId === 'friends') {
       setShowTeamDrawer(false)
       setShowListPanel(false)
+      setShowNotificationPanel(false)
       setShowFriendPanel(true)
+    } else if (tabId === 'notifications') {
+      setShowTeamDrawer(false)
+      setShowListPanel(false)
+      setShowFriendPanel(false)
+      setShowNotificationPanel(true)
+      loadSyncNotifications()
     } else if (tabId === 'settings') {
       setShowTeamDrawer(false)
       setShowListPanel(false)
       setShowFriendPanel(false)
+      setShowNotificationPanel(false)
       setSelectedPin(null)
     }
   }
@@ -789,6 +902,20 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       {/* 5-1. 친구 패널 (지도 우측 시트) */}
       {showFriendPanel && <FriendPanel onClose={closeFriendPanel} />}
 
+      {/* 5-1-1. 동기화 알림 패널 */}
+      {showNotificationPanel && (
+        <SyncNotificationPanel
+          items={syncItems}
+          loading={syncLoading}
+          busyId={syncBusyId}
+          onApply={handleApplyNotification}
+          onIgnore={handleIgnoreNotification}
+          onApplyAll={handleApplyAllNotifications}
+          onIgnoreAll={handleIgnoreAllNotifications}
+          onClose={closeNotificationPanel}
+        />
+      )}
+
       {/* 5-2. 지도 레이어 선택 패널 */}
       {showLayerPanel && (
         <LayerPanel
@@ -878,6 +1005,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         placeCount={filteredPins.length}
         teamCount={teams.length}
         friendCount={friendPendingCount}
+        notificationCount={syncPendingCount}
       />
     </div>
   )

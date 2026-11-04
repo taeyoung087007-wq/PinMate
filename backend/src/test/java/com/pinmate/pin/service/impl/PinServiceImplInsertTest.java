@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.pinmate.pin.dao.PinDAO;
+import com.pinmate.sync.service.SyncNotificationService;
 import com.pinmate.team.dao.TeamDAO;
 import java.util.HashMap;
 import java.util.List;
@@ -32,6 +33,9 @@ class PinServiceImplInsertTest {
 
     @Mock
     private TeamDAO teamDAO;
+
+    @Mock
+    private SyncNotificationService syncNotificationService;
 
     @InjectMocks
     private PinServiceImpl service;

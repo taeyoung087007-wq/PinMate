@@ -217,7 +217,7 @@ public class PinController {
 		try {
 			String code = pinService.selectEditCode(pinId, SessionUtil.getUserId(session));
 			if (Constants.SUCCESS.equals(code)) {
-				pinService.deletePin(pinId);
+				pinService.deletePin(pinId, SessionUtil.getUserId(session));
 				result = Response.of(Constants.SUCCESS);
 			} else {
 				result = Response.of(code, editFailMessage(code), null);

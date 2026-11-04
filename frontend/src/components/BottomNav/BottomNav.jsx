@@ -1,4 +1,4 @@
-import { Map, Users, List, UserPlus, Settings } from 'lucide-react'
+import { Map, Users, List, UserPlus, Bell, Settings } from 'lucide-react'
 import styles from './BottomNav.module.css'
 
 /**
@@ -7,14 +7,16 @@ import styles from './BottomNav.module.css'
  * - 모임 목록 / 전환
  * - 장소 목록
  * - 친구 (받은 요청 배지)
+ * - 알림 (동기화 알림 배지)
  * - 설정
  */
-export default function BottomNav({ activeTab, onTabChange, placeCount = 0, teamCount = 0, friendCount = 0 }) {
+export default function BottomNav({ activeTab, onTabChange, placeCount = 0, teamCount = 0, friendCount = 0, notificationCount = 0 }) {
   const tabs = [
     { id: 'map', label: '지도', icon: Map },
     { id: 'teams', label: '모임', icon: Users, badge: teamCount > 0 ? teamCount : null },
     { id: 'places', label: '장소 목록', icon: List, badge: placeCount > 0 ? placeCount : null },
     { id: 'friends', label: '친구', icon: UserPlus, badge: friendCount > 0 ? friendCount : null },
+    { id: 'notifications', label: '알림', icon: Bell, badge: notificationCount > 0 ? notificationCount : null },
     { id: 'settings', label: '설정', icon: Settings },
   ]
 
