@@ -237,7 +237,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const scopePins = mapScope === 'personal' ? personalPins : pins
 
   // 모임 지도 위에 겹쳐 그릴 내 공개 핀
-  const publicPersonalPins = personalPins.filter(p => p.isPublic)
+  const publicPersonalPins = personalPins.filter(p => p.visibility === 'team' || p.visibility === 'all')
 
   // 모임원 공유 핀: 모임 지도에서만, 모임원별로 묶어 친구 오버레이와 같은 모양으로 만든다
   const memberOverlays = useMemo(() => {
@@ -382,7 +382,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         lat: pin.lat,
         lng: pin.lng,
         memo: pin.memo,
-        isPublic: true,
+        visibility: 'all',
         source: 'search',
       })
       setPersonalPins(prev => [saved, ...prev])
@@ -563,7 +563,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       // '내 지도에도 저장' 을 체크했으면 개인 장소로도 저장한다 (팀 등록은 이미 성공)
       if (newPinData.syncToPersonal) {
         try {
-          const personal = await createPersonalPinApi({ ...newPinData, isPublic: true })
+          const personal = await createPersonalPinApi({ ...newPinData, visibility: 'all' })
           setPersonalPins(prev => [personal, ...prev])
         } catch {
           setError('모임에는 저장했지만 내 지도에는 저장하지 못했습니다.')
@@ -618,15 +618,21 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   // 이 id 가 내 지도(개인) 핀인지. 모임 지도 위 오버레이 핀도 개인 핀으로 취급한다
   const isPersonalPinId = pinId => personalPins.some(p => p.id === pinId)
 
-  // 공개/비공개 전환 (공개한 핀만 모임 지도에 겹쳐 보인다)
-  const handleToggleVisibility = async (pinId, isPublic) => {
+  // 공개 범위 변경 (private 나만 / friends 친구 / team 모임 / all 전체)
+  const handleSetVisibility = async (pinId, visibility) => {
     try {
-      const updated = await updatePersonalVisibilityApi(pinId, isPublic)
+      const updated = await updatePersonalVisibilityApi(pinId, visibility)
       setPersonalPins(prev => prev.map(p => (p.id === updated.id ? updated : p)))
       setSelectedPin(updated)
     } catch (e) {
       setError(`공개 설정 변경에 실패했습니다: ${e.message}`)
     }
+  }
+
+  // 모임 지도에서만 빼기: 전체 → 친구, 모임만 → 나만
+  const handleUnshareFromTeam = async pin => {
+    const next = pin.visibility === 'all' ? 'friends' : 'private'
+    await handleSetVisibility(pin.id, next)
   }
 
   // 장소 수정 핸들러 (성공 여부를 돌려줘 패널이 수정 모드를 닫을 수 있게 한다)
@@ -932,7 +938,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           onRecommend={selectedPin?.personal ? undefined : opts => handleRecommend(selectedPin.id, opts)}
           onUpdate={selectedPin?.owner ? undefined : handleUpdatePin}
           onDelete={selectedPin?.owner ? undefined : handleDeletePin}
-          onToggleVisibility={selectedPin?.personal && !selectedPin?.owner ? isPublic => handleToggleVisibility(selectedPin.id, isPublic) : undefined}
+          onSetVisibility={selectedPin?.personal && !selectedPin?.owner ? visibility => handleSetVisibility(selectedPin.id, visibility) : undefined}
+          onUnshare={selectedPin?.personal && !selectedPin?.owner ? () => handleUnshareFromTeam(selectedPin) : undefined}
           onRoute={pin => { setRouteTarget(pin); setRoutePanelOpen(true); setSelectedPin(null); setShowListPanel(false) }}
         />
       )}

@@ -125,7 +125,7 @@
 		  FROM personal_places p
 		  JOIN users u ON u.user_id = p.user_id
 		 WHERE p.user_id = #{userId}
-		   AND p.is_public = true
+		   AND p.visibility IN ('friends', 'all')
 		 ORDER BY p.created_at DESC
 	</select>
 

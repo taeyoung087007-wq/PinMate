@@ -379,3 +379,44 @@
   font-size: 11px;
   color: var(--text-muted);
 }
+
+/* 공개 범위 선택 */
+.visibilityField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.visibilityChips {
+  display: flex;
+  gap: 6px;
+}
+
+.visibilityChip {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-base);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.visibilityChip:hover {
+  background: var(--bg-hover);
+}
+
+.visibilityChipOn {
+  border-color: rgba(108, 99, 255, 0.65);
+  background: rgba(108, 99, 255, 0.22);
+  color: var(--primary-light);
+}
+
+.visibilityHint {
+  font-size: 11px;
+  color: var(--text-secondary);
+}

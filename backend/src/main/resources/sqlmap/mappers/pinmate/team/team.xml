@@ -81,7 +81,7 @@
 		  JOIN team_members tm ON tm.user_id = p.user_id
 		 WHERE tm.team_id = #{teamId}
 		   AND p.user_id != #{userId}
-		   AND p.is_public = true
+		   AND p.visibility IN ('team', 'all')
 		 ORDER BY p.created_at DESC
 	</select>
 

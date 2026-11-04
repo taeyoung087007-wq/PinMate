@@ -40,6 +40,9 @@ public class PersonalPlaceController {
 	// 프론트 카테고리 키 (frontend categories.js 의 CATEGORY_META). 빈 값은 서비스에서 etc 로 저장한다
 	private static final Set<String> CATEGORIES = Set.of("food", "cafe", "drink", "stay", "sight", "play", "etc");
 
+	// 공개 범위: 나만 / 친구 전체 / 모임만 / 전체
+	private static final Set<String> VISIBILITIES = Set.of("private", "friends", "team", "all");
+
 	@Resource(name = "PersonalPlaceService")
 	private PersonalPlaceService personalPlaceService;
 
@@ -77,14 +80,20 @@ public class PersonalPlaceController {
 		Double lat = ParamUtil.dbl(param, "lat");
 		Double lng = ParamUtil.dbl(param, "lng");
 		String memo = ParamUtil.str(param, "memo");
-		// 기본 공개. 클라이언트가 false 로 명시했을 때만 비공개
-		boolean isPublic = !Boolean.FALSE.equals(param.get("isPublic"));
+		// 공개 범위를 안 보내면 예전처럼 공개(전체)로 둔다. isPublic=false 만 비공개
+		String visibility = ParamUtil.str(param, "visibility");
+		if (visibility.isEmpty()) {
+			visibility = Boolean.FALSE.equals(param.get("isPublic")) ? "private" : "all";
+		}
 
 		if (name.isEmpty() || name.length() > NAME_MAX) {
 			return Response.invalid("장소 이름은 100자 이하로 입력해주세요.");
 		}
 		if (!isValidCategory(category)) {
 			return Response.invalid("카테고리 값이 올바르지 않습니다.");
+		}
+		if (!isValidVisibility(visibility)) {
+			return Response.invalid("공개 범위 값이 올바르지 않습니다.");
 		}
 		if (address.length() > ADDRESS_MAX || roadAddress.length() > ADDRESS_MAX) {
 			return Response.invalid("주소는 200자 이하로 입력해주세요.");
@@ -107,7 +116,7 @@ public class PersonalPlaceController {
 					"lat", lat,
 					"lng", lng,
 					"memo", memo.isEmpty() ? null : memo,
-					"isPublic", isPublic,
+					"visibility", visibility,
 					"source", "manual".equals(ParamUtil.str(param, "source")) ? "manual" : "search"), SessionUtil.getUserId(session));
 			result = Response.of(Constants.SUCCESS, data);
 		} catch (NullPointerException npe) {
@@ -165,13 +174,21 @@ public class PersonalPlaceController {
 		return result;
 	}
 
-	// 공개/비공개 전환. 공개한 핀만 모임 지도에 오버레이(공유)된다
+	// 공개 범위 변경 (private / friends / team / all)
 	@ResponseBody
 	@PatchMapping("personal/places/{personalPlaceId}/visibility")
 	public Response updateVisibility(@PathVariable("personalPlaceId") Long personalPlaceId, @RequestBody HashMap<String, Object> param, HttpSession session) {
-		Object value = param.get("isPublic");
-		if (!(value instanceof Boolean)) {
-			return Response.invalid("공개 여부 값이 올바르지 않습니다.");
+		String visibility = ParamUtil.str(param, "visibility");
+		if (visibility.isEmpty()) {
+			// 예전 클라이언트 호환: isPublic boolean
+			Object legacy = param.get("isPublic");
+			if (!(legacy instanceof Boolean)) {
+				return Response.invalid("공개 범위 값이 올바르지 않습니다.");
+			}
+			visibility = (Boolean) legacy ? "all" : "private";
+		}
+		if (!isValidVisibility(visibility)) {
+			return Response.invalid("공개 범위 값이 올바르지 않습니다.");
 		}
 
 		Response result = null;
@@ -179,7 +196,7 @@ public class PersonalPlaceController {
 		try {
 			String code = personalPlaceService.selectEditCode(personalPlaceId, SessionUtil.getUserId(session));
 			if (Constants.SUCCESS.equals(code)) {
-				result = Response.of(Constants.SUCCESS, personalPlaceService.updateVisibility(personalPlaceId, (Boolean) value));
+				result = Response.of(Constants.SUCCESS, personalPlaceService.updateVisibility(personalPlaceId, visibility));
 			} else {
 				result = Response.of(code, editFailMessage(code), null);
 			}
@@ -232,5 +249,9 @@ public class PersonalPlaceController {
 	// 순수 함수라 테스트에서 직접 호출한다
 	static boolean isValidCategory(String category) {
 		return category.isEmpty() || CATEGORIES.contains(category.toLowerCase(Locale.ROOT));
+	}
+
+	static boolean isValidVisibility(String visibility) {
+		return visibility != null && VISIBILITIES.contains(visibility.toLowerCase(Locale.ROOT));
 	}
 }
