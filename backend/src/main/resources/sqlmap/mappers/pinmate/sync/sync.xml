@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.pinmate.sync.dao.SyncNotificationDAO">
 
-	<!-- 두 좌표 사이 거리(m). 같은 장소 판정은 이름 + 50m 로 한다 (프론트 isSamePlace 와 같은 규칙) -->
+	<!-- 두 좌표 사이 거리(m). 같은 장소 판정은 카카오 장소 ID가 같거나 이름 + 50m (프론트 isSamePlace 와 같은 규칙) -->
 	<sql id="distanceFromParam">
 		6371000 * 2 * asin(sqrt(
 			power(sin(radians(p.latitude - #{latitude}) / 2), 2)
@@ -11,12 +11,12 @@
 		))
 	</sql>
 
-	<!-- 팀에 새 장소가 생기면 행위자를 뺀 팀원 전원에게 1행씩. param: teamId, actorId, pinId, name, category, roadAddress, address, latitude, longitude, memo -->
+	<!-- 팀에 새 장소가 생기면 행위자를 뺀 팀원 전원에게 1행씩. param: teamId, actorId, pinId, name, category, roadAddress, address, latitude, longitude, memo, kakaoPlaceId -->
 	<insert id="insertAdded" parameterType="map">
 		INSERT INTO sync_notifications (recipient_id, team_id, pin_id, actor_id, type,
-		                                name, category, road_address, address, latitude, longitude, memo, created_at)
+		                                name, category, road_address, address, latitude, longitude, memo, kakao_place_id, created_at)
 		SELECT tm.user_id, #{teamId}, #{pinId}, #{actorId}, 'added',
-		       #{name}, #{category}, #{roadAddress}, #{address}, #{latitude}, #{longitude}, #{memo}, now()
+		       #{name}, #{category}, #{roadAddress}, #{address}, #{latitude}, #{longitude}, #{memo}, #{kakaoPlaceId,jdbcType=VARCHAR}, now()
 		  FROM team_members tm
 		 WHERE tm.team_id = #{teamId}
 		   AND tm.user_id != #{actorId}
@@ -25,15 +25,16 @@
 	<!-- 팀 장소가 삭제되면, 내 지도에 같은 장소가 있는 팀원에게만 -->
 	<insert id="insertDeleted" parameterType="map">
 		INSERT INTO sync_notifications (recipient_id, team_id, pin_id, actor_id, type,
-		                                name, category, road_address, address, latitude, longitude, memo, created_at)
+		                                name, category, road_address, address, latitude, longitude, memo, kakao_place_id, created_at)
 		SELECT DISTINCT tm.user_id, #{teamId}, #{pinId}, #{actorId}, 'deleted',
-		       #{name}, #{category}, #{roadAddress}, #{address}, #{latitude}, #{longitude}, #{memo}, now()
+		       #{name}, #{category}, #{roadAddress}, #{address}, #{latitude}, #{longitude}, #{memo}, #{kakaoPlaceId,jdbcType=VARCHAR}, now()
 		  FROM team_members tm
 		  JOIN personal_places p ON p.user_id = tm.user_id
 		 WHERE tm.team_id = #{teamId}
 		   AND tm.user_id != #{actorId}
-		   AND lower(replace(p.name, ' ', '')) = lower(replace(#{name}, ' ', ''))
-		   AND <include refid="distanceFromParam"/> &lt; 50
+		   AND (p.kakao_place_id = #{kakaoPlaceId,jdbcType=VARCHAR}
+		        OR (lower(replace(p.name, ' ', '')) = lower(replace(#{name}, ' ', ''))
+		            AND <include refid="distanceFromParam"/> &lt; 50))
 	</insert>
 
 	<!-- 내 알림 (최근 100건) -->
@@ -73,7 +74,7 @@
 	<!-- 내 알림 한 건. param: notificationId, userId -->
 	<select id="selectNotification" parameterType="map" resultType="java.util.HashMap">
 		SELECT notification_id, team_id, type, status, name, category, road_address, address,
-		       latitude, longitude, memo
+		       latitude, longitude, memo, kakao_place_id
 		  FROM sync_notifications
 		 WHERE notification_id = #{notificationId} AND recipient_id = #{userId}
 	</select>
@@ -99,7 +100,7 @@
 	<!-- 팀의 처리 안 한 알림 (일괄 반영용) -->
 	<select id="selectPendingByTeam" parameterType="map" resultType="java.util.HashMap">
 		SELECT notification_id, team_id, type, status, name, category, road_address, address,
-		       latitude, longitude, memo
+		       latitude, longitude, memo, kakao_place_id
 		  FROM sync_notifications
 		 WHERE recipient_id = #{userId} AND team_id = #{teamId} AND status = 'pending'
 		 ORDER BY created_at ASC
@@ -116,22 +117,24 @@
 		SELECT COUNT(*)
 		  FROM personal_places p
 		 WHERE p.user_id = #{userId}
-		   AND lower(replace(p.name, ' ', '')) = lower(replace(#{name}, ' ', ''))
-		   AND <include refid="distanceFromParam"/> &lt; 50
+		   AND (p.kakao_place_id = #{kakaoPlaceId,jdbcType=VARCHAR}
+		        OR (lower(replace(p.name, ' ', '')) = lower(replace(#{name}, ' ', ''))
+		            AND <include refid="distanceFromParam"/> &lt; 50))
 	</select>
 
 	<!-- 알림의 장소를 내 지도에 담는다. 이미 있으면 건너뛴다 -->
 	<insert id="insertPersonalFromNotification" parameterType="map">
 		INSERT INTO personal_places (user_id, name, category, road_address, address,
-		                             latitude, longitude, source, memo, is_public, created_at, updated_at)
+		                             latitude, longitude, source, kakao_place_id, memo, is_public, created_at, updated_at)
 		SELECT #{userId}, #{name}, #{category}, #{roadAddress}, #{address},
-		       #{latitude}, #{longitude}, 'search', #{memo}, true, now(), now()
+		       #{latitude}, #{longitude}, 'search', #{kakaoPlaceId,jdbcType=VARCHAR}, #{memo}, true, now(), now()
 		 WHERE NOT EXISTS (
 			SELECT 1
 			  FROM personal_places p
 			 WHERE p.user_id = #{userId}
-			   AND lower(replace(p.name, ' ', '')) = lower(replace(#{name}, ' ', ''))
-			   AND <include refid="distanceFromParam"/> &lt; 50
+			   AND (p.kakao_place_id = #{kakaoPlaceId,jdbcType=VARCHAR}
+			        OR (lower(replace(p.name, ' ', '')) = lower(replace(#{name}, ' ', ''))
+			            AND <include refid="distanceFromParam"/> &lt; 50))
 		 )
 	</insert>
 
@@ -139,8 +142,9 @@
 	<delete id="deleteSamePersonalPlace" parameterType="map">
 		DELETE FROM personal_places p
 		 WHERE p.user_id = #{userId}
-		   AND lower(replace(p.name, ' ', '')) = lower(replace(#{name}, ' ', ''))
-		   AND <include refid="distanceFromParam"/> &lt; 50
+		   AND (p.kakao_place_id = #{kakaoPlaceId,jdbcType=VARCHAR}
+		        OR (lower(replace(p.name, ' ', '')) = lower(replace(#{name}, ' ', ''))
+		            AND <include refid="distanceFromParam"/> &lt; 50))
 	</delete>
 
 </mapper>

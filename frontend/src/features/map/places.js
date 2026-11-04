@@ -22,6 +22,7 @@ function toPlace(item) {
     .join('>')
   return {
     name: item.place_name,
+    kakaoPlaceId: item.id,   // 같은 가게를 알아보는 키 (모임·내 지도 중복 판별)
     category,
     address: item.road_address_name || item.address_name || '',
     lat: Number(item.y),
@@ -104,8 +105,10 @@ export function distanceMeters(lat1, lng1, lat2, lng2) {
   return Math.hypot(dx, dy)
 }
 
-// 같은 장소: 이름이 같고(공백·대소문자 무시) 50m 안. 서버(selectSamePinId)와 같은 기준
+// 같은 장소: 카카오 장소 ID가 같거나, 이름이 같고(공백·대소문자 무시) 50m 안. 서버(selectSamePinId)와 같은 기준
+// ID 가 없는 장소(직접 찍은 핀·예전에 등록한 장소)는 이름 + 50m 로만 판별된다
 const SAME_PLACE_METERS = 50
 const nameKey = name => (name || '').replace(/\s/g, '').toLowerCase()
 export const isSamePlace = (a, b) =>
-  nameKey(a.name) === nameKey(b.name) && distanceMeters(a.lat, a.lng, b.lat, b.lng) < SAME_PLACE_METERS
+  Boolean(a.kakaoPlaceId && a.kakaoPlaceId === b.kakaoPlaceId) ||
+  (nameKey(a.name) === nameKey(b.name) && distanceMeters(a.lat, a.lng, b.lat, b.lng) < SAME_PLACE_METERS)

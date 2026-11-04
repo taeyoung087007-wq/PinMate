@@ -49,4 +49,9 @@ public class ParamUtil {
 			return null;
 		}
 	}
+
+	// 카카오 장소 ID (검색 결과의 id). 숫자만, 30자 이하 (places.kakao_place_id VARCHAR(30))
+	public static boolean isKakaoPlaceId(String value) {
+		return value.matches("\\d{1,30}");
+	}
 }

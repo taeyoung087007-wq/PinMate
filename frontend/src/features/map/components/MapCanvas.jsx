@@ -244,7 +244,7 @@ export default function MapCanvas({
     lookup
       .then(info => {
         if (!isCurrent()) return
-        place = { name: info.name || '', address: info.address || '', lat: info.lat, lng: info.lng }
+        place = { name: info.name || '', address: info.address || '', lat: info.lat, lng: info.lng, kakaoPlaceId: info.kakaoPlaceId }
         setInfo(info)
         // 상가를 찾았으면 마커를 그 상가 좌표로 옮긴다 (못 찾았으면 같은 자리)
         marker.setPosition(new maps.LatLng(info.lat, info.lng))
@@ -374,6 +374,7 @@ export default function MapCanvas({
       address: focusPlace.address ?? '',
       lat: focusPlace.lat,
       lng: focusPlace.lng,
+      kakaoPlaceId: focusPlace.kakaoPlaceId,
     })
   }, [focusPlace, status, pickLocation])
 

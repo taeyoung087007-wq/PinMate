@@ -71,6 +71,7 @@
 		       p.address,
 		       p.latitude,
 		       p.longitude,
+		       p.kakao_place_id,
 		       p.memo,
 		       u.user_id,
 		       u.login_id,
