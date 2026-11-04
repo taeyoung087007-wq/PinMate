@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { usePanelDrag } from '../../../lib/usePanelDrag'
-import { X, MapPin, Star, Check, ExternalLink, Clock, Pencil, Trash2, Save, Navigation } from 'lucide-react'
+import { X, MapPin, Star, Check, ExternalLink, Clock, Pencil, Trash2, Save, Navigation, Plus } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { isMajority, memberRecommendCount } from '../consensus'
 import { getCurrentUser } from '../../../lib/currentUser'
@@ -30,6 +30,10 @@ export default function PinDetailPanel({
   members,
   personal = false,
   overlay = false,
+  hasPersonalCopy = false,
+  ownerName,
+  onAddToMyMap,
+  alreadyAdded = false,
   onClose,
   onRecommend,
   onUpdate,
@@ -46,11 +50,12 @@ export default function PinDetailPanel({
   // 로그인 직후에도 최신 값을 쓰도록 렌더 시점에 읽는다 (모듈 상수는 로그인 전 값으로 고정된다)
   const me = getCurrentUser()
   const myMember = members.find(m => m.id === me.loginId)
-  const isMeRecommended = pin.recommenders.includes(myMember?.id ?? me.loginId)
+  const recommenders = pin.recommenders ?? []   // 친구 지도 핀은 추천 개념이 없어 비어 있을 수 있다
+  const isMeRecommended = recommenders.includes(myMember?.id ?? me.loginId)
   const createdAtText = formatCreatedAt(pin.createdAt)
   const recommendCount = memberRecommendCount(pin, members)
   // 한 줄 추천평은 등록자의 추천에 붙는다. 등록자가 아직 추천하지 않았으면 고칠 추천평이 없다
-  const creatorRecommended = pin.recommenders.includes(pin.addedBy)
+  const creatorRecommended = recommenders.includes(pin.addedBy)
 
   // 등록자 본인 또는 팀 owner 만 수정·삭제할 수 있다 (서버에서도 같은 규칙으로 검사한다)
   const canEdit = Boolean(onUpdate || onDelete) &&
@@ -60,6 +65,8 @@ export default function PinDetailPanel({
   const [saving, setSaving] = useState(false)
   const [draft, setDraft] = useState({ name: '', category: '', memo: '' })
   const [deletePrompt, setDeletePrompt] = useState(false) // 모임 지도 위 오버레이 핀 삭제 선택
+  const [teamDeletePrompt, setTeamDeletePrompt] = useState(false) // 모임 핀 삭제 + 내 지도에도 있는 경우
+  const [recommendPrompt, setRecommendPrompt] = useState(false) // 추천 취소 + 내 지도에도 있는 경우
 
   const startEdit = () => {
     setDraft({ name: pin.name, category: pin.category, memo: pin.memo || '' })
@@ -84,12 +91,26 @@ export default function PinDetailPanel({
       setDeletePrompt(true)
       return
     }
+    // 모임 핀인데 내 지도에도 같은 장소가 있으면, 함께 지울지 먼저 묻는다
+    if (!personal && hasPersonalCopy) {
+      setTeamDeletePrompt(true)
+      return
+    }
     // 실수로 지우는 것을 막기 위해 한 번 확인한다
     const message = personal
       ? `'${pin.name}' 장소를 내 지도에서 삭제할까요?`
       : `'${pin.name}' 장소를 삭제할까요? 추천 기록도 함께 사라집니다.`
     if (!window.confirm(message)) return
     onDelete?.(pin.id)
+  }
+
+  // 추천 취소도 내 지도에 같은 장소가 있으면 함께 지울지 묻는다
+  const handleRecommendClick = () => {
+    if (isMeRecommended && hasPersonalCopy) {
+      setRecommendPrompt(true)
+      return
+    }
+    onRecommend?.()
   }
 
   // 카카오맵 검색 새 탭 열기
@@ -247,7 +268,7 @@ export default function PinDetailPanel({
               </div>
               <div className={styles.recommenders}>
                 {members.map(m => {
-                  const didRecommend = pin.recommenders.includes(m.id)
+                  const didRecommend = recommenders.includes(m.id)
                   return (
                     <div
                       key={m.id}
@@ -267,11 +288,15 @@ export default function PinDetailPanel({
           {/* 최초 등록자 정보 */}
           <div className={styles.addedBy}>
             {personal
-              ? <div className={styles.addedByAvatar} style={{ background: 'var(--primary)' }}>나</div>
+              ? <div className={styles.addedByAvatar} style={{ background: 'var(--primary)' }}>{(ownerName || '나').slice(0, 1)}</div>
               : (addedByMember
                 ? <MemberAvatar member={addedByMember} className={styles.addedByAvatar} />
                 : <div className={styles.addedByAvatar} style={{ background: 'var(--primary)' }}>팀</div>)}
-            <span>{personal ? '내가 저장한 장소' : `${addedByMember?.nickname || '팀원'}님이 처음 등록`}</span>
+            <span>
+              {personal
+                ? (ownerName ? `${ownerName}님이 저장한 장소` : '내가 저장한 장소')
+                : `${addedByMember?.nickname || '팀원'}님이 처음 등록`}
+            </span>
             {createdAtText && (
               <span className={styles.addedByDate}>
                 <Clock size={11} />
@@ -302,12 +327,72 @@ export default function PinDetailPanel({
             </div>
           )}
 
+          {/* 모임 핀 삭제: 내 지도에도 같은 장소가 있으면 함께 지울지 고른다 */}
+          {teamDeletePrompt && (
+            <div className={styles.deletePrompt}>
+              <p className={styles.deletePromptText}>
+                모임에서 이 장소를 삭제합니다. 내 지도에도 같은 장소가 있어요. 함께 삭제할까요?
+              </p>
+              <div className={styles.deletePromptActions}>
+                <button
+                  className="btn btn-danger"
+                  onClick={() => { setTeamDeletePrompt(false); onDelete?.(pin.id, { deletePersonal: true }) }}
+                >
+                  내 지도에서도 삭제
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => { setTeamDeletePrompt(false); onDelete?.(pin.id) }}
+                >
+                  모임에서만 삭제
+                </button>
+                <button className="btn btn-ghost" onClick={() => setTeamDeletePrompt(false)}>취소</button>
+              </div>
+            </div>
+          )}
+
+          {/* 추천 취소: 내 지도에도 같은 장소가 있으면 함께 지울지 고른다 */}
+          {recommendPrompt && (
+            <div className={styles.deletePrompt}>
+              <p className={styles.deletePromptText}>
+                추천을 취소합니다. 내 지도에도 같은 장소가 있어요. 함께 삭제할까요?
+              </p>
+              <div className={styles.deletePromptActions}>
+                <button
+                  className="btn btn-danger"
+                  onClick={() => { setRecommendPrompt(false); onRecommend?.({ deletePersonal: true }) }}
+                >
+                  함께 삭제
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => { setRecommendPrompt(false); onRecommend?.() }}
+                >
+                  추천만 취소
+                </button>
+                <button className="btn btn-ghost" onClick={() => setRecommendPrompt(false)}>취소</button>
+              </div>
+            </div>
+          )}
+
           {/* 액션 버튼들 */}
           <div className={styles.actions}>
+            {/* 친구 지도 핀은 읽기 전용 — 내 지도에 추가할 수 있다 */}
+            {personal && ownerName && onAddToMyMap && (
+              <button
+                className="btn btn-primary"
+                onClick={onAddToMyMap}
+                disabled={alreadyAdded}
+                style={{ flex: 1 }}
+              >
+                <Plus size={15} />
+                {alreadyAdded ? '내 지도에 있음' : '내 지도에 추가'}
+              </button>
+            )}
             {!personal && (
               <button
                 className={`btn ${isMeRecommended ? 'btn-danger' : 'btn-primary'} ${styles.recommendBtn}`}
-                onClick={onRecommend}
+                onClick={handleRecommendClick}
                 title="다녀와 보고 좋았으면 추천해 주세요"
               >
                 <Star size={15} fill={isMeRecommended ? 'var(--danger)' : 'white'} />

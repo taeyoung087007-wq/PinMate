@@ -116,6 +116,31 @@ public class FriendController {
 		return result;
 	}
 
+	// 친구가 공개한 개인 장소 (내 지도 위 오버레이)
+	@ResponseBody
+	@GetMapping("friends/{friendId}/places")
+	public Response friendPlaces(@PathVariable("friendId") Long friendId, HttpSession session) {
+		Response result = null;
+
+		try {
+			List<Map<String, Object>> data = friendService.selectFriendPlaces(SessionUtil.getUserId(session), friendId);
+			result = (data == null)
+					? Response.of(Constants.NO_PERMISSION, "친구만 볼 수 있습니다.", null)
+					: Response.of(Constants.SUCCESS, data);
+		} catch (NullPointerException npe) {
+			logger.error("친구 장소 조회 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "친구 장소 조회 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("친구 장소 조회 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "친구 장소 조회 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("친구 장소 조회 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "친구 장소 조회 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
 	// 받은 친구 요청 수락
 	@ResponseBody
 	@PostMapping("friends/requests/{requesterId}/accept")

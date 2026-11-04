@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Check, MapPin, LogOut, Trash2 } from 'lucide-react'
-import { fetchTeam, deleteTeamApi, leaveTeamApi } from '../api'
+import { fetchTeam, deleteTeamApi, leaveTeamApi, updateTeamSyncSetting } from '../api'
 import { getCurrentUser } from '../../../lib/currentUser'
 import { buildInviteLink, inviteBase } from '../inviteLink'
 import MemberAvatar from '../../../components/MemberAvatar/MemberAvatar'
@@ -25,6 +25,7 @@ export default function TeamDetailView({ teamId, onBack, onEnter, onLeft }) {
   const [copyState, setCopyState] = useState('idle') // 'idle' | 'copied' | 'failed'
   const [page, setPage] = useState(0)
   const [busy, setBusy] = useState(false) // 나가기·삭제 요청 중
+  const [savingSync, setSavingSync] = useState(false) // 동기화 설정 저장 중
 
   useEffect(() => {
     const load = () => fetchTeam(teamId)
@@ -84,8 +85,24 @@ export default function TeamDetailView({ teamId, onBack, onEnter, onLeft }) {
     if (window.confirm(`'${team.name}' 모임을 삭제할까요?\n모든 멤버에게서 모임과 장소·추천 기록이 사라지고 되돌릴 수 없어요.`)) run(deleteTeamApi)
   }
 
-  const handleCopy = async () => {
+  // 모임 장소를 내 지도에도 자동 저장할지. 먼저 화면에 반영하고 실패하면 되돌린다
+  const handleToggleSync = async () => {
+    if (savingSync) return
+    const next = !team.mySyncToPersonal
+    setSavingSync(true)
+    setTeam(prev => ({ ...prev, mySyncToPersonal: next }))
     try {
+      await updateTeamSyncSetting(team.id, next)
+      setError('')
+    } catch (e) {
+      setTeam(prev => ({ ...prev, mySyncToPersonal: !next }))
+      setError(`설정을 바꾸지 못했습니다: ${e.message}`)
+    } finally {
+      setSavingSync(false)
+    }
+  }
+
+  const handleCopy = async () => {    try {
       await navigator.clipboard.writeText(inviteLink)
       setCopyState('copied')
     } catch {
@@ -133,6 +150,27 @@ export default function TeamDetailView({ teamId, onBack, onEnter, onLeft }) {
           <div className={styles.emptyInvite}>이 모임에는 유효한 초대 링크가 없습니다.</div>
         )}
         {copyState === 'failed' && <div className={styles.errorText} role="alert">복사하지 못했습니다. 링크를 보이게 한 뒤 직접 복사해 주세요.</div>}
+      </section>
+
+      {/* 내 지도 동기화 설정 (사람마다 따로) */}
+      <section className={styles.syncSection}>
+        <div className={styles.syncText}>
+          <div className={styles.syncTitle}>내 지도에도 자동 저장</div>
+          <p className={styles.syncDesc}>
+            모임에 장소를 추가하면 내 지도에도 함께 담아요.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={Boolean(team.mySyncToPersonal)}
+          aria-label="내 지도에도 자동 저장"
+          className={`${styles.switch} ${team.mySyncToPersonal ? styles.switchOn : ''}`}
+          onClick={handleToggleSync}
+          disabled={savingSync}
+        >
+          <span className={styles.knob} />
+        </button>
       </section>
 
       {/* 인원 요약 */}

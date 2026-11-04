@@ -21,4 +21,7 @@ public interface FriendService {
 
 	// 거절·요청 취소·끊기 (방향 무관). 관계가 없으면 false
 	boolean remove(Long userId, Long otherId) throws Exception;
+
+	// 친구가 공개한 개인 장소 (지도 오버레이). 친구가 아니면 null
+	List<Map<String, Object>> selectFriendPlaces(Long userId, Long friendId) throws Exception;
 }

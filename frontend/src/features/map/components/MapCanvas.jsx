@@ -161,7 +161,7 @@ function createMyLocationMarker(maps, map, position) {
 export default function MapCanvas({
   pins, members, onSelectPin, selectedPin, onAddAtLocation, onRouteTo,
   routeTarget, routePanelOpen, onOpenRoutePanel, onCloseRoutePanel, onClearRoute, focusPlace,
-  overlayPins = [], onSelectOverlayPin,
+  overlayPins = [], onSelectOverlayPin, focusPlaces,
 }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -378,6 +378,23 @@ export default function MapCanvas({
       lng: focusPlace.lng,
     })
   }, [focusPlace, status, pickLocation])
+
+  // 친구 지도를 선택하면 그 친구의 핀들이 화면에 들어오도록 지도를 맞춘다
+  useEffect(() => {
+    const maps = window.kakao?.maps
+    const map = mapRef.current
+    if (!maps || !map || status !== 'ready' || !focusPlaces?.places?.length) return
+
+    if (focusPlaces.places.length === 1) {
+      const p = focusPlaces.places[0]
+      map.setLevel(4)
+      map.panTo(new maps.LatLng(p.lat, p.lng))
+      return
+    }
+    const bounds = new maps.LatLngBounds()
+    focusPlaces.places.forEach(p => bounds.extend(new maps.LatLng(p.lat, p.lng)))
+    map.setBounds(bounds, 80, 80, 80, 80)
+  }, [focusPlaces, status])
 
   // 5) 목록 패널 등에서 고른 핀이 화면 밖이면 그쪽으로 이동
   useEffect(() => {

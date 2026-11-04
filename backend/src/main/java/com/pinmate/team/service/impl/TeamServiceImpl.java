@@ -55,13 +55,50 @@ public class TeamServiceImpl implements TeamService {
 		List<Map<String, Object>> members = teamDAO.selectTeamMembers(teamId);
 		if (!isMember(members, userId)) return null;
 
-		return toItem(team, members);
+		Map<String, Object> item = toItem(team, members);
+		// 이 모임에서 내가 '내 지도에도 자동 저장'을 켰는지 (사람마다 다르다)
+		item.put("mySyncToPersonal", Boolean.TRUE.equals(teamDAO.selectSyncSetting(teamId, userId)));
+		return item;
 	}
 
 	@Override
 	@Transactional
-	public Map<String, Object> insertTeam(String name, Long userId) throws Exception {
-		Map<String, Object> team = ParamUtil.map("name", name);
+	public boolean updateSyncSetting(Long teamId, Long userId, boolean syncToPersonal) throws Exception {
+		// 멤버가 아니면 바뀐 행이 없어 false 가 된다
+		return teamDAO.updateSyncSetting(teamId, userId, syncToPersonal) > 0;
+	}
+
+	// 모임원이 공개한 개인 장소. 모임원이 아니면 null (팀 존재 여부를 드러내지 않는다)	@Override
+	@Transactional(readOnly = true)
+	public List<Map<String, Object>> selectTeamPublicPlaces(Long teamId, Long userId) throws Exception {
+		if (!teamDAO.isTeamMember(teamId, userId)) return null;
+
+		List<Map<String, Object>> list = new ArrayList<>();
+		for (Map<String, Object> row : teamDAO.selectTeamPublicPlaces(teamId, userId)) {
+			Map<String, Object> item = new HashMap<>();
+			// 팀 핀·친구 핀 id 와 섞이지 않도록 접두어를 붙인다
+			item.put("id", "m-" + row.get("personal_place_id"));
+			item.put("name", row.get("name"));
+			item.put("category", toFrontendCategory((String) row.get("category")));
+			item.put("address", row.get("address"));
+			item.put("roadAddress", row.get("road_address"));
+			item.put("lat", toDouble(row.get("latitude")));
+			item.put("lng", toDouble(row.get("longitude")));
+			item.put("memo", row.get("memo"));
+			item.put("ownerId", String.valueOf(row.get("user_id")));
+			item.put("owner", row.get("nickname"));
+			item.put("ownerLoginId", row.get("login_id"));
+			item.put("ownerColor", row.get("avatar_bg"));
+			item.put("personal", true);
+			item.put("isPublic", true);
+			list.add(item);
+		}
+		return list;
+	}
+
+	@Override
+	@Transactional
+	public Map<String, Object> insertTeam(String name, Long userId) throws Exception {		Map<String, Object> team = ParamUtil.map("name", name);
 		teamDAO.insertTeam(team);                  // useGeneratedKeys → team.teamId
 		Long teamId = ((Number) team.get("teamId")).longValue();
 
@@ -179,5 +216,22 @@ public class TeamServiceImpl implements TeamService {
 
 	private String text(Object v) {
 		return (v == null) ? "" : v.toString();
+	}
+
+	// 개인 장소 카테고리는 저장 값이 제각각이라 화면 값으로 맞춘다
+	private static String toFrontendCategory(String cat) {
+		if (cat == null) return "etc";
+		return switch (cat.toLowerCase().trim()) {
+			case "restaurant" -> "food";
+			case "bar" -> "drink";
+			case "attraction" -> "sight";
+			case "activity" -> "play";
+			default -> cat.toLowerCase().trim();
+		};
+	}
+
+	// 좌표는 NUMERIC 이라 BigDecimal 로 온다. 화면이 숫자로 쓰도록 double 로 바꾼다
+	private static Double toDouble(Object v) {
+		return (v == null) ? null : ((Number) v).doubleValue();
 	}
 }

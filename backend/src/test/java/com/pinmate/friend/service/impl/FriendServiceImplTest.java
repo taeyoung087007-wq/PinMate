@@ -100,4 +100,29 @@ class FriendServiceImplTest {
 
         assertThat(service.accept(ME, OTHER)).isFalse();
     }
+
+    @Test
+    @DisplayName("친구가 아니면 친구 장소를 볼 수 없다")
+    void friendPlacesRequiresFriendship() throws Exception {
+        given(friendDAO.selectRelation(anyMap())).willReturn(relation(OTHER, "pending"));
+
+        assertThat(service.selectFriendPlaces(ME, OTHER)).isNull();
+    }
+
+    @Test
+    @DisplayName("친구의 공개 장소는 소유자 정보와 함께 내려준다")
+    void friendPlacesMapped() throws Exception {
+        given(friendDAO.selectRelation(anyMap())).willReturn(relation(ME, "accepted"));
+        given(friendDAO.selectPublicPlaces(OTHER)).willReturn(java.util.List.of(
+                Map.of("personal_place_id", 5L, "name", "카페", "category", "restaurant",
+                        "latitude", 37.5, "longitude", 127.0, "nickname", "규범",
+                        "login_id", "admin", "avatar_bg", "#ffffff")));
+
+        java.util.List<Map<String, Object>> list = service.selectFriendPlaces(ME, OTHER);
+
+        assertThat(list).hasSize(1);
+        assertThat(list.get(0).get("id")).isEqualTo("f-5");
+        assertThat(list.get(0).get("category")).isEqualTo("food");
+        assertThat(list.get(0).get("owner")).isEqualTo("규범");
+    }
 }

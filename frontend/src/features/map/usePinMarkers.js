@@ -55,9 +55,17 @@ function createPinElement({ pin, meta, memberColor, majority, isSelected }) {
 
 /** 내 지도 공개 핀: 기본 핀과 구분되게 점선 테두리 + '내 지도' 태그를 붙인다 */
 function createOverlayPinElement({ pin, meta }) {
+  const isFriend = Boolean(pin.owner)
+  const tagText = pin.overlayTag || (isFriend ? pin.owner : '내 지도')
+
   const wrap = document.createElement('div')
-  wrap.className = `${styles.pinWrap} ${styles.pinWrapPersonal}`
-  wrap.title = `${pin.name} (내 지도 · 공개)`
+  wrap.className = `${styles.pinWrap} ${isFriend ? styles.pinWrapFriend : styles.pinWrapPersonal}`
+  wrap.title = `${pin.name} (${tagText})`
+  // 친구를 여러 명 겹쳐 켜면 친구마다 핀을 조금씩 더 비껴 그려 서로 구분되게
+  if (isFriend) {
+    const index = pin.overlayIndex ?? 0
+    wrap.style.transform = `translate(${10 + index * 14}px, ${-12 - index * 14}px)`
+  }
 
   const body = document.createElement('div')
   body.className = styles.pinBody
@@ -69,10 +77,20 @@ function createOverlayPinElement({ pin, meta }) {
   label.textContent = pin.name
 
   const tag = document.createElement('span')
-  tag.className = styles.personalTag
-  tag.textContent = '내 지도'
+  tag.className = isFriend ? styles.friendTag : styles.personalTag
+  tag.textContent = tagText
 
   wrap.append(body, label, tag)
+
+  // 여러 명이 저장한 곳이면 개수 배지
+  if (pin.overlayCount > 1) {
+    const badge = document.createElement('span')
+    badge.className = styles.pinBadge
+    badge.style.background = isFriend ? '#2b7fff' : '#6C63FF'
+    badge.textContent = String(pin.overlayCount)
+    wrap.appendChild(badge)
+  }
+
   return wrap
 }
 

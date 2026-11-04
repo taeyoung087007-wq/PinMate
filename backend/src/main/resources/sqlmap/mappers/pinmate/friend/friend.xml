@@ -109,6 +109,26 @@
 		 LIMIT 20
 	</select>
 
+	<!-- 친구가 공개한 개인 장소 (지도 오버레이). 친구 여부는 서비스에서 먼저 확인한다 -->
+	<select id="selectPublicPlaces" parameterType="long" resultType="java.util.HashMap">
+		SELECT p.personal_place_id,
+		       p.name,
+		       p.category,
+		       p.road_address,
+		       p.address,
+		       p.latitude,
+		       p.longitude,
+		       p.memo,
+		       u.login_id,
+		       u.nickname,
+		       u.avatar_bg
+		  FROM personal_places p
+		  JOIN users u ON u.user_id = p.user_id
+		 WHERE p.user_id = #{userId}
+		   AND p.is_public = true
+		 ORDER BY p.created_at DESC
+	</select>
+
 	<select id="countIncoming" parameterType="long" resultType="int">
 		SELECT COUNT(*)
 		  FROM friendships
