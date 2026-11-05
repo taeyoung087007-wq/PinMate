@@ -273,7 +273,8 @@ public class TeamServiceImpl implements TeamService {
 		item.put("name", team.get("name"));
 		item.put("inviteCode", team.get("invite_code"));     // 유효한 코드가 없으면 null
 		item.put("consensusRule", team.get("consensus_rule"));          // all(전원) / min_count
-		item.put("consensusMinCount", team.get("consensus_min_count")); // min_count 일 때 기준 인원. all 이면 무시
+		// min_count 일 때만 기준 인원. all 이면 null (모임 생성·시드가 넣어 둔 기본값은 판정에 안 쓰이므로 내려주지 않는다)
+		item.put("consensusMinCount", "min_count".equals(team.get("consensus_rule")) ? team.get("consensus_min_count") : null);
 		item.put("allApprovedCount", team.get("all_approved_count"));
 		item.put("pinCount", team.get("pin_count"));
 		item.put("memberCount", members.size());

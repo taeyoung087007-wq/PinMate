@@ -330,7 +330,8 @@
   color: var(--text-secondary);
 }
 
-.ruleSelect {
+/* 전역 .input(width: 100%)이 CSS 순서상 나중에 올 수 있어 한 단계 더 구체적으로 쓴다 */
+.syncSection .ruleSelect {
   width: auto;
   flex-shrink: 0;
   padding: 8px 10px;

@@ -62,7 +62,7 @@ class PinServiceImplListTest {
         given(pinDAO.selectPinsByTeamId(TEAM_ID)).willReturn(List.of(Map.<String, Object>of("place_id", 1L, "team_id", TEAM_ID)));
         given(pinDAO.selectRecommendersByTeamId(TEAM_ID)).willReturn(List.of(
                 Map.of("place_id", 1L, "login_id", "minji", "comment", "라떼 맛집"),
-                row(1, "junho")));   // MyBatis 는 null 컬럼을 맵에 넣지 않는다
+                row(1, "junho")));   // 평이 없는 추천인 (실제로는 call-setters-on-nulls 로 comment=null 이 온다. get 결과는 같다)
 
         List<Map<String, Object>> pins = service.selectPinList(TEAM_ID, USER_ID);
 
