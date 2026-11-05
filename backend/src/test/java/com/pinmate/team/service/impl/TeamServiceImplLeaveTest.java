@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import com.pinmate.cmmn.util.Constants;
 import com.pinmate.pin.service.PinService;
 import com.pinmate.presence.service.PresenceService;
+import com.pinmate.sync.service.SyncNotificationService;
 import com.pinmate.team.dao.TeamDAO;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,9 @@ class TeamServiceImplLeaveTest {
 
     @Mock
     private PinService pinService;
+
+    @Mock
+    private SyncNotificationService syncNotificationService;
 
     @InjectMocks
     private TeamServiceImpl service;
@@ -78,6 +82,7 @@ class TeamServiceImplLeaveTest {
 
         assertThat(service.leaveTeam(TEAM_ID, MEMBER_ID)).isEqualTo(Constants.SUCCESS);
         verify(teamDAO, never()).updateOldestMemberToOwner(anyLong());
+        verify(syncNotificationService).deleteForLeftMember(TEAM_ID, MEMBER_ID);   // 나간 모임의 알림은 지운다
     }
 
     @Test

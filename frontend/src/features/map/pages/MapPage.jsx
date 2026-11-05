@@ -877,8 +877,6 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
       <BottomNav
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        placeCount={filteredPins.length}
-        teamCount={teams.length}
         friendCount={friendLayers.pendingCount}
         notificationCount={sync.pendingCount}
       />
