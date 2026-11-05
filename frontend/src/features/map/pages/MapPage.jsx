@@ -677,6 +677,16 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
             <span className={styles.friendOverlayClose}>끄기</span>
           </button>
         )}
+
+        {/* 이 지도(모임·내 지도)에 보일 장소가 없을 때 안내. 겹쳐 보이는 친구·모임원 핀은 필터와 무관해서 세지 않는다.
+            위 배너들과 같은 줄에 쌓아 서로 가리지 않게 한다 */}
+        {!routeTarget && filteredPins.length === 0 && (
+          <div className={styles.emptyHint} role="status">
+            {scopePins.length > 0
+              ? '조건에 맞는 장소가 없어요. 필터를 바꿔 보세요'
+              : '아직 장소가 없어요. 지도를 누르거나 검색해서 추가해 보세요'}
+          </div>
+        )}
       </div>
 
       {/* 지도 레이어 (내 공개 핀·모임원 공유 핀·친구 지도 선택). 내 지도·모임 지도 모두에서 */}
