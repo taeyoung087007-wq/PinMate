@@ -17,7 +17,7 @@ export function useSyncNotifications({ onError, onApplied }) {
   const [items, setItems] = useState([])
   const [pendingCount, setPendingCount] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [busyId, setBusyId] = useState(null) // 처리 중인 알림 id 또는 `team-{모임 id}`
+  const [busyId, setBusyId] = useState(null) // 처리 중인 알림 id, `team-{모임 id}` 또는 `batch-{묶음 첫 알림 id}`
 
   useEffect(() => {
     let cancelled = false
@@ -70,5 +70,8 @@ export function useSyncNotifications({ onError, onApplied }) {
     ignore: item => run(item.id, () => ignoreSyncNotification(item.id), false),
     applyAll: teamId => run(`team-${teamId}`, () => applyAllSyncNotifications(teamId), true),
     ignoreAll: teamId => run(`team-${teamId}`, () => ignoreAllSyncNotifications(teamId), false),
+    // 한 번에 생긴 묶음(가져오기로 여러 곳). 한 건씩 같은 API 를 부른다
+    applyMany: (items, busy) => run(busy, () => Promise.all(items.map(i => applySyncNotification(i.id))), true),
+    ignoreMany: (items, busy) => run(busy, () => Promise.all(items.map(i => ignoreSyncNotification(i.id))), false),
   }
 }

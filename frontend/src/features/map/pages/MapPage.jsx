@@ -779,6 +779,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           onIgnore={sync.ignore}
           onApplyAll={sync.applyAll}
           onIgnoreAll={sync.ignoreAll}
+          onApplyMany={sync.applyMany}
+          onIgnoreMany={sync.ignoreMany}
           onClose={closeNotificationPanel}
         />
       )}
