@@ -1,5 +1,7 @@
 package com.pinmate.friend.service.impl;
 
+import static com.pinmate.cmmn.util.ValueConverters.*;
+
 import com.pinmate.cmmn.util.ParamUtil;
 import com.pinmate.friend.dao.FriendDAO;
 import com.pinmate.friend.service.FriendService;
@@ -7,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -52,10 +53,15 @@ public class FriendServiceImpl implements FriendService {
 		if (q.isEmpty()) return List.of();
 
 		List<Map<String, Object>> list = new ArrayList<>();
-		for (Map<String, Object> row : friendDAO.searchUsers(ParamUtil.map("meId", userId, "q", "%" + q + "%"))) {
+		for (Map<String, Object> row : friendDAO.searchUsers(ParamUtil.map("meId", userId, "q", "%" + escapeLike(q) + "%"))) {
 			list.add(toItem(row, null, null));
 		}
 		return list;
+	}
+
+	/** LIKE 의 특수문자를 이스케이프한다. searchUsers SQL 이 ESCAPE '\' 로 읽는다. 백슬래시를 먼저 처리해야 한다 */
+	static String escapeLike(String q) {
+		return q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
 	}
 
 	@Override
@@ -129,22 +135,6 @@ public class FriendServiceImpl implements FriendService {
 		return list;
 	}
 
-	private Double toDouble(Object v) {
-		return (v == null) ? null : ((Number) v).doubleValue();
-	}
-
-	// DB 카테고리 → 프론트 카테고리 (PersonalPlaceServiceImpl 과 같은 규칙)
-	private static String toFrontendCategory(String cat) {
-		if (cat == null) return "etc";
-		return switch (cat.toLowerCase().trim()) {
-			case "restaurant" -> "food";
-			case "bar" -> "drink";
-			case "attraction" -> "sight";
-			case "activity" -> "play";
-			default -> cat.toLowerCase().trim();
-		};
-	}
-
 	// 화면이 그대로 쓸 수 있는 사용자 항목. timeKey 가 있으면 그 시각을 timeOutKey 로 내려준다
 	private Map<String, Object> toItem(Map<String, Object> row, String timeKey, String timeOutKey) {
 		Map<String, Object> item = new HashMap<>();
@@ -159,9 +149,4 @@ public class FriendServiceImpl implements FriendService {
 		return item;
 	}
 
-	// timestamptz 는 HashMap 결과에서 java.sql.Timestamp 로 온다. 프론트가 new Date() 로 읽도록 ISO-8601(UTC) 문자열로
-	private String toIso(Object v) {
-		if (v == null) return null;
-		return (v instanceof Timestamp ts) ? ts.toInstant().toString() : v.toString();
-	}
 }

@@ -1,12 +1,13 @@
 import { request, post } from '../../lib/apiClient'
 
-export const fetchTeams = (userId) => request(`/teams?userId=${encodeURIComponent(userId)}`)
+// 서버는 세션에서 사용자를 꺼낸다. userId 를 보내지 않는다
+export const fetchTeams = () => request('/teams')
 
-export const createTeamApi = (name, userId) => post('/teams', { name, userId })
+export const createTeamApi = (name) => post('/teams', { name })
 
 export const fetchTeam = (teamId) => request(`/teams/${encodeURIComponent(teamId)}`)
 
-export const joinTeamApi = (code, userId) => post('/teams/join', { code, userId })
+export const joinTeamApi = (code) => post('/teams/join', { code })
 
 /** 모임 삭제 (모임장만). 장소·추천도 함께 지워진다 */
 export const deleteTeamApi = (teamId) => request(`/teams/${encodeURIComponent(teamId)}`, { method: 'DELETE' })

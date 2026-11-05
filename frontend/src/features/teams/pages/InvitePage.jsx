@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Users } from 'lucide-react'
 import { checkInviteCodeApi } from '../../auth/api'
-import { getCurrentUser } from '../../../lib/currentUser'
 import { fetchTeams, joinTeamApi } from '../api'
 import styles from './InvitePage.module.css'
 
@@ -13,13 +12,12 @@ import styles from './InvitePage.module.css'
  */
 export default function InvitePage({ code }) {
   const navigate = useNavigate()
-  const user = getCurrentUser()
   const [invite, setInvite] = useState(null) // { teamId, teamName, alreadyMember }
   const [error, setError] = useState('')
   const [joining, setJoining] = useState(false)
 
   useEffect(() => {
-    Promise.all([checkInviteCodeApi(code), fetchTeams(user.id)])
+    Promise.all([checkInviteCodeApi(code), fetchTeams()])
       .then(([check, myTeams]) => {
         if (!check?.valid) {
           setError(check?.message || '유효하지 않거나 만료된 초대 코드입니다.')
@@ -32,7 +30,7 @@ export default function InvitePage({ code }) {
         })
       })
       .catch(e => setError(e.message || '초대 정보를 확인하지 못했습니다.'))
-  }, [code, user.id])
+  }, [code])
 
   const goToTeam = (teamId) => navigate(`/teams/${teamId}`, { replace: true })
 
@@ -40,7 +38,7 @@ export default function InvitePage({ code }) {
     setJoining(true)
     setError('')
     try {
-      const team = await joinTeamApi(code, user.id)
+      const team = await joinTeamApi(code)
       goToTeam(team.id)
     } catch (e) {
       setError(e.message)

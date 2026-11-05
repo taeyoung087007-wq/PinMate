@@ -53,6 +53,22 @@
 		   AND role = 'owner'
 	</select>
 
+	<!-- 탈퇴 전 소속 모임 목록. 모임 나가기(leaveTeam)를 그대로 재사용해 재판정·알림 정리를 빠뜨리지 않게 한다 -->
+	<select id="selectJoinedTeamIds" parameterType="long" resultType="long">
+		SELECT team_id FROM team_members WHERE user_id = #{userId}
+	</select>
+
+	<!-- 탈퇴한 사람의 친구 관계·개인 장소는 남기지 않는다 (개인정보) -->
+	<delete id="deleteFriendships" parameterType="long">
+		DELETE FROM friendships
+		 WHERE requester_id = #{userId}
+		    OR addressee_id = #{userId}
+	</delete>
+
+	<delete id="deletePersonalPlaces" parameterType="long">
+		DELETE FROM personal_places WHERE user_id = #{userId}
+	</delete>
+
 	<delete id="deleteTeamMemberships" parameterType="long">
 		DELETE FROM team_members WHERE user_id = #{userId}
 	</delete>

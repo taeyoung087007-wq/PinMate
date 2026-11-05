@@ -4,11 +4,14 @@ import com.pinmate.auth.dao.AuthDAO;
 import com.pinmate.auth.service.AuthService;
 import com.pinmate.cmmn.util.ParamUtil;
 import com.pinmate.team.TeamColors;
+import com.pinmate.team.service.TeamService;
+import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service("AuthService")
@@ -16,6 +19,9 @@ public class AuthServiceImpl implements AuthService {
 
 	@Autowired
 	private AuthDAO authDAO;
+
+	@Resource(name = "TeamService")
+	private TeamService teamService;
 
 	@Override
 	public Map<String, Object> selectUserByLoginId(String loginId) throws Exception {
@@ -71,14 +77,22 @@ public class AuthServiceImpl implements AuthService {
 		return true;
 	}
 
-	// 모임 탈퇴와 계정 비우기는 함께 성공하거나 함께 실패해야 한다
+	// 모임 나가기·개인기록 삭제·계정 비우기는 함께 성공하거나 함께 실패해야 한다
 	@Override
 	@Transactional
 	public boolean withdrawUser(Long userId) throws Exception {
 		if (authDAO.countOwnedTeams(userId) > 0) {
 			return false;
 		}
+		// 탈퇴도 '모임 나가기'와 같은 경로로 처리한다. 모두 인정 재판정·알림 정리·모임장 넘기기가 빠지지 않게
+		List<Long> teamIds = authDAO.selectJoinedTeamIds(userId);
+		for (Long teamId : teamIds) {
+			teamService.leaveTeam(teamId, userId);
+		}
+		// 친구 관계와 개인 장소·메모를 남기면 탈퇴 후에도 남에게 보인다
 		authDAO.deleteTeamMemberships(userId);
+		authDAO.deleteFriendships(userId);
+		authDAO.deletePersonalPlaces(userId);
 		authDAO.withdrawUser(userId);
 		return true;
 	}

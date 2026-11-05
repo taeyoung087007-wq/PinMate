@@ -17,6 +17,27 @@ jobs:
   backend:
     name: Backend (test)
     runs-on: ubuntu-latest
+    # Flyway 마이그레이션 전체와 MyBatis mapper XML 을 실제 DB 로 검증한다
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: pinmate
+          POSTGRES_USER: pinmate
+          POSTGRES_PASSWORD: pinmate
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pinmate -d pinmate"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DB_URL: jdbc:postgresql://localhost:5432/pinmate
+      DB_USERNAME: pinmate
+      DB_PASSWORD: pinmate
+      SPRING_PROFILES_ACTIVE: ci
+      CI_DB_TEST: 'true'
     defaults:
       run:
         working-directory: backend

@@ -6,6 +6,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import org.mockito.ArgumentCaptor;
+
 import com.pinmate.cmmn.util.Constants;
 import com.pinmate.sync.dao.SyncNotificationDAO;
 import java.math.BigDecimal;
@@ -68,7 +70,12 @@ class SyncNotificationServiceImplTest {
         given(dao.selectNotification(anyMap())).willReturn(notification("added", "pending"));
 
         assertThat(service.apply(NOTIFICATION, ME)).isEqualTo(Constants.SUCCESS);
-        verify(dao).insertPersonalFromNotification(anyMap());
+
+        ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+        verify(dao).insertPersonalFromNotification(captor.capture());
+        assertThat(captor.getValue().get("visibility")).isEqualTo("private");
+        assertThat(captor.getValue().get("isPublic")).isEqualTo(false);
+
         verify(dao, never()).deleteSamePersonalPlace(anyMap());
         verify(dao).updateStatus(anyMap());
     }

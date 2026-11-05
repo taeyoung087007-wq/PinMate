@@ -1,5 +1,7 @@
 package com.pinmate.sync.service.impl;
 
+import static com.pinmate.cmmn.util.ValueConverters.*;
+
 import com.pinmate.cmmn.util.Constants;
 import com.pinmate.cmmn.util.ParamUtil;
 import com.pinmate.sync.dao.SyncNotificationDAO;
@@ -8,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -130,7 +131,11 @@ public class SyncNotificationServiceImpl implements SyncNotificationService {
 				"latitude", notification.get("latitude"),
 				"longitude", notification.get("longitude"),
 				"memo", notification.get("memo"),
-				"kakaoPlaceId", notification.get("kakao_place_id"));
+				"kakaoPlaceId", notification.get("kakao_place_id"),
+				// 남이 공유한 장소를 담은 복사본은 나만 보게 한다. 원래 공개 범위·메모가
+				// 내 친구·내 모임으로 번지지 않도록 all(기본값) 대신 private 로 명시한다
+				"visibility", "private",
+				"isPublic", false);
 
 		if ("added".equals(notification.get("type"))) {
 			syncNotificationDAO.insertPersonalFromNotification(param);   // 이미 있으면 건너뛴다
@@ -160,23 +165,4 @@ public class SyncNotificationServiceImpl implements SyncNotificationService {
 				"kakaoPlaceId", pin.get("kakao_place_id"));
 	}
 
-	private static String toFrontendCategory(String cat) {
-		if (cat == null) return "etc";
-		return switch (cat.toLowerCase().trim()) {
-			case "restaurant" -> "food";
-			case "bar" -> "drink";
-			case "attraction" -> "sight";
-			case "activity" -> "play";
-			default -> cat.toLowerCase().trim();
-		};
-	}
-
-	private static Double toDouble(Object v) {
-		return (v == null) ? null : ((Number) v).doubleValue();
-	}
-
-	private static String toIso(Object v) {
-		if (v == null) return null;
-		return (v instanceof Timestamp ts) ? ts.toInstant().toString() : v.toString();
-	}
 }

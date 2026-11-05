@@ -1,5 +1,7 @@
 package com.pinmate.pin.service.impl;
 
+import static com.pinmate.cmmn.util.ValueConverters.toDbCategory;
+import static com.pinmate.cmmn.util.ValueConverters.toFrontendCategory;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.DisplayName;
@@ -24,8 +26,8 @@ class PinServiceImplTest {
             "etc, etc"
     })
     @DisplayName("프론트 카테고리 키를 DB 값으로 바꾼다")
-    void toDbCategory(String frontCategory, String dbCategory) {
-        assertThat(PinServiceImpl.toDbCategory(frontCategory)).isEqualTo(dbCategory);
+    void mapsFrontCategoryToDb(String frontCategory, String dbCategory) {
+        assertThat(toDbCategory(frontCategory)).isEqualTo(dbCategory);
     }
 
     @ParameterizedTest(name = "{0} -> {1}")
@@ -39,20 +41,20 @@ class PinServiceImplTest {
             "etc, etc"
     })
     @DisplayName("DB 값을 프론트 카테고리 키로 되돌린다")
-    void toFrontendCategory(String dbCategory, String frontCategory) {
-        assertThat(PinServiceImpl.toFrontendCategory(dbCategory)).isEqualTo(frontCategory);
+    void mapsDbCategoryToFront(String dbCategory, String frontCategory) {
+        assertThat(toFrontendCategory(dbCategory)).isEqualTo(frontCategory);
     }
 
     @Test
     @DisplayName("null 은 etc 로 본다")
     void nullBecomesEtc() {
-        assertThat(PinServiceImpl.toDbCategory(null)).isEqualTo("etc");
-        assertThat(PinServiceImpl.toFrontendCategory(null)).isEqualTo("etc");
+        assertThat(toDbCategory(null)).isEqualTo("etc");
+        assertThat(toFrontendCategory(null)).isEqualTo("etc");
     }
 
     @Test
     @DisplayName("모르는 값은 소문자로 정리해 그대로 둔다")
     void unknownCategoryIsNormalized() {
-        assertThat(PinServiceImpl.toDbCategory("  ETC ")).isEqualTo("etc");
+        assertThat(toDbCategory("  ETC ")).isEqualTo("etc");
     }
 }

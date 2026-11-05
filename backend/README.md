@@ -120,4 +120,4 @@ JavaScript 키만으로 동작하므로 백엔드에는 장소 검색 API도, �
 | `DB_URL` | `jdbc:postgresql://<host>:5432/pinmate` |
 | `DB_USERNAME` / `DB_PASSWORD` | 운영 DB 계정 |
 
-운영 프로파일에서는 `db/seed`가 로드되지 않으므로 시드 데이터가 운영 DB에 들어가지 않습니다.
+시드 데이터는 `V2__seed_data.sql` 이 `db/migration` 안에 있어 **모든 환경(운영 포함)에서 실행됩니다**. `db/seed` 폴더는 비어 있고 Flyway 설정도 이를 읽지 않습니다. 운영 DB에 남지 않도록 `V13__remove_seed_data.sql` 이 시드 값이 정확히 일치하는 행만 골라 삭제합니다(실제 사용자가 그 번호를 쓰면 아무 것도 지우지 않음). 새 환경에서는 V2 삽입 → V13 삭제가 같은 마이그레이션 실행 안에서 이어지므로 최종 상태에 시드가 남지 않습니다.

@@ -116,19 +116,17 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
 
   // 1. 내 모임 목록 로드
   useEffect(() => {
-    fetchTeams(currentUser.id)
+    fetchTeams()
       .then(fetchedTeams => {
         setTeams(fetchedTeams)
         if (fetchedTeams.length > 0) {
-          // 이미 선택된 ID가 유효하면 유지, 없으면 첫 번째 팀 선택
-          const hasValid = fetchedTeams.some(t => String(t.id) === String(selectedTeamId))
-          if (!hasValid) {
-            setSelectedTeamId(fetchedTeams[0].id)
-          }
+          // 이미 선택된 ID가 유효하면 유지, 없으면 첫 번째 팀 선택. 이전 값은 함수형 갱신으로 읽는다
+          setSelectedTeamId(prev =>
+            fetchedTeams.some(t => String(t.id) === String(prev)) ? prev : fetchedTeams[0].id)
         }
       })
       .catch(e => setError(`모임 목록을 불러오지 못했습니다: ${e.message}`))
-  }, [currentUser.id])
+  }, [])
 
   // 2. 선택된 모임의 상세 정보 및 핀 목록 로드
   useEffect(() => {
@@ -281,7 +279,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     memberLayer.hide()
   }
 
-  // 친구 지도에서 본 핀을 내 지도에 추가한다 (공개로 저장)
+  // 친구 지도에서 본 핀을 내 지도에 추가한다 (복사본은 나만 보게 저장)
   const handleAddFriendPinToMyMap = async pin => {
     if (personalPins.some(p => isSamePlace(p, pin))) {
       setError('이미 내 지도에 있는 장소예요.')
@@ -296,7 +294,8 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         lat: pin.lat,
         lng: pin.lng,
         memo: pin.memo,
-        visibility: 'all',
+        // 남이 정한 공개 범위·메모가 내 친구·내 모임으로 번지지 않게 나만 보기로 담는다
+        visibility: 'private',
         source: 'search',
         kakaoPlaceId: pin.kakaoPlaceId ?? null,
       })
@@ -315,7 +314,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
 
   // 새 모임 생성 완료 핸들러
   const handleCreateTeam = async (name) => {
-    const newTeam = await createTeamApi(name, currentUser.id)
+    const newTeam = await createTeamApi(name)
     setTeams(prev => [newTeam, ...prev])
     setSelectedTeamId(newTeam.id)
     setShowTeamDrawer(false)
@@ -325,7 +324,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
 
   // 초대 코드로 모임 참여 (이미 멤버여도 같은 팀이 돌아온다)
   const handleJoinTeam = async (code) => {
-    const team = await joinTeamApi(code, currentUser.id)
+    const team = await joinTeamApi(code)
     setTeams(prev => [team, ...prev.filter(t => String(t.id) !== String(team.id))])
     setSelectedTeamId(team.id)
     setActiveTab('map')
@@ -418,7 +417,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
   const handleRecommend = async (pinId, opts = {}) => {
     const target = pins.find(p => p.id === pinId)
     try {
-      const { pin, reachedAllApproved } = await toggleRecommendationApi(pinId, currentUser.id)
+      const { pin, reachedAllApproved } = await toggleRecommendationApi(pinId)
       setPins(prev => prev.map(p => p.id === pin.id ? pin : p))
       setSelectedPin(pin)
       if (reachedAllApproved) {

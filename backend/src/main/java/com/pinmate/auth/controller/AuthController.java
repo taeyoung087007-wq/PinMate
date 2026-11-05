@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -115,9 +116,13 @@ public class AuthController {
 	public Response login(@RequestBody HashMap<String, Object> param, HttpServletRequest request) {
 		String loginId = ParamUtil.str(param, "loginId");
 		String password = ParamUtil.raw(param, "password");
-		String attemptKey = loginAttemptKey(loginId, RequestUtil.clientIp(request));
+		String ip = RequestUtil.clientIp(request);
+		String attemptKey = loginAttemptKey(loginId, ip);
+		String ipKey = LoginAttemptLimiter.loginIpKey(ip);
 
-		if (!loginAttemptLimiter.tryAcquire(attemptKey)) {
+		// 계정별 5회 + IP 전체 30회. 아이디만 바꿔 대입하거나, 키 1만 개를 채워 남의 로그인을 막는 것을 함께 막는다
+		if (!loginAttemptLimiter.tryAcquire(ipKey, LoginAttemptLimiter.IP_MAX_ATTEMPTS)
+				|| !loginAttemptLimiter.tryAcquire(attemptKey)) {
 			return Response.of(Constants.LOGIN_BLOCKED);
 		}
 
@@ -137,6 +142,7 @@ public class AuthController {
 				}
 				Map<String, Object> data = authService.selectLoginInfo(user);
 				loginAttemptLimiter.reset(attemptKey);
+				loginAttemptLimiter.reset(ipKey);   // 같은 IP 의 다른 사용자까지 성공으로 풀어 준다
 				SessionUtil.login(request, userId, (String) user.get("login_id"));
 				result = Response.of(Constants.SUCCESS, data);
 			}
@@ -207,6 +213,9 @@ public class AuthController {
 				logger.info("신규 사용자 {} 가 가입했습니다.", loginId);
 				result = Response.of(Constants.SUCCESS);
 			}
+		} catch (DuplicateKeyException dke) {
+			// 이메일 UNIQUE 위반. 사전 검사로는 잡지 않으므로 여기서 원인을 알려 준다
+			result = Response.of(Constants.SIGNUP_FAIL_EMAIL, "이미 가입된 이메일입니다.", null);
 		} catch (NullPointerException npe) {
 			logger.error("가입 처리 중 NullPointerException이 발생했습니다.", npe);
 			result = Response.of(Constants.FAIL, "가입 처리 중 오류가 발생했습니다.", null);

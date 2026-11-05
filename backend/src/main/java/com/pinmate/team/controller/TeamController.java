@@ -160,6 +160,10 @@ public class TeamController {
 		try {
 			List<Long> ids = new ArrayList<>();
 			if (param.get("ids") instanceof List<?> raw) {
+				// 모임 잠금을 오래 쥐고 다른 요청을 막지 않게 한 번에 가져올 개수를 제한한다
+				if (raw.size() > 500) {
+					return Response.of(Constants.INVALID, "한 번에 500곳까지 가져올 수 있습니다.", null);
+				}
 				for (Object value : raw) {
 					if (value instanceof Number number) ids.add(number.longValue());
 				}

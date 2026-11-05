@@ -167,16 +167,6 @@
   padding: 14px;
   font-size: 15px;
 }
-.demoBtn {
-  font-size: 13px;
-  color: var(--text-secondary);
-  justify-content: center;
-}
-.demoBtn:hover {
-  color: var(--primary-light);
-  background: none;
-}
-
 /* Features */
 .features {
   display: flex;

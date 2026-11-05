@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   MapPin, Users, Lock, Eye, EyeOff, ArrowRight,
-  Sparkles, CheckCircle2, AlertCircle, Link2
+  CheckCircle2, AlertCircle, Link2
 } from 'lucide-react'
 import { signupApi, loginApi, checkInviteCodeApi } from '../api'
 import { setCurrentUserStorage } from '../../../lib/currentUser'
@@ -126,11 +126,6 @@ export default function AuthPage({ onLogin }) {
         setLoading(false)
       }
     }
-  }
-
-  // 브라우저 상태만 바꿔서는 서버의 모임 조회 권한을 얻을 수 없다.
-  const handleDemoLogin = () => {
-    setError('모임을 조회하려면 회원가입하거나 등록된 계정으로 로그인해주세요.')
   }
 
   return (
@@ -264,7 +259,7 @@ export default function AuthPage({ onLogin }) {
                   className="input"
                   type={showPw ? 'text' : 'password'}
                   name="password"
-                  placeholder="비밀번호 (4자 이상)"
+                  placeholder="비밀번호 (8자 이상, 영문+숫자)"
                   value={form.password}
                   onChange={handleInputChange}
                   required
@@ -325,15 +320,6 @@ export default function AuthPage({ onLogin }) {
               <ArrowRight size={16} />
             </button>
 
-            {/* 원클릭 데모 체험 버튼 */}
-            <button
-              type="button"
-              className={`btn btn-ghost ${styles.demoBtn}`}
-              onClick={handleDemoLogin}
-            >
-              <Sparkles size={14} />
-              데모 계정으로 바로 둘러보기
-            </button>
           </form>
         </div>
 

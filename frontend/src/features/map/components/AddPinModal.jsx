@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Search, MapPin, Tag, FileText, ArrowLeft, Crosshair } from 'lucide-react'
 import { CATEGORY_META, guessCategory } from '../categories'
-import { CURRENT_USER } from '../../../lib/currentUser'
 import { loadKakaoMaps } from '../../../lib/kakaoMaps'
 import { geocode, reverseGeocode } from '../geocode'
 import { searchPlaces } from '../places'
@@ -151,7 +150,6 @@ export default function AddPinModal({ teamId, personal = false, onClose, onAdd, 
       category,
       lat: selected.lat,
       lng: selected.lng,
-      addedBy: CURRENT_USER.id,
       memo: (personal || recommend) ? memo.trim() : '',
       recommend: personal ? false : recommend,   // 개인 장소에는 추천 개념이 없다
       syncToPersonal: personal ? false : syncToPersonal,   // 모임 장소를 내 지도에도 저장할지
