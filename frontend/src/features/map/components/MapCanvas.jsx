@@ -866,9 +866,6 @@ export default function MapCanvas({
             </div>
           )}
 
-          {!route && pins.length === 0 && (
-            <div className={styles.emptyHint}>아직 등록된 장소가 없습니다 · 우측 상단에서 장소를 추가해 보세요</div>
-          )}
 
           {locateError && <div className={styles.locateError}>{locateError}</div>}
         </>
