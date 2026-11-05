@@ -64,8 +64,9 @@ public class PersonalPlaceServiceImpl implements PersonalPlaceService {
 	@Transactional(readOnly = true)
 	public String selectEditCode(Long personalPlaceId, Long userId) throws Exception {
 		Map<String, Object> row = personalPlaceDAO.selectPersonalPlaceById(personalPlaceId);
+		// 남의 장소도 없는 장소와 같은 91 로 돌려준다. 92 를 쓰면 그 ID 가 있다는 게 드러난다
 		if (row == null) return Constants.NOT_FOUND;
-		return userId.equals(((Number) row.get("user_id")).longValue()) ? Constants.SUCCESS : Constants.NO_PERMISSION;
+		return userId.equals(((Number) row.get("user_id")).longValue()) ? Constants.SUCCESS : Constants.NOT_FOUND;
 	}
 
 	@Override

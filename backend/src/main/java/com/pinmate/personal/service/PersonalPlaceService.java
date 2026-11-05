@@ -13,7 +13,7 @@ public interface PersonalPlaceService {
 	// 개인 장소 등록. param: name, category, address, roadAddress, lat, lng, memo, source
 	Map<String, Object> insert(Map<String, Object> param, Long userId) throws Exception;
 
-	// 수정·삭제 가능 여부: SUCCESS(본인) / NOT_FOUND(없음) / NO_PERMISSION(남의 장소)
+	// 수정·삭제 가능 여부: SUCCESS(본인) / NOT_FOUND(없거나 남의 장소 — 장소 ID 존재를 숨긴다)
 	String selectEditCode(Long personalPlaceId, Long userId) throws Exception;
 
 	// 개인 장소 수정 (이름·카테고리·메모). 권한은 selectEditCode 로 먼저 확인한다
