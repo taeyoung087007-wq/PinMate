@@ -203,6 +203,8 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
   "id": "1",
   "name": "주말 맛집 원정대",
   "inviteCode": "k7m2xq9fht3wnp4a",
+  "consensusRule": "min_count",
+  "consensusMinCount": 3,
   "allApprovedCount": 2,
   "pinCount": 14,
   "memberCount": 3,
@@ -226,6 +228,8 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 | 필드 | 설명 |
 |---|---|
 | `inviteCode` | 현재 유효한(회수·만료되지 않은) 초대 코드. 없으면 `null`. 새 코드는 16자리 무작위 값(영소문자·숫자, 헷갈리는 `i l o 0 1` 제외). 예전 `team{팀ID}_…` 형식 코드도 만료 전까지는 쓸 수 있음 |
+| `consensusRule` | 모두 인정 기준. `all`(팀원 전원) / `min_count`(`consensusMinCount` 명 이상) |
+| `consensusMinCount` | `min_count` 일 때 기준 인원(2 이상). `all` 이면 `null` |
 | `allApprovedCount` | 모두 인정 상태인 장소 수 |
 | `members` | owner 먼저, 나머지는 참여 순. `id` 는 `login_id` |
 | `members[].role` | `owner`(모임장, 1명) / `admin`(관리자, 모임장이 지정) / `member` |
@@ -278,6 +282,20 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 
 성공 `00` — 새 `inviteCode` 가 담긴 모임 객체. 실패: `91`(없거나 참여하지 않은 모임), `92`(모임장·관리자가 아님), `99`
 
+### `PATCH /api/teams/{teamId}/consensus` — 모두 인정 기준 바꾸기
+
+권한: **모임장·관리자**.
+
+| 본문 | 타입 | 필수 | 규칙 |
+|---|---|---|---|
+| `rule` | string | ✔ | `all`(팀원 전원) / `min_count`(N명 이상) |
+| `minCount` | number | `min_count` 일 때 ✔ | 2~100. `all` 이면 무시하고 `null` 로 저장 |
+
+- 바꾸면 이 모임의 **모든 장소를 다시 판정**합니다. 기준이 엄격해져 풀린 장소는 'N명 달성' 기록(`consensusMemberCount`)이 남습니다. 축하 효과(`reachedAllApproved`)는 추천 토글에서만 나옵니다.
+- 팀원이 기준 인원보다 적으면 전원 기준으로 판정합니다 (사람이 줄어 영영 달성하지 못하는 일이 없게).
+
+성공 `00` — 바뀐 모임 객체. 실패: `90`(값 오류), `91`(없거나 참여하지 않은 모임), `92`(모임장·관리자가 아님), `99`
+
 ### `PATCH /api/teams/{teamId}/member-role` — 관리자 지정·해제 (F-54)
 
 권한: **모임장만**.
@@ -287,7 +305,7 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 | `memberId` | string | ✔ | 멤버 `id`(`login_id`) |
 | `role` | string | ✔ | `admin`(지정) / `member`(해제) |
 
-- 관리자는 남이 등록한 장소를 수정·삭제하고 초대 링크를 새로 만들 수 있습니다. 모임 삭제와 관리자 지정은 모임장만 합니다.
+- 관리자는 남이 등록한 장소를 수정·삭제하고, 초대 링크를 새로 만들고, 모두 인정 기준을 바꿀 수 있습니다. 모임 삭제와 관리자 지정은 모임장만 합니다.
 - 모임장 자신의 역할은 바꿀 수 없습니다. 모임장은 나가기로만 넘어갑니다.
 
 성공 `00` — 바뀐 모임 객체. 실패: `90`(`role` 값 오류), `91`(모임이나 대상 멤버 없음), `92`(모임장이 아님·대상이 모임장), `99`
@@ -386,7 +404,7 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 | 달성 중에 누가 추천 취소 | `false` | `null` | `null` | 배지 없음 |
 
 - 판정은 **지금 팀원인 사람의 추천만** 셉니다. 떠난 멤버의 추천은 `recommenders` 에는 남지만 판정에서 빠집니다.
-- 기준: 모임 `consensus_rule` 이 `all` 이면 팀원 전원, 아니면 `consensus_min_count` 명. (기준 설정 API는 아직 없음, 현재 모든 모임이 `all`)
+- 기준: 모임 `consensusRule` 이 `all` 이면 팀원 전원, `min_count` 면 `consensusMinCount` 명(팀원이 그보다 적으면 전원). 모임장·관리자가 [기준 바꾸기](#patch-apiteamsteamidconsensus--모두-인정-기준-바꾸기)로 정합니다. 새 모임은 `all`.
 - 팀원이 늘어 배지가 해제될 때 **달성 날짜는 지워지고 인원만 남습니다.**
 - **과반 인정**(👍, 은색 핀): 팀원 3명 이상이고 지금 팀원의 추천이 절반을 넘었지만 아직 모두 인정이 아닌 장소. 서버에 저장하지 않고 화면이 `recommenders` 와 멤버 수로 계산합니다(`frontend/src/features/map/consensus.js`).
 

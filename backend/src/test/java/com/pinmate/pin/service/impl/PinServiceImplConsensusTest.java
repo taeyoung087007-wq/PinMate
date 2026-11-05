@@ -71,4 +71,41 @@ class PinServiceImplConsensusTest {
 
         verify(pinDAO).updateConsensus(Map.of("placeId", PLACE_ID, "achieved", false, "memberCount", 2, "keepRecord", true));
     }
+
+    private void givenMinCountTeam(int minCount, int memberCount, int recommendCount) {
+        given(pinDAO.selectPinIdsByTeamId(TEAM_ID)).willReturn(List.of(PLACE_ID));
+        given(teamDAO.selectTeamById(TEAM_ID)).willReturn(Map.of("consensus_rule", "min_count", "consensus_min_count", minCount));
+        given(teamDAO.selectTeamMembers(TEAM_ID)).willReturn(Collections.nCopies(memberCount, Map.of()));
+        given(pinDAO.countRecommendationsByPlaceId(PLACE_ID)).willReturn(recommendCount);
+    }
+
+    @Test
+    @DisplayName("N명 기준이면 5명 팀에서 3명 추천으로 모두 인정")
+    void minCountRuleApprovesAtThreshold() throws Exception {
+        givenMinCountTeam(3, 5, 3);
+
+        service.updateTeamConsensus(TEAM_ID);
+
+        verify(pinDAO).updateConsensus(Map.of("placeId", PLACE_ID, "achieved", true, "memberCount", 3, "keepRecord", true));
+    }
+
+    @Test
+    @DisplayName("N명 기준에 못 미치면 인정하지 않는다")
+    void minCountRuleBelowThreshold() throws Exception {
+        givenMinCountTeam(3, 5, 2);
+
+        service.updateTeamConsensus(TEAM_ID);
+
+        verify(pinDAO).updateConsensus(Map.of("placeId", PLACE_ID, "achieved", false, "memberCount", 2, "keepRecord", true));
+    }
+
+    @Test
+    @DisplayName("팀원이 기준 인원보다 적으면 전원 추천으로 인정한다")
+    void minCountAboveMembersFallsBackToAll() throws Exception {
+        givenMinCountTeam(5, 3, 3);
+
+        service.updateTeamConsensus(TEAM_ID);
+
+        verify(pinDAO).updateConsensus(Map.of("placeId", PLACE_ID, "achieved", true, "memberCount", 3, "keepRecord", true));
+    }
 }

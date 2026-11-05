@@ -38,6 +38,8 @@ public class TeamController {
 
 	private static final int TEAM_NAME_MAX = 50;   // teams.name VARCHAR(50)
 	private static final int INVITE_CODE_MAX = 32; // team_invites.code VARCHAR(32)
+	private static final int CONSENSUS_MIN = 2;     // teams.consensus_min_count CHECK (>= 2)
+	private static final int CONSENSUS_MAX = 100;   // 터무니없는 값만 거른다. 팀원 수보다 크면 판정은 전원 기준
 
 	@Resource(name = "TeamService")
 	private TeamService teamService;
@@ -265,6 +267,41 @@ public class TeamController {
 		} catch (Exception e) {
 			logger.error("초대 링크 재발급 중 알 수 없는 오류가 발생했습니다.", e);
 			result = Response.of(Constants.FAIL, "초대 링크 재발급 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
+	// 모두 인정 기준 변경. 모임장·관리자만 (rule: all = 전원 / min_count = minCount 명 이상). 바꾸면 모든 장소를 다시 판정한다
+	@ResponseBody
+	@PatchMapping("teams/{teamId}/consensus")
+	public Response updateConsensusRule(@PathVariable("teamId") Long teamId, @RequestBody HashMap<String, Object> param, HttpSession session) {
+		String rule = ParamUtil.str(param, "rule");
+		Long minCount = ParamUtil.lng(param, "minCount");
+		if (!"all".equals(rule) && !"min_count".equals(rule)) {
+			return Response.invalid("기준은 all 또는 min_count 만 고를 수 있습니다.");
+		}
+		if ("min_count".equals(rule) && (minCount == null || minCount < CONSENSUS_MIN || minCount > CONSENSUS_MAX)) {
+			return Response.invalid("기준 인원은 2~100명으로 입력해주세요.");
+		}
+
+		Response result = null;
+
+		try {
+			Long userId = SessionUtil.getUserId(session);
+			String code = teamService.updateConsensusRule(teamId, userId, rule, minCount == null ? null : minCount.intValue());
+			result = Constants.SUCCESS.equals(code)
+					? Response.of(Constants.SUCCESS, teamService.selectTeam(teamId, userId))
+					: Response.of(code, Constants.NO_PERMISSION.equals(code) ? "모임장이나 관리자만 인정 기준을 바꿀 수 있습니다." : "모임을 찾을 수 없습니다.", null);
+		} catch (NullPointerException npe) {
+			logger.error("인정 기준 변경 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "인정 기준 변경 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("인정 기준 변경 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "인정 기준 변경 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("인정 기준 변경 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "인정 기준 변경 중 오류가 발생했습니다.", null);
 		}
 
 		return result;

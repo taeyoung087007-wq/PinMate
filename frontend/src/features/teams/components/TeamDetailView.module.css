@@ -330,6 +330,13 @@
   color: var(--text-secondary);
 }
 
+.ruleSelect {
+  width: auto;
+  flex-shrink: 0;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
 .switch {
   flex-shrink: 0;
   position: relative;

@@ -33,6 +33,10 @@ public interface TeamService {
 	// SUCCESS / NO_PERMISSION(owner 가 아님·대상이 owner) / NOT_FOUND(모임이 없거나 나 또는 대상이 멤버가 아님)
 	String updateMemberRole(Long teamId, Long userId, String targetLoginId, String role) throws Exception;
 
+	// 모임 인정 기준 변경 (rule: all / min_count, min_count 면 minCount >= 2) 후 모든 장소를 다시 판정한다. owner·admin 만.
+	// SUCCESS / NO_PERMISSION / NOT_FOUND(없거나 멤버가 아님)
+	String updateConsensusRule(Long teamId, Long userId, String rule, Integer minCount) throws Exception;
+
 	// 팀 삭제. owner 만 가능: SUCCESS / NO_PERMISSION / NOT_FOUND(없거나 멤버가 아님)
 	String deleteTeam(Long teamId, Long userId) throws Exception;
 

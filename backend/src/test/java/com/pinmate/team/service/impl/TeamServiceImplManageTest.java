@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.pinmate.cmmn.util.Constants;
+import com.pinmate.cmmn.util.ParamUtil;
 import com.pinmate.pin.service.PinService;
 import com.pinmate.presence.service.PresenceService;
 import com.pinmate.sync.service.SyncNotificationService;
@@ -115,5 +116,31 @@ class TeamServiceImplManageTest {
         assertThat(service.updateMemberRole(TEAM_ID, OWNER_ID, "nobody", "admin")).isEqualTo(Constants.NOT_FOUND);
         assertThat(service.updateMemberRole(TEAM_ID, 99L, "seoyeon", "admin")).isEqualTo(Constants.NOT_FOUND);
         verify(teamDAO, never()).updateMemberRole(anyMap());
+    }
+
+    @Test
+    @DisplayName("관리자는 인정 기준을 N명으로 바꾸고, 바꾼 뒤 모든 장소를 다시 판정한다")
+    void adminChangesConsensusRule() throws Exception {
+        givenMembers();
+
+        assertThat(service.updateConsensusRule(TEAM_ID, ADMIN_ID, "min_count", 3)).isEqualTo(Constants.SUCCESS);
+
+        InOrder order = inOrder(teamDAO, pinService);
+        order.verify(teamDAO).lockTeam(TEAM_ID);
+        order.verify(teamDAO).updateConsensusRule(Map.of("teamId", TEAM_ID, "rule", "min_count", "minCount", 3));
+        order.verify(pinService).updateTeamConsensus(TEAM_ID);
+    }
+
+    @Test
+    @DisplayName("전원 기준으로 되돌리면 기준 인원은 비우고, 일반 멤버는 기준을 못 바꾼다")
+    void consensusRulePermissionsAndAllClearsCount() throws Exception {
+        givenMembers();
+
+        assertThat(service.updateConsensusRule(TEAM_ID, OWNER_ID, "all", 3)).isEqualTo(Constants.SUCCESS);
+        verify(teamDAO).updateConsensusRule(ParamUtil.map("teamId", TEAM_ID, "rule", "all", "minCount", null));
+
+        assertThat(service.updateConsensusRule(TEAM_ID, MEMBER_ID, "min_count", 2)).isEqualTo(Constants.NO_PERMISSION);
+        assertThat(service.updateConsensusRule(TEAM_ID, 99L, "min_count", 2)).isEqualTo(Constants.NOT_FOUND);
+        verify(pinService).updateTeamConsensus(TEAM_ID);   // 성공한 한 번만
     }
 }

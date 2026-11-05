@@ -162,6 +162,19 @@ public class TeamServiceImpl implements TeamService {
 
 	@Override
 	@Transactional
+	public String updateConsensusRule(Long teamId, Long userId, String rule, Integer minCount) throws Exception {
+		teamDAO.lockTeam(teamId);   // 기준 변경과 재판정을 한 줄로 (동시에 바꿔도 마지막 기준으로 판정되게)
+		Map<String, Object> me = selectMembership(teamId, userId);
+		if (me == null) return Constants.NOT_FOUND;
+		if (!isOwner(me) && !isAdmin(me)) return Constants.NO_PERMISSION;
+
+		teamDAO.updateConsensusRule(ParamUtil.map("teamId", teamId, "rule", rule, "minCount", "all".equals(rule) ? null : minCount));
+		pinService.updateTeamConsensus(teamId);   // 기준이 엄격해져 풀리는 장소는 'N명 달성' 기록을 남긴다
+		return Constants.SUCCESS;
+	}
+
+	@Override
+	@Transactional
 	public String updateMemberRole(Long teamId, Long userId, String targetLoginId, String role) throws Exception {
 		List<Map<String, Object>> members = teamDAO.selectTeamMembers(teamId);
 		Map<String, Object> me = members.stream().filter(m -> userId.equals(m.get("user_id"))).findFirst().orElse(null);
@@ -259,6 +272,8 @@ public class TeamServiceImpl implements TeamService {
 		item.put("id", String.valueOf(team.get("team_id")));
 		item.put("name", team.get("name"));
 		item.put("inviteCode", team.get("invite_code"));     // 유효한 코드가 없으면 null
+		item.put("consensusRule", team.get("consensus_rule"));          // all(전원) / min_count
+		item.put("consensusMinCount", team.get("consensus_min_count")); // min_count 일 때 기준 인원. all 이면 무시
 		item.put("allApprovedCount", team.get("all_approved_count"));
 		item.put("pinCount", team.get("pin_count"));
 		item.put("memberCount", members.size());

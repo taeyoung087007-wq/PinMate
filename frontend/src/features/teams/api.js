@@ -17,6 +17,13 @@ export const leaveTeamApi = (teamId) => post(`/teams/${encodeURIComponent(teamId
 /** 초대 링크 새로 만들기 (모임장·관리자만). 이전 링크는 더 이상 쓸 수 없다. @returns {Promise<team>} */
 export const reissueInviteApi = (teamId) => post(`/teams/${encodeURIComponent(teamId)}/invite`, {})
 
+/** 모두 인정 기준 변경 (모임장·관리자만). rule 'all' = 전원, 'min_count' = minCount 명 이상. 바꾸면 모든 장소를 다시 판정한다. @returns {Promise<team>} */
+export const updateConsensusRuleApi = (teamId, rule, minCount) =>
+  request(`/teams/${encodeURIComponent(teamId)}/consensus`, {
+    method: 'PATCH',
+    body: JSON.stringify({ rule, minCount }),
+  })
+
 /** 관리자 지정·해제 (모임장만). memberId 는 멤버 id(login_id), role 은 'admin' | 'member'. @returns {Promise<team>} */
 export const updateMemberRoleApi = (teamId, memberId, role) =>
   request(`/teams/${encodeURIComponent(teamId)}/member-role`, {
