@@ -673,6 +673,8 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 - `deleted`: 모임 장소가 지워지면 **그 장소를 내 지도에 가진 모임원**에게. 처리 안 한 `added` 알림은 함께 지워집니다.
 - 이미 있는 장소에 추천만 더한 경우는 알림이 없습니다.
 - 모임을 나가면 그 모임의 내 알림은 지워집니다. 목록·개수·반영도 **지금 멤버인 모임의 알림만** 다룹니다.
+- 목록·개수·모두 반영은 **최근 30일** 알림만 다룹니다 (오래된 알림은 지우지 않고 보이지 않게만 함).
+- 한 번에 생긴 알림(가져오기로 여러 곳)은 생성 시각이 같습니다. 개수는 (모임, 변경한 사람, 종류, 생성 시각)이 같은 묶음을 **1건**으로 세고, 화면도 한 줄로 묶어 보여줍니다.
 - 반영할 때 '같은 장소'는 카카오 장소 ID가 같거나 이름 + 50m 입니다 (알림에 ID를 복사해 둠).
 
 ### 알림 객체
@@ -706,8 +708,8 @@ API는 프론트 키를 씁니다. DB에는 오른쪽 값으로 저장됩니다.
 
 | 메서드 | 경로 | 본문 | 성공 `data` | 실패 |
 |---|---|---|---|---|
-| GET | `/api/sync-notifications` | | `{ "pendingCount": 3, "items": [ 알림 ] }` — 최근 100개, 최근 순 | `99` |
-| GET | `/api/sync-notifications/count` | | `{ "pending": 3 }` (배지용) | `99` |
+| GET | `/api/sync-notifications` | | `{ "pendingCount": 3, "items": [ 알림 ] }` — 최근 30일 중 최대 100개, 최근 순. `pendingCount` 는 묶음 단위 | `99` |
+| GET | `/api/sync-notifications/count` | | `{ "pending": 3 }` (배지용, 묶음 단위) | `99` |
 | POST | `/api/sync-notifications/{id}/apply` | `{}` | `null`. `added` → 내 지도에 저장, `deleted` → 내 지도에서 삭제 | `91`(내 알림이 아님) |
 | POST | `/api/sync-notifications/{id}/ignore` | `{}` | `null` | `91` |
 | POST | `/api/sync-notifications/apply-all` | `{ "teamId": 1 }` | `null`. 그 모임의 처리 안 한 알림 모두 반영 | `90`(모임 없음) |
