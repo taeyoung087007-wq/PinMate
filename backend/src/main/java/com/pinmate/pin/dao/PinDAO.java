@@ -29,12 +29,12 @@ public class PinDAO {
 		return sqlSession.selectOne(PinDAO.SQL_PATH + ".selectPinById", placeId);
 	}
 
-	//추천인 login_id 목록
-	public List<String> selectRecommenderIds(Long placeId) {
-		return sqlSession.selectList(PinDAO.SQL_PATH + ".selectRecommenderIds", placeId);
+	//핀 하나의 추천인 (login_id, comment)
+	public List<Map<String, Object>> selectRecommendersByPlaceId(Long placeId) {
+		return sqlSession.selectList(PinDAO.SQL_PATH + ".selectRecommendersByPlaceId", placeId);
 	}
 
-	//팀 핀 전체의 추천인 (place_id, login_id)
+	//팀 핀 전체의 추천인 (place_id, login_id, comment)
 	public List<Map<String, Object>> selectRecommendersByTeamId(Long teamId) {
 		return sqlSession.selectList(PinDAO.SQL_PATH + ".selectRecommendersByTeamId", teamId);
 	}
@@ -79,7 +79,7 @@ public class PinDAO {
 		return sqlSession.update(PinDAO.SQL_PATH + ".updatePin", param);
 	}
 
-	//등록자 한 줄 추천평 수정 (param: placeId, userId, comment)
+	//한 사람의 한 줄 추천평 수정. 추천하지 않았으면 0 (param: placeId, userId, comment)
 	public int updateRecommendationComment(Map<String, Object> param) {
 		return sqlSession.update(PinDAO.SQL_PATH + ".updateRecommendationComment", param);
 	}

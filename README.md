@@ -35,7 +35,7 @@ PinMate/
 │   │   └── lib/          # API 클라이언트 등 공용 유틸
 │   └── README.md         # 프론트엔드 구조 규칙
 ├── backend/              # Spring Boot (Spring MVC) + MyBatis + Flyway
-│   ├── src/main/java/    # com.pinmate 아래 기능별 패키지 (현재 common만 존재)
+│   ├── src/main/java/    # com.pinmate 아래 기능별 패키지 (auth, team, pin, personal, friend, sync 등 · 공통은 cmmn)
 │   ├── src/main/resources/  # 설정, MyBatis XML, Flyway 마이그레이션·시드
 │   └── README.md         # 백엔드 구조 규칙 및 DB 가이드
 ├── docker-compose.yml    # 로컬 개발용 PostgreSQL
@@ -163,17 +163,18 @@ Settings → Branches → Add branch protection rule (또는 Rulesets)
 
 ## 6. 핵심 기능 및 기획서 매핑
 
-> 구현 현황은 **프론트엔드 UI 프로토타입** 기준입니다. 백엔드 API는 아직 구현되지 않았습니다.
+> 프론트엔드와 백엔드 API가 함께 구현되어 있습니다. API 명세와 남은 불일치는 [`docs/api.md`](docs/api.md)를 보세요.
 
 | 기획 번호 | 기능명 | 구현 현황 | 관련 파일 |
 | :--- | :--- | :---: | :--- |
 | **F-51** | 팀 생성 및 초대 링크 | ✅ 구현 완료 | `TeamCreateModal.jsx`, `TeamsPage.jsx` |
 | **F-56** | QR 코드 초대 안내 | ✅ 구현 완료 | `TeamCreateModal.jsx` |
-| **F-37** | 나도 추천하기 (1인 1회) | ✅ 구현 완료 | `PinDetailPanel.jsx`, `storage.js` |
+| **F-37** | 나도 추천하기 (1인 1회) | ✅ 구현 완료 | `PinDetailPanel.jsx`, `PinServiceImpl.java` |
+| **F-17** | 사람별 한 줄 평 | ✅ 구현 완료 | `PinDetailPanel.jsx`, `PinController.java` |
 | **F-39** | 추천 수 마커 뱃지 표시 | ✅ 구현 완료 | `MapCanvas.jsx` |
 | **F-40** | '모두 인정' 골드 마커 | ✅ 구현 완료 | `MapCanvas.jsx` |
 | **F-41** | '모두 인정' 달성 축하 팡파레 | ✅ 구현 완료 | `CelebrationModal.jsx` |
 | **F-43** | 모두 인정 장소 모아보기 | ✅ 구현 완료 | `MapPage.jsx` (토글 필터), `PlaceListPanel.jsx` |
 | **F-53** | 팀원별 색상 및 필터 | ✅ 구현 완료 | `MapPage.jsx` (팀원 필터 칩) |
 | **-** | 장소 직접 등록 / 검색 | ✅ 구현 완료 | `AddPinModal.jsx` |
-| **-** | 네이버 지도 앱 바로가기 | ✅ 구현 완료 | `PinDetailPanel.jsx` |
+| **-** | 카카오맵 바로가기 | ✅ 구현 완료 | `PinDetailPanel.jsx` |

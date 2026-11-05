@@ -110,7 +110,7 @@ class PinServiceImplPermissionTest {
     @DisplayName("수정하면 카테고리는 DB 값으로 바뀌고, 추천평은 등록자의 추천 행에 저장된다")
     void updateWritesNameCategoryAndCreatorComment() throws Exception {
         given(pinDAO.selectPinById(PLACE_ID)).willReturn(existingPin());
-        given(pinDAO.selectRecommenderIds(anyLong())).willReturn(List.of());
+        given(pinDAO.selectRecommendersByPlaceId(anyLong())).willReturn(List.of());
 
         Map<String, Object> param = new HashMap<>();
         param.put("name", "새 이름");
@@ -136,5 +136,30 @@ class PinServiceImplPermissionTest {
         verify(pinDAO).lockPin(PLACE_ID);
         verify(pinDAO).deleteRecommendation(anyMap());
         verify(pinDAO, never()).deletePin(anyLong());
+    }
+
+    @Test
+    @DisplayName("추천한 팀원은 등록자가 아니어도 자기 한 줄 평을 고칠 수 있다")
+    void recommenderUpdatesOwnComment() throws Exception {
+        given(pinDAO.selectPinById(PLACE_ID)).willReturn(existingPin());
+        given(teamDAO.isTeamMember(TEAM_ID, OTHER_ID)).willReturn(true);
+        given(pinDAO.updateRecommendationComment(anyMap())).willReturn(1);
+        given(pinDAO.selectRecommendersByPlaceId(anyLong())).willReturn(List.of());
+
+        assertThat(service.updateMyComment(PLACE_ID, OTHER_ID, "또 가고 싶어요")).isNotNull();
+        verify(pinDAO).updateRecommendationComment(Map.of("placeId", PLACE_ID, "userId", OTHER_ID, "comment", "또 가고 싶어요"));
+    }
+
+    @Test
+    @DisplayName("추천하지 않은 핀이나 다른 모임 핀의 한 줄 평은 고칠 수 없다")
+    void cannotUpdateCommentWithoutRecommendation() throws Exception {
+        given(pinDAO.selectPinById(PLACE_ID)).willReturn(existingPin());
+        given(teamDAO.isTeamMember(TEAM_ID, OTHER_ID)).willReturn(true);
+        given(pinDAO.updateRecommendationComment(anyMap())).willReturn(0);
+        assertThat(service.updateMyComment(PLACE_ID, OTHER_ID, "평")).isNull();
+
+        given(teamDAO.isTeamMember(TEAM_ID, OWNER_ID)).willReturn(false);
+        assertThat(service.updateMyComment(PLACE_ID, OWNER_ID, "평")).isNull();
+        verify(pinDAO, never()).updateRecommendationComment(Map.of("placeId", PLACE_ID, "userId", OWNER_ID, "comment", "평"));
     }
 }

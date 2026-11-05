@@ -37,6 +37,10 @@ export const updatePersonalVisibilityApi = (pinId, visibility) =>
 export const toggleRecommendationApi = (pinId, userId) =>
   post(`/pins/${encodeURIComponent(pinId)}/recommend`, { userId })
 
+/** 내 한 줄 추천평 수정 (내가 추천한 핀만). 빈 문자열이면 지운다. @returns {Promise<pin>} */
+export const updateMyCommentApi = (pinId, comment) =>
+  request(`/pins/${encodeURIComponent(pinId)}/recommend`, { method: 'PATCH', body: JSON.stringify({ comment }) })
+
 /** 이름·카테고리·한 줄 추천평 수정 (등록자 또는 팀 owner 만) */
 export const updatePinApi = (pinId, data) =>
   request(`/pins/${encodeURIComponent(pinId)}`, { method: 'PATCH', body: JSON.stringify(data) })

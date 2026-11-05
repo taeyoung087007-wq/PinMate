@@ -91,6 +91,30 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+.comments {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.commentItem {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.commentAuthor {
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-right: 6px;
+}
+.commentBtn {
+  align-self: flex-start;
+  gap: 6px;
+  font-size: 13px;
+}
 .recommenderItem {
   display: flex;
   align-items: center;

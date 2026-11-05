@@ -52,6 +52,21 @@ class PinServiceImplListTest {
 
         assertThat(pins.get(0).get("recommenders")).isEqualTo(List.of("minji", "junho"));
         assertThat(pins.get(1).get("recommenders")).isEqualTo(List.of("junho"));
-        verify(pinDAO, never()).selectRecommenderIds(anyLong());
+        verify(pinDAO, never()).selectRecommendersByPlaceId(anyLong());
+    }
+
+    @Test
+    @DisplayName("추천인별 한 줄 평을 login_id 로 묶어 내려주고, 평이 없는 추천인은 뺀다")
+    void includesCommentsPerRecommender() throws Exception {
+        given(teamDAO.isTeamMember(TEAM_ID, USER_ID)).willReturn(true);
+        given(pinDAO.selectPinsByTeamId(TEAM_ID)).willReturn(List.of(Map.<String, Object>of("place_id", 1L, "team_id", TEAM_ID)));
+        given(pinDAO.selectRecommendersByTeamId(TEAM_ID)).willReturn(List.of(
+                Map.of("place_id", 1L, "login_id", "minji", "comment", "라떼 맛집"),
+                row(1, "junho")));   // MyBatis 는 null 컬럼을 맵에 넣지 않는다
+
+        List<Map<String, Object>> pins = service.selectPinList(TEAM_ID, USER_ID);
+
+        assertThat(pins.get(0).get("recommenders")).isEqualTo(List.of("minji", "junho"));
+        assertThat(pins.get(0).get("comments")).isEqualTo(Map.of("minji", "라떼 맛집"));
     }
 }

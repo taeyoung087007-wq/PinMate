@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -41,7 +42,7 @@ public class PinServiceImpl implements PinService {
 		if (!teamDAO.isTeamMember(teamId, userId)) return null;
 
 		// 추천인은 팀 단위로 한 번에 읽는다 (핀마다 조회하면 핀 수만큼 DB 왕복이 늘어난다)
-		Map<Long, List<String>> recommenders = groupByPlace(pinDAO.selectRecommendersByTeamId(teamId));
+		Map<Long, List<Map<String, Object>>> recommenders = groupByPlace(pinDAO.selectRecommendersByTeamId(teamId));
 
 		List<Map<String, Object>> list = new ArrayList<>();
 		for (Map<String, Object> row : pinDAO.selectPinsByTeamId(teamId)) {
@@ -155,6 +156,15 @@ public class PinServiceImpl implements PinService {
 		return toItem(pinDAO.selectPinById(placeId));
 	}
 
+	// 내 한 줄 추천평 수정. 내가 추천한 핀이 아니면(팀 멤버가 아닌 경우 포함) null
+	@Override
+	@Transactional
+	public Map<String, Object> updateMyComment(Long placeId, Long userId, String comment) throws Exception {
+		if (selectMemberPin(placeId, userId) == null) return null;
+		int updated = pinDAO.updateRecommendationComment(ParamUtil.map("placeId", placeId, "userId", userId, "comment", comment));
+		return updated == 0 ? null : toItem(pinDAO.selectPinById(placeId));
+	}
+
 	@Override
 	@Transactional
 	public void deletePin(Long placeId, Long userId) throws Exception {
@@ -266,19 +276,25 @@ public class PinServiceImpl implements PinService {
 
 	// 핀 한 개 변환 (등록·수정·추천 응답). 추천인을 이 핀만 조회한다
 	private Map<String, Object> toItem(Map<String, Object> row) {
-		return toItem(row, pinDAO.selectRecommenderIds((Long) row.get("place_id")));
+		return toItem(row, pinDAO.selectRecommendersByPlaceId((Long) row.get("place_id")));
 	}
 
-	// (place_id, login_id) 행을 핀별 login_id 목록으로 묶는다. 행 순서(추천 순)는 유지된다
-	private static Map<Long, List<String>> groupByPlace(List<Map<String, Object>> rows) {
-		return rows.stream().collect(Collectors.groupingBy(
-				r -> (Long) r.get("place_id"),
-				Collectors.mapping(r -> (String) r.get("login_id"), Collectors.toList())));
+	// 추천인 행을 핀별로 묶는다. 행 순서(추천 순)는 유지된다
+	private static Map<Long, List<Map<String, Object>>> groupByPlace(List<Map<String, Object>> rows) {
+		return rows.stream().collect(Collectors.groupingBy(r -> (Long) r.get("place_id")));
 	}
 
-	// 화면이 그대로 쓸 수 있는 형태로 변환
-	private Map<String, Object> toItem(Map<String, Object> row, List<String> recommenders) {
+	// 화면이 그대로 쓸 수 있는 형태로 변환. recommenderRows: (login_id, comment) 추천 순
+	private Map<String, Object> toItem(Map<String, Object> row, List<Map<String, Object>> recommenderRows) {
 		Long placeId = (Long) row.get("place_id");
+
+		List<String> recommenders = new ArrayList<>();
+		Map<String, Object> comments = new LinkedHashMap<>();   // 평을 남긴 추천인만 (login_id → 한 줄 평)
+		for (Map<String, Object> r : recommenderRows) {
+			String loginId = (String) r.get("login_id");
+			recommenders.add(loginId);
+			if (r.get("comment") != null) comments.put(loginId, r.get("comment"));
+		}
 
 		Map<String, Object> item = new HashMap<>();
 		item.put("id", String.valueOf(placeId));
@@ -292,6 +308,7 @@ public class PinServiceImpl implements PinService {
 		item.put("kakaoPlaceId", row.get("kakao_place_id"));   // 같은 장소 판별 키. 직접 찍은 핀·기존 행은 null
 		item.put("addedBy", row.get("created_by_login_id"));
 		item.put("recommenders", recommenders);
+		item.put("comments", comments);
 		item.put("memo", row.get("memo"));
 		item.put("isAllApproved", row.get("consensus_achieved_at") != null);
 		item.put("consensusAchievedAt", toIso(row.get("consensus_achieved_at")));

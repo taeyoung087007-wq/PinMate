@@ -42,19 +42,21 @@
 		 WHERE p.place_id = #{placeId}
 	</select>
 
-	<!-- 추천인 login_id 목록 (추천 순) -->
-	<select id="selectRecommenderIds" parameterType="long" resultType="string">
-		SELECT COALESCE(u.login_id, r.user_id::text)
+	<!-- 핀 하나의 추천인 (login_id, comment). 추천 순 -->
+	<select id="selectRecommendersByPlaceId" parameterType="long" resultType="java.util.HashMap">
+		SELECT COALESCE(u.login_id, r.user_id::text) AS login_id,
+		       r.comment
 		  FROM recommendations r
 		  LEFT JOIN users u ON r.user_id = u.user_id
 		 WHERE r.place_id = #{placeId}
 		 ORDER BY r.created_at ASC
 	</select>
 
-	<!-- 팀 핀 전체의 추천인 (place_id, login_id). 핀 목록에서 핀마다 조회하지 않고 한 번에 읽는다. 핀 안 순서는 selectRecommenderIds 와 같다 -->
+	<!-- 팀 핀 전체의 추천인 (place_id, login_id, comment). 핀 목록에서 핀마다 조회하지 않고 한 번에 읽는다. 핀 안 순서는 selectRecommendersByPlaceId 와 같다 -->
 	<select id="selectRecommendersByTeamId" parameterType="long" resultType="java.util.HashMap">
 		SELECT r.place_id,
-		       COALESCE(u.login_id, r.user_id::text) AS login_id
+		       COALESCE(u.login_id, r.user_id::text) AS login_id,
+		       r.comment
 		  FROM recommendations r
 		  JOIN places p ON p.place_id = r.place_id
 		  LEFT JOIN users u ON r.user_id = u.user_id
@@ -141,7 +143,7 @@
 		 WHERE place_id = #{placeId}
 	</update>
 
-	<!-- 등록자가 남긴 한 줄 추천평 수정. 해당 추천 행이 없으면 아무 일도 하지 않는다. param: placeId, userId, comment -->
+	<!-- 한 사람의 한 줄 추천평 수정. 해당 추천 행이 없으면 아무 일도 하지 않는다(0 반환). param: placeId, userId, comment -->
 	<update id="updateRecommendationComment" parameterType="map">
 		UPDATE recommendations
 		   SET comment = #{comment},

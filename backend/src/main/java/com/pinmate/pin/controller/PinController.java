@@ -173,6 +173,36 @@ public class PinController {
 		return result;
 	}
 
+	// 내 한 줄 추천평 수정 (comment). 빈 값이면 지운다. 내가 추천한 핀만 가능
+	@ResponseBody
+	@PatchMapping("pins/{pinId}/recommend")
+	public Response updateMyComment(@PathVariable("pinId") Long pinId, @RequestBody HashMap<String, Object> param, HttpSession session) {
+		String comment = ParamUtil.str(param, "comment");
+		if (comment.length() > MEMO_MAX) {
+			return Response.invalid("한 줄 추천평은 100자 이하로 입력해주세요.");
+		}
+
+		Response result = null;
+
+		try {
+			Map<String, Object> data = pinService.updateMyComment(pinId, SessionUtil.getUserId(session), comment.isEmpty() ? null : comment);
+			result = (data == null)
+					? Response.of(Constants.NOT_FOUND, "추천한 장소를 찾을 수 없습니다.", null)
+					: Response.of(Constants.SUCCESS, data);
+		} catch (NullPointerException npe) {
+			logger.error("추천평 수정 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "추천평 수정 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("추천평 수정 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "추천평 수정 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("추천평 수정 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "추천평 수정 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
 	// 핀 수정 (name, category, memo). 주소·좌표는 바꾸지 않는다. 등록자 또는 팀 owner 만 가능
 	@ResponseBody
 	@PatchMapping("pins/{pinId}")
