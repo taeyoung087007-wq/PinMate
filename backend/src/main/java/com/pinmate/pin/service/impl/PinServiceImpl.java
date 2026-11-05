@@ -125,9 +125,25 @@ public class PinServiceImpl implements PinService {
 	@Override
 	@Transactional
 	public void updateTeamConsensus(Long teamId) throws Exception {
-		for (Long placeId : pinDAO.selectPinIdsByTeamId(teamId)) {
-			updateConsensus(placeId, teamId, true);
+		Map<String, Object> team = teamDAO.selectTeamById(teamId);
+		if (team == null) return;
+
+		int memberCount = teamDAO.selectTeamMembers(teamId).size();
+		int target = consensusTarget(team, memberCount);
+
+		// 장소마다 조회·갱신하지 않고 추천 수를 한 번에 읽어 판정한 뒤 UPDATE 도 한 번에 보낸다
+		List<Map<String, Object>> rows = new ArrayList<>();
+		for (Map<String, Object> count : pinDAO.selectRecommendationCountsByTeamId(teamId)) {
+			int recCount = ((Number) count.get("rec_count")).intValue();
+			boolean achieved = memberCount >= 2 && recCount >= target;
+			rows.add(ParamUtil.map(
+					"placeId", count.get("place_id"),
+					"achieved", achieved,
+					"recCount", recCount,
+					"keepRecord", true));
 		}
+		if (rows.isEmpty()) return;   // VALUES 가 비면 SQL 이 깨지므로 장소가 없으면 그냥 끝낸다
+		pinDAO.updateTeamConsensus(ParamUtil.map("rows", rows));
 	}
 
 	// 등록자 본인 또는 팀 owner·admin 만 수정·삭제할 수 있다. 팀 멤버가 아니면 없는 핀과 같이 NOT_FOUND
@@ -254,26 +270,33 @@ public class PinServiceImpl implements PinService {
 	}
 
 	/*
-	 * '모두 인정' 달성 여부를 다시 계산해 저장한다. 규칙이 all 이면 팀원 전원, 아니면 consensus_min_count 명
-	 * (팀원이 기준보다 적으면 전원 — 사람이 줄어 영영 달성하지 못하는 일이 없게).
-	 * 팀원이 2명 미만이면 판정하지 않는다 (혼자 등록하자마자 달성되지 않게).
-	 * keepRecord: 팀원 변동·기준 변경으로 다시 판정할 때 true — 풀려도 'N명일 때 달성' 기록(consensus_member_count)을 남긴다
+	 * 장소 하나의 '모두 인정' 달성 여부를 다시 계산해 저장한다 (등록·추천 토글처럼 한 장소만 바뀔 때).
+	 * 팀 전체 재판정은 updateTeamConsensus 의 일괄 경로를 쓴다.
+	 * keepRecord: 팀원 변동·기준 변경으로 다시 판정할 때 true — 풀려도 'N명일 때 달성' 기록을 남긴다
 	 */
 	private boolean updateConsensus(Long placeId, Long teamId, boolean keepRecord) {
 		Map<String, Object> team = teamDAO.selectTeamById(teamId);
 		if (team == null) return false;
 
 		int memberCount = teamDAO.selectTeamMembers(teamId).size();
+		int target = consensusTarget(team, memberCount);
 		int recCount = pinDAO.countRecommendationsByPlaceId(placeId);
-
-		Object minCount = team.get("consensus_min_count");
-		int target = "all".equalsIgnoreCase((String) team.get("consensus_rule"))
-				? memberCount
-				: Math.min(minCount == null ? 2 : ((Number) minCount).intValue(), memberCount);
 
 		boolean achieved = memberCount >= 2 && recCount >= target;
 		pinDAO.updateConsensus(ParamUtil.map("placeId", placeId, "achieved", achieved, "memberCount", recCount, "keepRecord", keepRecord));
 		return achieved;
+	}
+
+	/**
+	 * 달성에 필요한 추천 인원. all 이면 팀원 전원, min_count 면 팀원 수를 넘지 않는 선에서 기준 인원
+	 * (팀원이 기준보다 적으면 전원 — 사람이 줄어 영영 달성하지 못하는 일이 없게).
+	 * 팀원 2명 미만 판정은 호출부가 한다 (혼자 등록하자마자 달성되지 않게).
+	 */
+	static int consensusTarget(Map<String, Object> team, int memberCount) {
+		Object minCount = team.get("consensus_min_count");
+		return "all".equalsIgnoreCase((String) team.get("consensus_rule"))
+				? memberCount
+				: Math.min(minCount == null ? 2 : ((Number) minCount).intValue(), memberCount);
 	}
 
 	// 핀 한 개 변환 (등록·수정·추천 응답). 추천인을 이 핀만 조회한다

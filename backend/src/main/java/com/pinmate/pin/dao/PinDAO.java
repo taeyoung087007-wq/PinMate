@@ -19,9 +19,9 @@ public class PinDAO {
 		return sqlSession.selectList(PinDAO.SQL_PATH + ".selectPinsByTeamId", teamId);
 	}
 
-	//팀의 핀 id 목록
-	public List<Long> selectPinIdsByTeamId(Long teamId) {
-		return sqlSession.selectList(PinDAO.SQL_PATH + ".selectPinIdsByTeamId", teamId);
+	//팀 전체의 장소별 추천 수 (place_id, rec_count). 추천 0개인 장소도 포함한다
+	public List<Map<String, Object>> selectRecommendationCountsByTeamId(Long teamId) {
+		return sqlSession.selectList(PinDAO.SQL_PATH + ".selectRecommendationCountsByTeamId", teamId);
 	}
 
 	//핀 단건
@@ -72,6 +72,11 @@ public class PinDAO {
 	//'모두 인정' 달성 여부 갱신 (param: placeId, achieved, memberCount, keepRecord)
 	public int updateConsensus(Map<String, Object> param) {
 		return sqlSession.update(PinDAO.SQL_PATH + ".updateConsensus", param);
+	}
+
+	//팀 전체 재판정 결과를 한 번에 저장 (param: rows[placeId, achieved, recCount, keepRecord])
+	public int updateTeamConsensus(Map<String, Object> param) {
+		return sqlSession.update(PinDAO.SQL_PATH + ".updateTeamConsensus", param);
 	}
 
 	//이름·카테고리 수정 (param: placeId, name, category)

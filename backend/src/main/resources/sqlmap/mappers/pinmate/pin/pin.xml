@@ -30,9 +30,24 @@
 		 ORDER BY p.created_at DESC
 	</select>
 
-	<!-- 팀의 핀 id 목록 (팀원 변동 시 모두 인정 재계산용) -->
-	<select id="selectPinIdsByTeamId" parameterType="long" resultType="long">
-		SELECT place_id FROM places WHERE team_id = #{teamId}
+	<!--
+		팀 전체의 장소별 추천 수를 한 쿼리로 읽는다 (팀원 변동·기준 변경 재판정용).
+		places 기준 LEFT JOIN 이라 추천이 0개인 장소도 빠지지 않고, 지금 팀원의 추천만 센다.
+	-->
+	<select id="selectRecommendationCountsByTeamId" parameterType="long" resultType="java.util.HashMap">
+		SELECT p.place_id,
+		       COUNT(r.user_id) AS rec_count
+		  FROM places p
+		  LEFT JOIN recommendations r
+		    ON r.place_id = p.place_id
+		   AND EXISTS (
+		         SELECT 1
+		           FROM team_members tm
+		          WHERE tm.team_id = p.team_id
+		            AND tm.user_id = r.user_id
+		       )
+		 WHERE p.team_id = #{teamId}
+		 GROUP BY p.place_id
 	</select>
 
 	<select id="selectPinById" parameterType="long" resultType="java.util.HashMap">
@@ -132,6 +147,27 @@
 		                                      ELSE NULL END),
 		       updated_at = now()
 		 WHERE place_id = #{placeId}
+	</update>
+
+	<!--
+		팀 전체 재판정 결과를 한 번에 저장한다. param: rows(placeId, achieved, recCount, keepRecord)
+		장소마다 UPDATE 를 돌리지 않고 VALUES 행을 한 번에 붙여 쿼리 수를 장소 수와 무관하게 유지한다.
+		SET 오른쪽의 p.consensus_* 는 모두 수정 전 값이다 (단건 updateConsensus 와 규칙 동일).
+	-->
+	<update id="updateTeamConsensus" parameterType="map">
+		UPDATE places p
+		   SET consensus_achieved_at = (CASE WHEN v.achieved THEN COALESCE(p.consensus_achieved_at, now()) ELSE NULL END),
+		       consensus_member_count = (CASE WHEN v.achieved AND p.consensus_achieved_at IS NOT NULL THEN p.consensus_member_count
+		                                      WHEN v.achieved THEN v.rec_count
+		                                      WHEN v.keep_record OR p.consensus_achieved_at IS NULL THEN p.consensus_member_count
+		                                      ELSE NULL END),
+		       updated_at = now()
+		  FROM (VALUES
+			<foreach collection="rows" item="row" separator=",">
+				(CAST(#{row.placeId} AS BIGINT), CAST(#{row.achieved} AS BOOLEAN), CAST(#{row.recCount} AS INTEGER), CAST(#{row.keepRecord} AS BOOLEAN))
+			</foreach>
+		  ) AS v(place_id, achieved, rec_count, keep_record)
+		 WHERE p.place_id = v.place_id
 	</update>
 
 	<!-- 이름·카테고리 수정 (주소·좌표는 바꾸지 않는다). param: placeId, name, category -->
