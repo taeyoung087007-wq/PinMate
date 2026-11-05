@@ -4,6 +4,7 @@ import {
   Star, Search, QrCode, Bell, Settings, Link2
 } from 'lucide-react'
 import { CURRENT_USER } from '../../../lib/currentUser'
+import { isActivationKey } from '../../../lib/keyboard'
 import { fetchTeams, createTeamApi } from '../api'
 import TeamCreateModal from '../components/TeamCreateModal'
 import styles from './TeamsPage.module.css'
@@ -234,7 +235,15 @@ function TeamCard({ team, onSelect, style }) {
   return (
     <div
       className={`${styles.teamCard} glass-card animate-fade-in`}
+      role="button"
+      tabIndex={0}
+      aria-label={`${title} 지도 열기`}
       onClick={onSelect}
+      onKeyDown={e => {
+        if (!isActivationKey(e.key)) return
+        e.preventDefault()   // Space 로 페이지가 스크롤되지 않게
+        onSelect()
+      }}
       style={style}
     >
       <div className={styles.teamCardTop}>
@@ -276,10 +285,10 @@ function TeamCard({ team, onSelect, style }) {
         </span>
       </div>
 
-      <button className={styles.teamCardBtn} tabIndex={-1}>
+      <span className={styles.teamCardBtn}>
         지도 바로가기
         <ChevronRight size={14} />
-      </button>
+      </span>
     </div>
   )
 }

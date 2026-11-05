@@ -3,6 +3,7 @@ import { X, Plus, Users, MapPin, Star, Link2, ChevronRight } from 'lucide-react'
 import TeamDetailView from './TeamDetailView'
 import { parseInviteCode } from '../api'
 import MemberAvatar from '../../../components/MemberAvatar/MemberAvatar'
+import { isActivationKey } from '../../../lib/keyboard'
 import styles from './TeamDrawer.module.css'
 
 /**
@@ -124,7 +125,15 @@ export default function TeamDrawer({
               <div
                 key={team.id}
                 className={`${styles.teamCard} ${isSelected ? styles.teamCardActive : ''}`}
+                role="button"
+                tabIndex={0}
+                aria-label={`${title} 모임 상세 보기`}
                 onClick={() => setDetailTeamId(team.id)}
+                onKeyDown={e => {
+                  if (!isActivationKey(e.key)) return
+                  e.preventDefault()   // Space 로 페이지가 스크롤되지 않게
+                  setDetailTeamId(team.id)
+                }}
               >
                 <div className={styles.teamEmoji}>{emoji}</div>
                 <div className={styles.teamInfo}>
