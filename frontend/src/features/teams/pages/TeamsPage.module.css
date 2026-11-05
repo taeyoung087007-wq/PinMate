@@ -286,7 +286,8 @@
   font-family: var(--font-base);
   transition: gap var(--transition);
 }
-.teamCard:hover .teamCardBtn { gap: 8px; }
+.teamCard:hover .teamCardBtn,
+.teamCard:focus-visible .teamCardBtn { gap: 8px; }
 
 /* Create card */
 .createCard {
