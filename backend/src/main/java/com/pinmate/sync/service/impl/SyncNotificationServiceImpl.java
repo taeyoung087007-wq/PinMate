@@ -38,6 +38,12 @@ public class SyncNotificationServiceImpl implements SyncNotificationService {
 	}
 
 	@Override
+	@Transactional
+	public void deleteForLeftMember(Long teamId, Long userId) throws Exception {
+		syncNotificationDAO.deleteByTeamAndRecipient(ParamUtil.map("teamId", teamId, "userId", userId));
+	}
+
+	@Override
 	@Transactional(readOnly = true)
 	public Map<String, Object> selectOverview(Long userId) throws Exception {
 		List<Map<String, Object>> items = new ArrayList<>();

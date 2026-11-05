@@ -55,6 +55,11 @@ public class SyncNotificationDAO {
 	}
 
 	// 장소가 지워지면 그 장소의 처리 안 한 '추가' 알림을 지운다
+	//모임을 나간 사람의 그 모임 알림 삭제 (param: teamId, userId)
+	public int deleteByTeamAndRecipient(Map<String, Object> param) {
+		return sqlSession.delete(SyncNotificationDAO.SQL_PATH + ".deleteByTeamAndRecipient", param);
+	}
+
 	public int deletePendingAddedByPin(Long pinId) {
 		return sqlSession.delete(SyncNotificationDAO.SQL_PATH + ".deletePendingAddedByPin", pinId);
 	}

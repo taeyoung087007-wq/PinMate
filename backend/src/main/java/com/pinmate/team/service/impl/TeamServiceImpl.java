@@ -4,6 +4,7 @@ import com.pinmate.cmmn.util.Constants;
 import com.pinmate.cmmn.util.ParamUtil;
 import com.pinmate.pin.service.PinService;
 import com.pinmate.presence.service.PresenceService;
+import com.pinmate.sync.service.SyncNotificationService;
 import com.pinmate.team.TeamColors;
 import com.pinmate.team.dao.TeamDAO;
 import com.pinmate.team.service.TeamService;
@@ -30,6 +31,9 @@ public class TeamServiceImpl implements TeamService {
 
 	@Resource(name = "PinService")
 	private PinService pinService;
+
+	@Resource(name = "SyncNotificationService")
+	private SyncNotificationService syncNotificationService;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -158,6 +162,7 @@ public class TeamServiceImpl implements TeamService {
 		if (me == null) return Constants.NOT_FOUND;
 
 		teamDAO.deleteTeamMember(ParamUtil.map("teamId", teamId, "userId", userId));
+		syncNotificationService.deleteForLeftMember(teamId, userId);   // 나간 모임의 알림은 남기지 않는다
 		if (teamDAO.selectTeamMembers(teamId).isEmpty()) {
 			teamDAO.deleteTeam(teamId);   // 아무도 없는 팀은 남기지 않는다
 			return Constants.SUCCESS;

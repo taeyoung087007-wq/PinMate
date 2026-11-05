@@ -11,7 +11,12 @@
 		))
 	</sql>
 
-	<!-- 팀에 새 장소가 생기면 행위자를 뺀 팀원 전원에게 1행씩. param: teamId, actorId, pinId, name, category, roadAddress, address, latitude, longitude, memo, kakaoPlaceId -->
+	<!-- 받는 사람이 아직 그 모임의 멤버인지. 나간 모임의 알림은 목록·배지·반영에서 뺀다 (n = sync_notifications) -->
+	<sql id="recipientStillMember">
+		EXISTS (SELECT 1 FROM team_members mm WHERE mm.team_id = n.team_id AND mm.user_id = n.recipient_id)
+	</sql>
+
+	<!-- 팀에 새 장소가 생기면 행위자를 뺀 팀원에게 1행씩. 내 지도에 이미 같은 장소가 있는 사람은 담을 게 없으므로 뺀다. param: teamId, actorId, pinId, name, category, roadAddress, address, latitude, longitude, memo, kakaoPlaceId -->
 	<insert id="insertAdded" parameterType="map">
 		INSERT INTO sync_notifications (recipient_id, team_id, pin_id, actor_id, type,
 		                                name, category, road_address, address, latitude, longitude, memo, kakao_place_id, created_at)
@@ -20,6 +25,14 @@
 		  FROM team_members tm
 		 WHERE tm.team_id = #{teamId}
 		   AND tm.user_id != #{actorId}
+		   AND NOT EXISTS (
+			SELECT 1
+			  FROM personal_places p
+			 WHERE p.user_id = tm.user_id
+			   AND (p.kakao_place_id = #{kakaoPlaceId,jdbcType=VARCHAR}
+			        OR (lower(replace(p.name, ' ', '')) = lower(replace(#{name}, ' ', ''))
+			            AND <include refid="distanceFromParam"/> &lt; 50))
+		   )
 	</insert>
 
 	<!-- 팀 장소가 삭제되면, 내 지도에 같은 장소가 있는 팀원에게만 -->
@@ -60,6 +73,7 @@
 		  JOIN teams t ON t.team_id = n.team_id
 		  LEFT JOIN users au ON au.user_id = n.actor_id
 		 WHERE n.recipient_id = #{userId}
+		   AND <include refid="recipientStillMember"/>
 		 ORDER BY n.created_at DESC
 		 LIMIT 100
 	</select>
@@ -67,16 +81,18 @@
 	<!-- 처리 안 한 알림 수 (배지) -->
 	<select id="countPending" parameterType="long" resultType="int">
 		SELECT COUNT(*)
-		  FROM sync_notifications
-		 WHERE recipient_id = #{userId} AND status = 'pending'
+		  FROM sync_notifications n
+		 WHERE n.recipient_id = #{userId} AND n.status = 'pending'
+		   AND <include refid="recipientStillMember"/>
 	</select>
 
 	<!-- 내 알림 한 건. param: notificationId, userId -->
 	<select id="selectNotification" parameterType="map" resultType="java.util.HashMap">
 		SELECT notification_id, team_id, type, status, name, category, road_address, address,
 		       latitude, longitude, memo, kakao_place_id
-		  FROM sync_notifications
-		 WHERE notification_id = #{notificationId} AND recipient_id = #{userId}
+		  FROM sync_notifications n
+		 WHERE n.notification_id = #{notificationId} AND n.recipient_id = #{userId}
+		   AND <include refid="recipientStillMember"/>
 	</select>
 
 	<!-- 반영·무시로 상태 바꾸기 (이미 처리한 알림은 그대로 둔다) -->
@@ -101,10 +117,17 @@
 	<select id="selectPendingByTeam" parameterType="map" resultType="java.util.HashMap">
 		SELECT notification_id, team_id, type, status, name, category, road_address, address,
 		       latitude, longitude, memo, kakao_place_id
-		  FROM sync_notifications
-		 WHERE recipient_id = #{userId} AND team_id = #{teamId} AND status = 'pending'
-		 ORDER BY created_at ASC
+		  FROM sync_notifications n
+		 WHERE n.recipient_id = #{userId} AND n.team_id = #{teamId} AND n.status = 'pending'
+		   AND <include refid="recipientStillMember"/>
+		 ORDER BY n.created_at ASC
 	</select>
+
+	<!-- 모임을 나간 사람의 그 모임 알림을 지운다 (다시 들어와도 예전 알림이 되살아나지 않게). param: teamId, userId -->
+	<delete id="deleteByTeamAndRecipient" parameterType="map">
+		DELETE FROM sync_notifications
+		 WHERE team_id = #{teamId} AND recipient_id = #{userId}
+	</delete>
 
 	<!-- 장소가 지워지면, 그 장소의 처리 안 한 '추가' 알림은 담을 대상이 없으므로 지운다 -->
 	<delete id="deletePendingAddedByPin" parameterType="long">

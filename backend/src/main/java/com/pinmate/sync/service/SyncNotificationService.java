@@ -11,6 +11,9 @@ public interface SyncNotificationService {
 	// 팀 장소가 지워졌을 때: 그 장소를 내 지도에 가진 팀원에게 '삭제' 알림. 처리 안 한 '추가' 알림은 정리한다
 	void notifyPinDeleted(Long teamId, Long actorId, Map<String, Object> pin) throws Exception;
 
+	// 모임을 나간 사람의 그 모임 알림을 지운다
+	void deleteForLeftMember(Long teamId, Long userId) throws Exception;
+
 	// 알림 목록 + 처리 안 한 개수
 	Map<String, Object> selectOverview(Long userId) throws Exception;
 
