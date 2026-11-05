@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { usePanelDrag } from '../../../lib/usePanelDrag'
-import { X, MapPin, Star, Check, ExternalLink, Clock, Pencil, Trash2, Save, Navigation, Plus } from 'lucide-react'
+import { X, MapPin, Star, Check, ExternalLink, Clock, Pencil, Trash2, Save, Navigation, Plus, MessageSquare } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { isMajority, memberRecommendCount } from '../consensus'
 import { getCurrentUser } from '../../../lib/currentUser'
@@ -22,6 +22,7 @@ function formatCreatedAt(value) {
  * 장소 상세 정보 슬라이드업 패널
  * - 장소 이름, 주소, 카테고리
  * - 추천인 목록 및 추천 수 (추천 = 다녀와 보고 좋았던 곳. 찍어두기만 한 장소는 0명일 수 있다)
+ * - 추천인별 한 줄 평. 추천한 사람은 자기 평을 남기거나 고칠 수 있다
  * - 팀원 과반이 추천하면 과반 인정, 전원이면 모두 인정
  * - 등록자·팀 owner 에게만 수정/삭제 버튼 노출
  */
@@ -51,6 +52,7 @@ export default function PinDetailPanel({
   onClose,
   onRecommend,
   onUpdate,
+  onSaveComment,
   onDelete,
   onRoute,
   onSetVisibility,
@@ -71,6 +73,11 @@ export default function PinDetailPanel({
   const recommendCount = memberRecommendCount(pin, members)
   // 한 줄 추천평은 등록자의 추천에 붙는다. 등록자가 아직 추천하지 않았으면 고칠 추천평이 없다
   const creatorRecommended = recommenders.includes(pin.addedBy)
+  // 등록자 평은 위의 memo 로 보여주고 수정 모드에서 고치므로, 아래 목록·입력은 다른 추천인 것만
+  const comments = pin.comments ?? {}
+  const commentMembers = members.filter(m => comments[m.id] && m.id !== pin.addedBy)
+  const myKey = myMember?.id ?? me.loginId
+  const canComment = Boolean(onSaveComment) && isMeRecommended && myKey !== pin.addedBy
 
   // 등록자 본인 또는 팀 owner 만 수정·삭제할 수 있다 (서버에서도 같은 규칙으로 검사한다)
   const canEdit = Boolean(onUpdate || onDelete) &&
@@ -82,6 +89,9 @@ export default function PinDetailPanel({
   const [deletePrompt, setDeletePrompt] = useState(false) // 모임 지도 위 오버레이 핀 삭제 선택
   const [teamDeletePrompt, setTeamDeletePrompt] = useState(false) // 모임 핀 삭제 + 내 지도에도 있는 경우
   const [recommendPrompt, setRecommendPrompt] = useState(false) // 추천 취소 + 내 지도에도 있는 경우
+  // 내 한 줄 평 입력 중이면 { pinId, text }. 다른 핀으로 바뀌면 입력창을 닫은 것으로 본다 (남의 핀에 저장되지 않게)
+  const [commentDraft, setCommentDraft] = useState(null)
+  const commentOpen = commentDraft?.pinId === pin.id
 
   const startEdit = () => {
     setDraft({ name: pin.name, category: pin.category, memo: pin.memo || '' })
@@ -98,6 +108,14 @@ export default function PinDetailPanel({
     })
     setSaving(false)
     if (ok !== false) setEditing(false)
+  }
+
+  const handleSaveComment = async () => {
+    if (saving) return
+    setSaving(true)
+    const ok = await onSaveComment?.(commentDraft.text.trim())
+    setSaving(false)
+    if (ok !== false) setCommentDraft(null)
   }
 
   const handleDelete = () => {
@@ -307,6 +325,51 @@ export default function PinDetailPanel({
                   )
                 })}
               </div>
+
+              {/* 추천인별 한 줄 평 */}
+              {commentMembers.length > 0 && (
+                <ul className={styles.comments}>
+                  {commentMembers.map(m => (
+                    <li key={m.id} className={styles.commentItem}>
+                      <span className={styles.commentAuthor}>{m.nickname}</span>
+                      {comments[m.id]}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {canComment && (commentOpen ? (
+                <div className={styles.field}>
+                  <textarea
+                    className={`input ${styles.memoInput}`}
+                    value={commentDraft.text}
+                    onChange={e => setCommentDraft({ pinId: pin.id, text: e.target.value })}
+                    maxLength={100}
+                    rows={2}
+                    placeholder="예: 다음엔 저녁에 또 가고 싶어요"
+                    aria-label="내 한 줄 평"
+                    autoFocus
+                  />
+                  <div className={styles.actions}>
+                    <button className="btn btn-primary" onClick={handleSaveComment} disabled={saving}>
+                      <Save size={15} />
+                      {saving ? '저장 중…' : '저장'}
+                    </button>
+                    <button className="btn btn-secondary" onClick={() => setCommentDraft(null)} disabled={saving}>
+                      취소
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className={`btn btn-ghost ${styles.commentBtn}`}
+                  onClick={() => setCommentDraft({ pinId: pin.id, text: comments[myKey] || '' })}
+                >
+                  <MessageSquare size={14} />
+                  {comments[myKey] ? '내 한 줄 평 수정' : '한 줄 평 남기기'}
+                </button>
+              ))}
             </div>
           )}
 

@@ -62,7 +62,8 @@ class PinServiceImplInsertTest {
             return 1;
         });
         given(pinDAO.selectPinById(PLACE_ID)).willReturn(Map.of("place_id", PLACE_ID, "team_id", TEAM_ID));
-        given(pinDAO.selectRecommenderIds(anyLong())).willReturn(recommenders);
+        given(pinDAO.selectRecommendersByPlaceId(anyLong())).willReturn(recommenders.stream()
+                .map(id -> Map.<String, Object>of("login_id", id)).toList());
     }
 
     @Test
@@ -71,7 +72,7 @@ class PinServiceImplInsertTest {
         given(teamDAO.isTeamMember(TEAM_ID, USER_ID)).willReturn(true);
         given(pinDAO.selectSamePinId(anyMap())).willReturn(16L);
         given(pinDAO.selectPinById(16L)).willReturn(Map.of("place_id", 16L, "team_id", TEAM_ID));
-        given(pinDAO.selectRecommenderIds(16L)).willReturn(List.of());
+        given(pinDAO.selectRecommendersByPlaceId(16L)).willReturn(List.of());
 
         Map<String, Object> result = service.insertPin(param(true), USER_ID);
 

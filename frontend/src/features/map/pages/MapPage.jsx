@@ -12,6 +12,7 @@ import {
   createPinApi,
   toggleRecommendationApi,
   updatePinApi,
+  updateMyCommentApi,
   deletePinApi,
   fetchPersonalPins,
   createPersonalPinApi,
@@ -486,6 +487,19 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     }
   }
 
+  // 내 한 줄 추천평 저장 (성공 여부를 돌려줘 패널이 입력창을 닫을 수 있게 한다)
+  const handleSaveComment = async (pinId, comment) => {
+    try {
+      const updated = await updateMyCommentApi(pinId, comment)
+      setPins(prev => prev.map(p => (p.id === updated.id ? updated : p)))
+      setSelectedPin(updated)
+      return true
+    } catch (e) {
+      setError(`추천평 저장에 실패했습니다: ${e.message}`)
+      return false
+    }
+  }
+
   // 장소 삭제 핸들러
   const handleDeletePin = async (pinId, opts = {}) => {
     if (isPersonalPinId(pinId)) {
@@ -746,6 +760,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
           onClose={() => setSelectedPin(null)}
           onRecommend={selectedPin?.personal ? undefined : opts => handleRecommend(selectedPin.id, opts)}
           onUpdate={selectedPin?.owner ? undefined : handleUpdatePin}
+          onSaveComment={selectedPin?.personal ? undefined : comment => handleSaveComment(selectedPin.id, comment)}
           onDelete={selectedPin?.owner ? undefined : handleDeletePin}
           onSetVisibility={selectedPin?.personal && !selectedPin?.owner ? visibility => handleSetVisibility(selectedPin.id, visibility) : undefined}
           onUnshare={selectedPin?.personal && !selectedPin?.owner ? () => handleUnshareFromTeam(selectedPin) : undefined}
