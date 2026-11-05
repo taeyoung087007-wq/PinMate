@@ -17,13 +17,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * 개인 장소 권한 규칙. 본인 장소만 수정·삭제할 수 있고, 남의 장소는 NO_PERMISSION, 없으면 NOT_FOUND.
+ * 개인 장소 권한 규칙. 본인 장소만 수정·삭제할 수 있고, 남의 장소와 없는 장소는 모두 NOT_FOUND.
  * (DB 없이 DAO 를 대체해 규칙만 검증한다)
  */
 @ExtendWith(MockitoExtension.class)
 class PersonalPlaceServiceImplPermissionTest {
 
     private static final Long PLACE_ID = 20L;
+    private static final Long ANOTHER_PLACE_ID = 21L;
     private static final Long OWNER_ID = 8L;
     private static final Long OTHER_ID = 11L;
 
@@ -54,11 +55,22 @@ class PersonalPlaceServiceImplPermissionTest {
     }
 
     @Test
-    @DisplayName("남의 장소는 수정·삭제할 수 없다")
+    @DisplayName("남의 장소는 없는 장소와 같이 NOT_FOUND")
     void othersCannotEdit() throws Exception {
         given(personalPlaceDAO.selectPersonalPlaceById(PLACE_ID)).willReturn(existingPlace());
 
-        assertThat(service.selectEditCode(PLACE_ID, OTHER_ID)).isEqualTo(Constants.NO_PERMISSION);
+        assertThat(service.selectEditCode(PLACE_ID, OTHER_ID)).isEqualTo(Constants.NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("남의 장소와 없는 장소의 코드가 같아 장소 ID 존재가 새지 않는다")
+    void hidesExistenceOfOthersPlace() throws Exception {
+        given(personalPlaceDAO.selectPersonalPlaceById(PLACE_ID)).willReturn(existingPlace());
+        given(personalPlaceDAO.selectPersonalPlaceById(ANOTHER_PLACE_ID)).willReturn(null);
+
+        assertThat(service.selectEditCode(PLACE_ID, OTHER_ID))
+                .isEqualTo(service.selectEditCode(ANOTHER_PLACE_ID, OTHER_ID))
+                .isEqualTo(Constants.NOT_FOUND);
     }
 
     @Test

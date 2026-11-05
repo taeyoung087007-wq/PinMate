@@ -38,6 +38,9 @@ public class PersonalPlaceController {
 	private static final int ADDRESS_MAX = 200;
 	private static final int MEMO_MAX = 100;
 
+	// 남의 장소·없는 장소 모두 같은 문구. 장소 ID 존재 여부가 새지 않게 한다
+	private static final String EDIT_FAIL_MESSAGE = "장소를 찾을 수 없습니다.";
+
 	// 프론트 카테고리 키 (frontend categories.js 의 CATEGORY_META). 빈 값은 서비스에서 etc 로 저장한다
 	private static final Set<String> CATEGORIES = Set.of("food", "cafe", "drink", "stay", "sight", "play", "etc");
 
@@ -167,7 +170,7 @@ public class PersonalPlaceController {
 				result = Response.of(Constants.SUCCESS, personalPlaceService.update(personalPlaceId, ParamUtil.map(
 						"name", name, "category", category, "memo", (memo == null || memo.isEmpty()) ? null : memo)));
 			} else {
-				result = Response.of(code, editFailMessage(code), null);
+				result = Response.of(code, EDIT_FAIL_MESSAGE, null);
 			}
 		} catch (NullPointerException npe) {
 			logger.error("개인 장소 수정 중 NullPointerException이 발생했습니다.", npe);
@@ -207,7 +210,7 @@ public class PersonalPlaceController {
 			if (Constants.SUCCESS.equals(code)) {
 				result = Response.of(Constants.SUCCESS, personalPlaceService.updateVisibility(personalPlaceId, visibility));
 			} else {
-				result = Response.of(code, editFailMessage(code), null);
+				result = Response.of(code, EDIT_FAIL_MESSAGE, null);
 			}
 		} catch (NullPointerException npe) {
 			logger.error("개인 장소 공개 여부 변경 중 NullPointerException이 발생했습니다.", npe);
@@ -235,7 +238,7 @@ public class PersonalPlaceController {
 				personalPlaceService.delete(personalPlaceId, SessionUtil.getUserId(session));
 				result = Response.of(Constants.SUCCESS);
 			} else {
-				result = Response.of(code, editFailMessage(code), null);
+				result = Response.of(code, EDIT_FAIL_MESSAGE, null);
 			}
 		} catch (NullPointerException npe) {
 			logger.error("개인 장소 삭제 중 NullPointerException이 발생했습니다.", npe);
@@ -249,10 +252,6 @@ public class PersonalPlaceController {
 		}
 
 		return result;
-	}
-
-	private String editFailMessage(String code) {
-		return Constants.NO_PERMISSION.equals(code) ? "이 장소를 수정할 권한이 없습니다." : "장소를 찾을 수 없습니다.";
 	}
 
 	// 순수 함수라 테스트에서 직접 호출한다
