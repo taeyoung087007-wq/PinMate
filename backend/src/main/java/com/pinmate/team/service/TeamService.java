@@ -26,6 +26,13 @@ public interface TeamService {
 	// 초대 코드로 팀 참여. 이미 멤버면 그대로 팀 정보를 돌려준다. 코드가 유효하지 않으면 null
 	Map<String, Object> joinTeam(String code, Long userId) throws Exception;
 
+	// 초대 코드 다시 만들기. 이전 코드는 회수된다. owner·admin 만: SUCCESS / NO_PERMISSION / NOT_FOUND(없거나 멤버가 아님)
+	String reissueInvite(Long teamId, Long userId) throws Exception;
+
+	// 멤버를 admin 으로 지정하거나 member 로 되돌린다 (role: admin / member). owner 만.
+	// SUCCESS / NO_PERMISSION(owner 가 아님·대상이 owner) / NOT_FOUND(모임이 없거나 나 또는 대상이 멤버가 아님)
+	String updateMemberRole(Long teamId, Long userId, String targetLoginId, String role) throws Exception;
+
 	// 팀 삭제. owner 만 가능: SUCCESS / NO_PERMISSION / NOT_FOUND(없거나 멤버가 아님)
 	String deleteTeam(Long teamId, Long userId) throws Exception;
 

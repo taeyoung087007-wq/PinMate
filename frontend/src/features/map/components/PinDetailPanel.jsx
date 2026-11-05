@@ -24,7 +24,7 @@ function formatCreatedAt(value) {
  * - 추천인 목록 및 추천 수 (추천 = 다녀와 보고 좋았던 곳. 찍어두기만 한 장소는 0명일 수 있다)
  * - 추천인별 한 줄 평. 추천한 사람은 자기 평을 남기거나 고칠 수 있다
  * - 팀원 과반이 추천하면 과반 인정, 전원이면 모두 인정
- * - 등록자·팀 owner 에게만 수정/삭제 버튼 노출
+ * - 등록자·팀 owner·admin 에게만 수정/삭제 버튼 노출
  */
 const VISIBILITY_OPTIONS = [
   { value: 'private', label: '나만' },
@@ -79,9 +79,9 @@ export default function PinDetailPanel({
   const myKey = myMember?.id ?? me.loginId
   const canComment = Boolean(onSaveComment) && isMeRecommended && myKey !== pin.addedBy
 
-  // 등록자 본인 또는 팀 owner 만 수정·삭제할 수 있다 (서버에서도 같은 규칙으로 검사한다)
+  // 등록자 본인 또는 팀 owner·admin 만 수정·삭제할 수 있다 (서버에서도 같은 규칙으로 검사한다)
   const canEdit = Boolean(onUpdate || onDelete) &&
-    (pin.addedBy === me.loginId || myMember?.role === 'owner')
+    (pin.addedBy === me.loginId || myMember?.role === 'owner' || myMember?.role === 'admin')
 
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)

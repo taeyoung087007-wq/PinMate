@@ -141,6 +141,23 @@
 		ON CONFLICT (code) DO NOTHING
 	</insert>
 
+	<!-- 팀의 아직 회수되지 않은 초대 코드를 모두 회수 (만료된 것 포함. 활성 코드는 팀당 1개라 새로 만들기 전에 비워야 한다) -->
+	<update id="revokeTeamInvites" parameterType="long">
+		UPDATE team_invites
+		   SET revoked_at = now()
+		 WHERE team_id = #{teamId}
+		   AND revoked_at IS NULL
+	</update>
+
+	<!-- 멤버 역할 변경 (admin / member). owner 행은 바꾸지 않는다. param: teamId, userId, role -->
+	<update id="updateMemberRole" parameterType="map">
+		UPDATE team_members
+		   SET role = #{role}
+		 WHERE team_id = #{teamId}
+		   AND user_id = #{userId}
+		   AND role &lt;&gt; 'owner'
+	</update>
+
 	<!-- 팀 행 잠금. 같은 팀의 핀 등록(중복 확인)·탈퇴(owner 넘기기)를 한 줄로 세운다 -->
 	<select id="lockTeam" parameterType="long" resultType="long">
 		SELECT team_id FROM teams WHERE team_id = #{teamId} FOR UPDATE

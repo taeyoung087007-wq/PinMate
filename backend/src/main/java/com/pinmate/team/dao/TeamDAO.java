@@ -76,6 +76,16 @@ public class TeamDAO {
 		return sqlSession.insert(TeamDAO.SQL_PATH + ".insertTeamInvite", param);
 	}
 
+	//팀의 회수되지 않은 초대 코드를 모두 회수
+	public int revokeTeamInvites(Long teamId) {
+		return sqlSession.update(TeamDAO.SQL_PATH + ".revokeTeamInvites", teamId);
+	}
+
+	//멤버 역할 변경. owner 는 바꾸지 않는다 (param: teamId, userId, role)
+	public int updateMemberRole(Map<String, Object> param) {
+		return sqlSession.update(TeamDAO.SQL_PATH + ".updateMemberRole", param);
+	}
+
 	//팀 행 잠금 (트랜잭션 안에서만 의미 있음). 같은 팀의 핀 등록·탈퇴를 한 줄로 세운다
 	public Long lockTeam(Long teamId) {
 		return sqlSession.selectOne(TeamDAO.SQL_PATH + ".lockTeam", teamId);

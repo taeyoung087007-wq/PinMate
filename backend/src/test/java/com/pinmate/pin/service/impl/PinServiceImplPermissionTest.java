@@ -79,6 +79,17 @@ class PinServiceImplPermissionTest {
     }
 
     @Test
+    @DisplayName("팀 admin 도 남이 등록한 핀을 수정·삭제할 수 있다 (F-18)")
+    void adminCanEditOthersPin() throws Exception {
+        given(pinDAO.selectPinById(PLACE_ID)).willReturn(existingPin());
+        given(teamDAO.isTeamMember(TEAM_ID, OTHER_ID)).willReturn(true);
+        given(teamDAO.selectTeamMembers(TEAM_ID))
+                .willReturn(List.of(member(CREATOR_ID, "member"), member(OTHER_ID, "admin")));
+
+        assertThat(service.selectEditCode(PLACE_ID, OTHER_ID)).isEqualTo(Constants.SUCCESS);
+    }
+
+    @Test
     @DisplayName("일반 팀원은 남의 핀을 수정·삭제할 수 없다")
     void memberCannotEditOthersPin() throws Exception {
         given(pinDAO.selectPinById(PLACE_ID)).willReturn(existingPin());

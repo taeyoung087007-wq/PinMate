@@ -130,7 +130,7 @@ public class PinServiceImpl implements PinService {
 		}
 	}
 
-	// 등록자 본인 또는 팀 owner 만 수정·삭제할 수 있다. 팀 멤버가 아니면 없는 핀과 같이 NOT_FOUND
+	// 등록자 본인 또는 팀 owner·admin 만 수정·삭제할 수 있다. 팀 멤버가 아니면 없는 핀과 같이 NOT_FOUND
 	@Override
 	@Transactional(readOnly = true)
 	public String selectEditCode(Long placeId, Long userId) throws Exception {
@@ -138,9 +138,10 @@ public class PinServiceImpl implements PinService {
 		if (pin == null) return Constants.NOT_FOUND;
 		if (userId.equals(pin.get("created_by"))) return Constants.SUCCESS;
 
-		boolean isOwner = teamDAO.selectTeamMembers((Long) pin.get("team_id")).stream()
-				.anyMatch(m -> userId.equals(m.get("user_id")) && "owner".equalsIgnoreCase((String) m.get("role")));
-		return isOwner ? Constants.SUCCESS : Constants.NO_PERMISSION;
+		boolean isManager = teamDAO.selectTeamMembers((Long) pin.get("team_id")).stream()
+				.anyMatch(m -> userId.equals(m.get("user_id"))
+						&& ("owner".equalsIgnoreCase((String) m.get("role")) || "admin".equalsIgnoreCase((String) m.get("role"))));
+		return isManager ? Constants.SUCCESS : Constants.NO_PERMISSION;
 	}
 
 	@Override

@@ -41,11 +41,11 @@ export const toggleRecommendationApi = (pinId, userId) =>
 export const updateMyCommentApi = (pinId, comment) =>
   request(`/pins/${encodeURIComponent(pinId)}/recommend`, { method: 'PATCH', body: JSON.stringify({ comment }) })
 
-/** 이름·카테고리·한 줄 추천평 수정 (등록자 또는 팀 owner 만) */
+/** 이름·카테고리·한 줄 추천평 수정 (등록자 또는 팀 owner·admin 만) */
 export const updatePinApi = (pinId, data) =>
   request(`/pins/${encodeURIComponent(pinId)}`, { method: 'PATCH', body: JSON.stringify(data) })
 
-/** 핀 삭제 (등록자 또는 팀 owner 만) */
+/** 핀 삭제 (등록자 또는 팀 owner·admin 만) */
 export const deletePinApi = (pinId) =>
   request(`/pins/${encodeURIComponent(pinId)}`, { method: 'DELETE' })
 
