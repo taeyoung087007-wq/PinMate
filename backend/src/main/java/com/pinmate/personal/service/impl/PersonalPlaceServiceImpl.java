@@ -1,5 +1,7 @@
 package com.pinmate.personal.service.impl;
 
+import static com.pinmate.cmmn.util.ValueConverters.*;
+
 import com.pinmate.cmmn.util.Constants;
 import com.pinmate.cmmn.util.ParamUtil;
 import com.pinmate.personal.dao.PersonalPlaceDAO;
@@ -9,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -125,37 +126,4 @@ public class PersonalPlaceServiceImpl implements PersonalPlaceService {
 		return item;
 	}
 
-	private Double toDouble(Object v) {
-		return (v == null) ? null : ((Number) v).doubleValue();
-	}
-
-	// timestamptz 는 HashMap 결과에서 java.sql.Timestamp 로 온다. 프론트가 new Date() 로 읽도록 ISO-8601(UTC) 문자열로 바꾼다
-	private String toIso(Object v) {
-		if (v == null) return null;
-		return (v instanceof Timestamp ts) ? ts.toInstant().toString() : v.toString();
-	}
-
-	// 프론트 카테고리 → DB 카테고리 (personal_places.category CHECK 값). PinServiceImpl 과 같은 규칙
-	static String toDbCategory(String cat) {
-		if (cat == null || cat.isBlank()) return "etc";
-		return switch (cat.toLowerCase().trim()) {
-			case "food" -> "restaurant";
-			case "drink" -> "bar";
-			case "sight" -> "attraction";
-			case "play" -> "activity";
-			default -> cat.toLowerCase().trim();
-		};
-	}
-
-	// DB 카테고리 → 프론트 카테고리
-	static String toFrontendCategory(String cat) {
-		if (cat == null) return "etc";
-		return switch (cat.toLowerCase().trim()) {
-			case "restaurant" -> "food";
-			case "bar" -> "drink";
-			case "attraction" -> "sight";
-			case "activity" -> "play";
-			default -> cat.toLowerCase().trim();
-		};
-	}
 }

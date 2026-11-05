@@ -4,6 +4,7 @@ import org.mybatis.spring.SqlSessionTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Map;
 
 @Repository("authDAO")
@@ -46,6 +47,21 @@ public class AuthDAO {
 	//내가 owner 인 모임 수
 	public int countOwnedTeams(Long userId) {
 		return sqlSession.selectOne(AuthDAO.SQL_PATH + ".countOwnedTeams", userId);
+	}
+
+	//탈퇴 전 내가 속한 모임 id 목록 (나가기 처리를 재사용한다)
+	public List<Long> selectJoinedTeamIds(Long userId) {
+		return sqlSession.selectList(AuthDAO.SQL_PATH + ".selectJoinedTeamIds", userId);
+	}
+
+	//탈퇴 시 친구 관계 정리 (요청·받은 쪽 양방향)
+	public int deleteFriendships(Long userId) {
+		return sqlSession.delete(AuthDAO.SQL_PATH + ".deleteFriendships", userId);
+	}
+
+	//탈퇴 시 내 개인 장소·메모 정리
+	public int deletePersonalPlaces(Long userId) {
+		return sqlSession.delete(AuthDAO.SQL_PATH + ".deletePersonalPlaces", userId);
 	}
 
 	//모든 모임에서 나가기

@@ -1,5 +1,6 @@
 package com.pinmate.transit.service.impl;
 
+import com.pinmate.cmmn.util.ExternalApiClients;
 import com.pinmate.transit.service.TransitService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -37,8 +38,8 @@ public class TransitServiceImpl implements TransitService {
 
 	private static final ObjectMapper MAPPER = JsonMapper.builder().build();
 
-	// Spring Boot 4에서는 RestClient.Builder가 자동 구성 빈으로 등록되지 않아 직접 만든다
-	private final RestClient restClient = RestClient.create();
+	// Spring Boot 4에서는 RestClient.Builder가 자동 구성 빈으로 등록되지 않아 직접 만든다. 외부 API 는 연결 3s·응답 5s 로 제한
+	private final RestClient restClient = ExternalApiClients.create();
 
 	private final Map<String, String> cityCodeByNode = new ConcurrentHashMap<>();
 

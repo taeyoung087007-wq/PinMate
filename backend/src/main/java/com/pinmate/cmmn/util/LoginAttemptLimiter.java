@@ -12,6 +12,8 @@ import java.util.function.LongSupplier;
 public class LoginAttemptLimiter {
 
 	static final int MAX_ATTEMPTS = 5;
+	// 같은 IP 에서 아이디를 바꿔 가며 대입하는 것을 막는 별도 한도. 계정별 5회보다 넉넉하게 둔다
+	public static final int IP_MAX_ATTEMPTS = 30;
 	static final long BLOCK_MILLIS = 5 * 60 * 1000L;
 	private static final int DEFAULT_MAX_KEYS = 10_000; // 키 개수 상한(메모리 소모 공격 방지)
 
@@ -31,6 +33,11 @@ public class LoginAttemptLimiter {
 	// 시도해도 되면 true(시도 1회를 센다), 차단 중이면 false.
 	// 키가 상한만큼 차 있고 오래된 것을 정리해도 자리가 없으면 새 키는 false(막는 쪽으로 실패).
 	public boolean tryAcquire(String key) {
+		return tryAcquire(key, MAX_ATTEMPTS);
+	}
+
+	// 같은 맵을 쓰므로 maxKeys 상한은 계정 키·IP 키를 합쳐서 적용된다
+	public boolean tryAcquire(String key, int maxAttempts) {
 		long now = clock.getAsLong();
 		if (!attempts.containsKey(key) && attempts.size() >= maxKeys) {
 			attempts.values().removeIf(a -> isStale(a, now));
@@ -49,13 +56,18 @@ public class LoginAttemptLimiter {
 			}
 			attempt.count++;
 			attempt.lastAttempt = now;
-			if (attempt.count >= MAX_ATTEMPTS) {
+			if (attempt.count >= maxAttempts) {
 				attempt.blockedUntil = now + BLOCK_MILLIS;
 			}
 			allowed[0] = true;
 			return attempt;
 		});
 		return allowed[0];
+	}
+
+	// 로그인 IP 전체 한도 키. 아이디를 수천 개로 바꿔도 이 키 하나에 누적된다
+	public static String loginIpKey(String ip) {
+		return "loginip|" + ip;
 	}
 
 	// 가입 코드 시도 키

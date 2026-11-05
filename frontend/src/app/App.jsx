@@ -6,7 +6,7 @@ import InvitePage from '../features/teams/pages/InvitePage'
 import SplashScreen, { shouldShowSplash } from '../components/SplashScreen/SplashScreen'
 import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary'
 import { post } from '../lib/apiClient'
-import { getCurrentUser, setCurrentUserStorage } from '../lib/currentUser'
+import { setCurrentUserStorage } from '../lib/currentUser'
 
 /**
  * 앱 라우팅
@@ -28,7 +28,7 @@ function RequireLogin() {
   // 로그인한 동안 접속 상태를 주기적으로 알린다 (모임 상세의 온라인 표시용)
   useEffect(() => {
     if (!loggedIn) return
-    const beat = () => post('/presence/heartbeat', { userId: getCurrentUser().id }).catch(() => {})
+    const beat = () => post('/presence/heartbeat', {}).catch(() => {})
     beat()
     const timer = setInterval(beat, HEARTBEAT_MS)
     return () => clearInterval(timer)

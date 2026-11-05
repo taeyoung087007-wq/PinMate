@@ -15,6 +15,7 @@ public class Constants {
 	public static final String SIGNUP_FAIL_EXISTS   = "12"; // 아이디 중복
 	public static final String SIGNUP_BLOCKED       = "13"; // 가입 코드 연속 실패로 잠시 차단
 	public static final String SIGNUP_FAIL_NICKNAME = "14"; // 닉네임 중복
+	public static final String SIGNUP_FAIL_EMAIL   = "15"; // 이메일 중복 (DB UNIQUE 위반)
 
 	// 팀 초대 결과 코드
 	public static final String INVITE_FAIL    = "21"; // 팀 초대 코드 불일치·만료

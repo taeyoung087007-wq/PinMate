@@ -1,5 +1,7 @@
 package com.pinmate.team.service.impl;
 
+import static com.pinmate.cmmn.util.ValueConverters.*;
+
 import com.pinmate.cmmn.util.Constants;
 import com.pinmate.cmmn.util.ParamUtil;
 import com.pinmate.pin.service.PinService;
@@ -138,6 +140,7 @@ public class TeamServiceImpl implements TeamService {
 		if (invite == null) return null;
 
 		Long teamId = (Long) invite.get("team_id");
+		teamDAO.lockTeam(teamId);   // 동시에 참여하면 둘 다 같은 색을 골라 uq_team_color 에 걸리므로 한 줄로 세운다
 		List<Map<String, Object>> members = teamDAO.selectTeamMembers(teamId);
 		if (!isMember(members, userId)) {
 			teamDAO.insertTeamMember(ParamUtil.map("teamId", teamId, "userId", userId, "role", "member", "color", TeamColors.pickUnused(members)));
@@ -282,24 +285,4 @@ public class TeamServiceImpl implements TeamService {
 		return item;
 	}
 
-	private String text(Object v) {
-		return (v == null) ? "" : v.toString();
-	}
-
-	// 개인 장소 카테고리는 저장 값이 제각각이라 화면 값으로 맞춘다
-	private static String toFrontendCategory(String cat) {
-		if (cat == null) return "etc";
-		return switch (cat.toLowerCase().trim()) {
-			case "restaurant" -> "food";
-			case "bar" -> "drink";
-			case "attraction" -> "sight";
-			case "activity" -> "play";
-			default -> cat.toLowerCase().trim();
-		};
-	}
-
-	// 좌표는 NUMERIC 이라 BigDecimal 로 온다. 화면이 숫자로 쓰도록 double 로 바꾼다
-	private static Double toDouble(Object v) {
-		return (v == null) ? null : ((Number) v).doubleValue();
-	}
 }

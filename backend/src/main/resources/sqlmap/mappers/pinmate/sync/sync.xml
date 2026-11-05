@@ -157,12 +157,12 @@
 		            AND <include refid="distanceFromParam"/> &lt; 50))
 	</select>
 
-	<!-- 알림의 장소를 내 지도에 담는다. 이미 있으면 건너뛴다 -->
+	<!-- 알림의 장소를 내 지도에 담는다. 이미 있으면 건너뛴다. 복사본은 서비스가 넘긴 private 로 저장한다 -->
 	<insert id="insertPersonalFromNotification" parameterType="map">
 		INSERT INTO personal_places (user_id, name, category, road_address, address,
-		                             latitude, longitude, source, kakao_place_id, memo, is_public, created_at, updated_at)
+		                             latitude, longitude, source, kakao_place_id, memo, is_public, visibility, created_at, updated_at)
 		SELECT #{userId}, #{name}, #{category}, #{roadAddress}, #{address},
-		       #{latitude}, #{longitude}, 'search', #{kakaoPlaceId,jdbcType=VARCHAR}, #{memo}, true, now(), now()
+		       #{latitude}, #{longitude}, 'search', #{kakaoPlaceId,jdbcType=VARCHAR}, #{memo}, #{isPublic}, #{visibility}, now(), now()
 		 WHERE NOT EXISTS (
 			SELECT 1
 			  FROM personal_places p

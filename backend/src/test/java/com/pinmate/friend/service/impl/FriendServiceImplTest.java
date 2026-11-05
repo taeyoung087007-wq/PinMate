@@ -17,10 +17,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * 친구 요청 흐름.
+ * 친구 요청 흐름 + 검색어 이스케이프.
  * - 나 자신·없는 사용자는 거른다
  * - 이미 친구면 already, 내가 이미 보냈으면 pending
  * - 상대가 먼저 보낸 요청이면 곧바로 수락(accepted)
+ * - LIKE 특수문자는 와일드카드로 해석되지 않게 이스케이프한다
  */
 @ExtendWith(MockitoExtension.class)
 class FriendServiceImplTest {
@@ -124,5 +125,22 @@ class FriendServiceImplTest {
         assertThat(list.get(0).get("id")).isEqualTo("f-5");
         assertThat(list.get(0).get("category")).isEqualTo("food");
         assertThat(list.get(0).get("owner")).isEqualTo("규범");
+    }
+
+    @Test
+    @DisplayName("% 나 _ 만 넣어도 전체 회원이 검색되지 않게 이스케이프한다")
+    void escapesLikeWildcards() throws Exception {
+        given(friendDAO.searchUsers(anyMap())).willReturn(java.util.List.of());
+
+        service.search(ME, "%");
+        service.search(ME, "_");
+        service.search(ME, "a%b_c\\d");
+
+        org.mockito.ArgumentCaptor<Map<String, Object>> captor =
+                org.mockito.ArgumentCaptor.forClass(Map.class);
+        verify(friendDAO, org.mockito.Mockito.times(3)).searchUsers(captor.capture());
+        assertThat(captor.getAllValues().get(0).get("q")).isEqualTo("%\\%%");
+        assertThat(captor.getAllValues().get(1).get("q")).isEqualTo("%\\_%");
+        assertThat(captor.getAllValues().get(2).get("q")).isEqualTo("%a\\%b\\_c\\\\d%");
     }
 }
