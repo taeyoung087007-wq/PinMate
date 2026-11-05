@@ -130,6 +130,12 @@
   padding: 10px 0;
 }
 
+.reissueBtn {
+  align-self: flex-start;
+  gap: 6px;
+  font-size: 13px;
+}
+
 /* 인원 요약 */
 .summary {
   display: flex;
@@ -230,6 +236,29 @@
   color: var(--primary-light);
   font-weight: 700;
   flex-shrink: 0;
+}
+
+.roleBtn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.roleBtn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+.roleBtn:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}
+.roleBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .statusText,

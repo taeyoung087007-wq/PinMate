@@ -169,6 +169,8 @@ Settings → Branches → Add branch protection rule (또는 Rulesets)
 | :--- | :--- | :---: | :--- |
 | **F-51** | 팀 생성 및 초대 링크 | ✅ 구현 완료 | `TeamCreateModal.jsx`, `TeamsPage.jsx` |
 | **F-56** | QR 코드 초대 안내 | ✅ 구현 완료 | `TeamCreateModal.jsx` |
+| **F-58** | 초대 링크 재발급 | ✅ 구현 완료 | `TeamDetailView.jsx`, `TeamController.java` |
+| **F-54** | 관리자 지정 | ✅ 구현 완료 | `TeamDetailView.jsx`, `TeamController.java` |
 | **F-37** | 나도 추천하기 (1인 1회) | ✅ 구현 완료 | `PinDetailPanel.jsx`, `PinServiceImpl.java` |
 | **F-17** | 사람별 한 줄 평 | ✅ 구현 완료 | `PinDetailPanel.jsx`, `PinController.java` |
 | **F-39** | 추천 수 마커 뱃지 표시 | ✅ 구현 완료 | `MapCanvas.jsx` |

@@ -244,6 +244,67 @@ public class TeamController {
 		return result;
 	}
 
+	// 초대 링크 다시 만들기 (F-58). 모임장·관리자만. 이전 코드는 더 이상 쓸 수 없다
+	@ResponseBody
+	@PostMapping("teams/{teamId}/invite")
+	public Response reissueInvite(@PathVariable("teamId") Long teamId, HttpSession session) {
+		Response result = null;
+
+		try {
+			Long userId = SessionUtil.getUserId(session);
+			String code = teamService.reissueInvite(teamId, userId);
+			result = Constants.SUCCESS.equals(code)
+					? Response.of(Constants.SUCCESS, teamService.selectTeam(teamId, userId))
+					: Response.of(code, Constants.NO_PERMISSION.equals(code) ? "모임장이나 관리자만 초대 링크를 새로 만들 수 있습니다." : "모임을 찾을 수 없습니다.", null);
+		} catch (NullPointerException npe) {
+			logger.error("초대 링크 재발급 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "초대 링크 재발급 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("초대 링크 재발급 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "초대 링크 재발급 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("초대 링크 재발급 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "초대 링크 재발급 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
+	// 관리자 지정·해제 (F-54). 모임장만 (memberId: 멤버 login_id, role: admin / member)
+	@ResponseBody
+	@PatchMapping("teams/{teamId}/member-role")
+	public Response updateMemberRole(@PathVariable("teamId") Long teamId, @RequestBody HashMap<String, Object> param, HttpSession session) {
+		String memberId = ParamUtil.str(param, "memberId");
+		String role = ParamUtil.str(param, "role");
+		if (memberId.isEmpty()) {
+			return Response.invalid("멤버를 골라주세요.");
+		}
+		if (!"admin".equals(role) && !"member".equals(role)) {
+			return Response.invalid("역할은 admin 또는 member 만 고를 수 있습니다.");
+		}
+
+		Response result = null;
+
+		try {
+			Long userId = SessionUtil.getUserId(session);
+			String code = teamService.updateMemberRole(teamId, userId, memberId, role);
+			result = Constants.SUCCESS.equals(code)
+					? Response.of(Constants.SUCCESS, teamService.selectTeam(teamId, userId))
+					: Response.of(code, Constants.NO_PERMISSION.equals(code) ? "모임장만 관리자를 정할 수 있고, 모임장의 역할은 바꿀 수 없습니다." : "모임이나 멤버를 찾을 수 없습니다.", null);
+		} catch (NullPointerException npe) {
+			logger.error("멤버 역할 변경 중 NullPointerException이 발생했습니다.", npe);
+			result = Response.of(Constants.FAIL, "멤버 역할 변경 중 오류가 발생했습니다.", null);
+		} catch (IllegalArgumentException iae) {
+			logger.error("멤버 역할 변경 중 IllegalArgumentException이 발생했습니다.", iae);
+			result = Response.of(Constants.FAIL, "멤버 역할 변경 중 오류가 발생했습니다.", null);
+		} catch (Exception e) {
+			logger.error("멤버 역할 변경 중 알 수 없는 오류가 발생했습니다.", e);
+			result = Response.of(Constants.FAIL, "멤버 역할 변경 중 오류가 발생했습니다.", null);
+		}
+
+		return result;
+	}
+
 	// 모임 삭제. 모임장만 가능. 장소·추천·초대 코드도 함께 지워진다
 	@ResponseBody
 	@DeleteMapping("teams/{teamId}")

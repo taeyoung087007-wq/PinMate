@@ -203,7 +203,7 @@ public class PinController {
 		return result;
 	}
 
-	// 핀 수정 (name, category, memo). 주소·좌표는 바꾸지 않는다. 등록자 또는 팀 owner 만 가능
+	// 핀 수정 (name, category, memo). 주소·좌표는 바꾸지 않는다. 등록자 또는 팀 owner·admin 만 가능
 	@ResponseBody
 	@PatchMapping("pins/{pinId}")
 	public Response updatePin(@PathVariable("pinId") Long pinId, @RequestBody HashMap<String, Object> param, HttpSession session) {
@@ -247,7 +247,7 @@ public class PinController {
 		return result;
 	}
 
-	// 핀 삭제. 추천 기록도 함께 지워진다. 등록자 또는 팀 owner 만 가능
+	// 핀 삭제. 추천 기록도 함께 지워진다. 등록자 또는 팀 owner·admin 만 가능
 	@ResponseBody
 	@DeleteMapping("pins/{pinId}")
 	public Response deletePin(@PathVariable("pinId") Long pinId, HttpSession session) {

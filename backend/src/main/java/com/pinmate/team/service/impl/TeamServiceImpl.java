@@ -13,15 +13,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service("TeamService")
 public class TeamServiceImpl implements TeamService {
+
+	// 초대 코드 문자. 손으로 옮겨 적을 때 헷갈리는 i l o 0 1 은 뺐다 (31자 × 16자리 ≈ 79비트)
+	private static final String INVITE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
+	private static final int INVITE_LENGTH = 16;
+	private static final SecureRandom RANDOM = new SecureRandom();
 
 	@Autowired
 	private TeamDAO teamDAO;
@@ -109,8 +114,7 @@ public class TeamServiceImpl implements TeamService {
 
 		teamDAO.insertTeamMember(ParamUtil.map("teamId", teamId, "userId", userId, "role", "owner", "color", TeamColors.PALETTE.get(0)));
 
-		String inviteCode = "team" + teamId + "_" + UUID.randomUUID().toString().substring(0, 6);
-		teamDAO.insertTeamInvite(ParamUtil.map("teamId", teamId, "code", inviteCode, "createdBy", userId));
+		teamDAO.insertTeamInvite(ParamUtil.map("teamId", teamId, "code", newInviteCode(), "createdBy", userId));
 
 		return selectTeam(teamId, userId);
 	}
@@ -141,6 +145,35 @@ public class TeamServiceImpl implements TeamService {
 			pinService.updateTeamConsensus(teamId);
 		}
 		return selectTeam(teamId, userId);
+	}
+
+	@Override
+	@Transactional
+	public String reissueInvite(Long teamId, Long userId) throws Exception {
+		teamDAO.lockTeam(teamId);   // 동시에 두 번 눌러도 활성 코드가 하나만 남게
+		Map<String, Object> me = selectMembership(teamId, userId);
+		if (me == null) return Constants.NOT_FOUND;
+		if (!isOwner(me) && !isAdmin(me)) return Constants.NO_PERMISSION;
+
+		teamDAO.revokeTeamInvites(teamId);
+		teamDAO.insertTeamInvite(ParamUtil.map("teamId", teamId, "code", newInviteCode(), "createdBy", userId));
+		return Constants.SUCCESS;
+	}
+
+	@Override
+	@Transactional
+	public String updateMemberRole(Long teamId, Long userId, String targetLoginId, String role) throws Exception {
+		List<Map<String, Object>> members = teamDAO.selectTeamMembers(teamId);
+		Map<String, Object> me = members.stream().filter(m -> userId.equals(m.get("user_id"))).findFirst().orElse(null);
+		if (me == null) return Constants.NOT_FOUND;
+		if (!isOwner(me)) return Constants.NO_PERMISSION;
+
+		Map<String, Object> target = members.stream().filter(m -> targetLoginId.equals(m.get("login_id"))).findFirst().orElse(null);
+		if (target == null) return Constants.NOT_FOUND;
+		if (isOwner(target)) return Constants.NO_PERMISSION;   // 모임장 자신은 바꿀 수 없다 (넘기기는 나가기로만)
+
+		teamDAO.updateMemberRole(ParamUtil.map("teamId", teamId, "userId", target.get("user_id"), "role", role));
+		return Constants.SUCCESS;
 	}
 
 	@Override
@@ -184,6 +217,19 @@ public class TeamServiceImpl implements TeamService {
 
 	private boolean isOwner(Map<String, Object> member) {
 		return "owner".equalsIgnoreCase((String) member.get("role"));
+	}
+
+	private boolean isAdmin(Map<String, Object> member) {
+		return "admin".equalsIgnoreCase((String) member.get("role"));
+	}
+
+	// 추측하기 어려운 초대 코드. 팀 ID 같은 짐작 가능한 값은 넣지 않는다. 순수 함수라 테스트에서 직접 호출한다
+	static String newInviteCode() {
+		StringBuilder code = new StringBuilder(INVITE_LENGTH);
+		for (int i = 0; i < INVITE_LENGTH; i++) {
+			code.append(INVITE_ALPHABET.charAt(RANDOM.nextInt(INVITE_ALPHABET.length())));
+		}
+		return code.toString();
 	}
 
 	private boolean isMember(List<Map<String, Object>> members, Long userId) {

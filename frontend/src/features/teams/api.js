@@ -14,6 +14,16 @@ export const deleteTeamApi = (teamId) => request(`/teams/${encodeURIComponent(te
 /** 모임 나가기. 모임장이면 가장 먼저 들어온 멤버가 모임장이 되고, 마지막 한 명이면 모임이 삭제된다 */
 export const leaveTeamApi = (teamId) => post(`/teams/${encodeURIComponent(teamId)}/leave`, {})
 
+/** 초대 링크 새로 만들기 (모임장·관리자만). 이전 링크는 더 이상 쓸 수 없다. @returns {Promise<team>} */
+export const reissueInviteApi = (teamId) => post(`/teams/${encodeURIComponent(teamId)}/invite`, {})
+
+/** 관리자 지정·해제 (모임장만). memberId 는 멤버 id(login_id), role 은 'admin' | 'member'. @returns {Promise<team>} */
+export const updateMemberRoleApi = (teamId, memberId, role) =>
+  request(`/teams/${encodeURIComponent(teamId)}/member-role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ memberId, role }),
+  })
+
 /** 모임 장소를 내 지도에도 자동 저장할지 (사람마다·모임마다 따로) */
 export const updateTeamSyncSetting = (teamId, syncToPersonal) =>
   request(`/teams/${encodeURIComponent(teamId)}/sync-setting`, {

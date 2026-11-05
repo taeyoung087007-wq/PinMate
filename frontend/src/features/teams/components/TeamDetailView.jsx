@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Check, MapPin, LogOut, Trash2, Download } from 'lucide-react'
-import { fetchTeam, deleteTeamApi, leaveTeamApi, updateTeamSyncSetting } from '../api'
+import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Check, MapPin, LogOut, Trash2, Download, RefreshCw } from 'lucide-react'
+import { fetchTeam, deleteTeamApi, leaveTeamApi, updateTeamSyncSetting, reissueInviteApi, updateMemberRoleApi } from '../api'
 import { getCurrentUser } from '../../../lib/currentUser'
 import { buildInviteLink, inviteBase } from '../inviteLink'
 import MemberAvatar from '../../../components/MemberAvatar/MemberAvatar'
@@ -13,9 +13,9 @@ const REFRESH_MS = 30_000
 
 /**
  * 모임 상세 (모임 목록 서랍 안에서 전환되는 화면)
- * - 상단: 초대 링크 (기본 마스킹, 눈 버튼으로 보기, 클릭하면 복사)
+ * - 상단: 초대 링크 (기본 마스킹, 눈 버튼으로 보기, 클릭하면 복사). 모임장·관리자는 새 링크를 만들 수 있다
  * - 온라인 인원 / 전체 인원
- * - 멤버 목록 (온라인 먼저, 페이지네이션)
+ * - 멤버 목록 (온라인 먼저, 페이지네이션). 모임장은 멤버를 관리자로 지정·해제할 수 있다
  * - 하단: 모임 나가기 (모임장이면 모임 삭제도). 나가거나 지우면 onLeft(teamId)
  */
 export default function TeamDetailView({ teamId, onBack, onEnter, onImportPersonal, onLeft }) {
@@ -26,6 +26,7 @@ export default function TeamDetailView({ teamId, onBack, onEnter, onImportPerson
   const [page, setPage] = useState(0)
   const [busy, setBusy] = useState(false) // 나가기·삭제 요청 중
   const [savingSync, setSavingSync] = useState(false) // 동기화 설정 저장 중
+  const [managing, setManaging] = useState(false) // 초대 링크 재발급·관리자 지정 요청 중
 
   useEffect(() => {
     const load = () => fetchTeam(teamId)
@@ -56,7 +57,9 @@ export default function TeamDetailView({ teamId, onBack, onEnter, onImportPerson
   const pageMembers = members.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE)
 
   const inviteLink = buildInviteLink(team.inviteCode)
-  const amOwner = (team.members || []).some(m => m.id === getCurrentUser().loginId && isOwner(m))
+  const myRole = (team.members || []).find(m => m.id === getCurrentUser().loginId)?.role
+  const amOwner = myRole === 'owner'
+  const canManageInvite = amOwner || myRole === 'admin'
   // 서버 순서(모임장 먼저, 나머지는 들어온 순)에서 나 다음 사람이 새 모임장이 된다
   const nextOwner = (team.members || []).find(m => m.id !== getCurrentUser().loginId)
 
@@ -100,6 +103,31 @@ export default function TeamDetailView({ teamId, onBack, onEnter, onImportPerson
     } finally {
       setSavingSync(false)
     }
+  }
+
+  // 초대 링크·역할 변경은 서버가 바뀐 모임 객체를 돌려준다
+  const manage = async (action, failText) => {
+    if (managing) return
+    setManaging(true)
+    try {
+      setTeam(await action())
+      setError('')
+    } catch (e) {
+      setError(`${failText}: ${e.message}`)
+    } finally {
+      setManaging(false)
+    }
+  }
+
+  const handleReissue = () => {
+    if (inviteLink && !window.confirm('새 링크를 만들면 지금 링크로는 더 이상 들어올 수 없어요. 만들까요?')) return
+    manage(() => reissueInviteApi(team.id), '초대 링크를 만들지 못했습니다')
+    setRevealed(false)
+  }
+
+  const handleToggleAdmin = m => {
+    const next = m.role === 'admin' ? 'member' : 'admin'
+    manage(() => updateMemberRoleApi(team.id, m.id, next), '역할을 바꾸지 못했습니다')
   }
 
   const handleCopy = async () => {    try {
@@ -147,7 +175,15 @@ export default function TeamDetailView({ teamId, onBack, onEnter, onImportPerson
             </button>
           </div>
         ) : (
-          <div className={styles.emptyInvite}>이 모임에는 유효한 초대 링크가 없습니다.</div>
+          <div className={styles.emptyInvite}>
+            {canManageInvite ? '유효한 초대 링크가 없어요. 새로 만들어 주세요.' : '유효한 초대 링크가 없어요. 모임장이나 관리자에게 부탁해 주세요.'}
+          </div>
+        )}
+        {canManageInvite && (
+          <button type="button" className={`btn btn-ghost ${styles.reissueBtn}`} onClick={handleReissue} disabled={managing}>
+            <RefreshCw size={14} />
+            {inviteLink ? '새 링크 만들기' : '초대 링크 만들기'}
+          </button>
         )}
         {copyState === 'failed' && <div className={styles.errorText} role="alert">복사하지 못했습니다. 링크를 보이게 한 뒤 직접 복사해 주세요.</div>}
       </section>
@@ -193,6 +229,18 @@ export default function TeamDetailView({ teamId, onBack, onEnter, onImportPerson
             </div>
             <span className={styles.memberName}>{m.nickname}</span>
             {m.role === 'owner' && <span className={styles.ownerTag}>모임장</span>}
+            {m.role === 'admin' && <span className={styles.ownerTag}>관리자</span>}
+            {amOwner && m.role !== 'owner' && (
+              <button
+                type="button"
+                className={styles.roleBtn}
+                onClick={() => handleToggleAdmin(m)}
+                disabled={managing}
+                aria-label={m.role === 'admin' ? `${m.nickname}님 관리자 해제` : `${m.nickname}님 관리자로 지정`}
+              >
+                {m.role === 'admin' ? '해제' : '관리자로'}
+              </button>
+            )}
             <span className={m.online ? styles.statusTextOnline : styles.statusText}>
               {m.online ? '온라인' : '오프라인'}
             </span>
