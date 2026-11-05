@@ -76,6 +76,11 @@ public class TeamDAO {
 		return sqlSession.insert(TeamDAO.SQL_PATH + ".insertTeamInvite", param);
 	}
 
+	//모두 인정 기준 변경 (param: teamId, rule, minCount)
+	public int updateConsensusRule(Map<String, Object> param) {
+		return sqlSession.update(TeamDAO.SQL_PATH + ".updateConsensusRule", param);
+	}
+
 	//팀의 회수되지 않은 초대 코드를 모두 회수
 	public int revokeTeamInvites(Long teamId) {
 		return sqlSession.update(TeamDAO.SQL_PATH + ".revokeTeamInvites", teamId);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Check, MapPin, LogOut, Trash2, Download, RefreshCw } from 'lucide-react'
-import { fetchTeam, deleteTeamApi, leaveTeamApi, updateTeamSyncSetting, reissueInviteApi, updateMemberRoleApi } from '../api'
+import { fetchTeam, deleteTeamApi, leaveTeamApi, updateTeamSyncSetting, reissueInviteApi, updateMemberRoleApi, updateConsensusRuleApi } from '../api'
 import { getCurrentUser } from '../../../lib/currentUser'
 import { buildInviteLink, inviteBase } from '../inviteLink'
 import MemberAvatar from '../../../components/MemberAvatar/MemberAvatar'
@@ -15,6 +15,7 @@ const REFRESH_MS = 30_000
  * 모임 상세 (모임 목록 서랍 안에서 전환되는 화면)
  * - 상단: 초대 링크 (기본 마스킹, 눈 버튼으로 보기, 클릭하면 복사). 모임장·관리자는 새 링크를 만들 수 있다
  * - 온라인 인원 / 전체 인원
+ * - 모두 인정 기준 (전원 / N명 이상). 모임장·관리자가 바꿀 수 있다
  * - 멤버 목록 (온라인 먼저, 페이지네이션). 모임장은 멤버를 관리자로 지정·해제할 수 있다
  * - 하단: 모임 나가기 (모임장이면 모임 삭제도). 나가거나 지우면 onLeft(teamId)
  */
@@ -59,7 +60,7 @@ export default function TeamDetailView({ teamId, onBack, onEnter, onImportPerson
   const inviteLink = buildInviteLink(team.inviteCode)
   const myRole = (team.members || []).find(m => m.id === getCurrentUser().loginId)?.role
   const amOwner = myRole === 'owner'
-  const canManageInvite = amOwner || myRole === 'admin'
+  const canManage = amOwner || myRole === 'admin'
   // 서버 순서(모임장 먼저, 나머지는 들어온 순)에서 나 다음 사람이 새 모임장이 된다
   const nextOwner = (team.members || []).find(m => m.id !== getCurrentUser().loginId)
 
@@ -125,6 +126,22 @@ export default function TeamDetailView({ teamId, onBack, onEnter, onImportPerson
     setRevealed(false)
   }
 
+  // 기준 선택값: 'all' 또는 인원 수 문자열
+  const ruleValue = team.consensusRule === 'min_count' && team.consensusMinCount ? String(team.consensusMinCount) : 'all'
+  // 전원과 같아지는 인원(=팀원 수)은 빼고 2명부터. 팀원이 줄어 지금 기준이 범위를 넘으면 그 값도 남긴다
+  const countOptions = Array.from({ length: Math.max(0, members.length - 2) }, (_, i) => i + 2)
+  if (ruleValue !== 'all' && !countOptions.includes(Number(ruleValue))) countOptions.push(Number(ruleValue))
+  const ruleText = ruleValue === 'all'
+    ? `팀원 전원(${members.length}명)이 추천하면 모두 인정이에요.`
+    : `${ruleValue}명 이상 추천하면 모두 인정이에요.${Number(ruleValue) > members.length ? ' 지금은 팀원이 적어 전원 기준이에요.' : ''}`
+
+  const handleRuleChange = e => {
+    const value = e.target.value
+    manage(() => (value === 'all'
+      ? updateConsensusRuleApi(team.id, 'all')
+      : updateConsensusRuleApi(team.id, 'min_count', Number(value))), '인정 기준을 바꾸지 못했습니다')
+  }
+
   const handleToggleAdmin = m => {
     const next = m.role === 'admin' ? 'member' : 'admin'
     manage(() => updateMemberRoleApi(team.id, m.id, next), '역할을 바꾸지 못했습니다')
@@ -176,10 +193,10 @@ export default function TeamDetailView({ teamId, onBack, onEnter, onImportPerson
           </div>
         ) : (
           <div className={styles.emptyInvite}>
-            {canManageInvite ? '유효한 초대 링크가 없어요. 새로 만들어 주세요.' : '유효한 초대 링크가 없어요. 모임장이나 관리자에게 부탁해 주세요.'}
+            {canManage ? '유효한 초대 링크가 없어요. 새로 만들어 주세요.' : '유효한 초대 링크가 없어요. 모임장이나 관리자에게 부탁해 주세요.'}
           </div>
         )}
-        {canManageInvite && (
+        {canManage && (
           <button type="button" className={`btn btn-ghost ${styles.reissueBtn}`} onClick={handleReissue} disabled={managing}>
             <RefreshCw size={14} />
             {inviteLink ? '새 링크 만들기' : '초대 링크 만들기'}
@@ -207,6 +224,26 @@ export default function TeamDetailView({ teamId, onBack, onEnter, onImportPerson
         >
           <span className={styles.knob} />
         </button>
+      </section>
+
+      {/* 모두 인정 기준 */}
+      <section className={styles.syncSection}>
+        <div className={styles.syncText}>
+          <div className={styles.syncTitle}>모두 인정 기준</div>
+          <p className={styles.syncDesc}>{ruleText}</p>
+        </div>
+        {canManage && (
+          <select
+            className={`input ${styles.ruleSelect}`}
+            value={ruleValue}
+            onChange={handleRuleChange}
+            disabled={managing}
+            aria-label="모두 인정 기준"
+          >
+            <option value="all">전원</option>
+            {countOptions.map(n => <option key={n} value={String(n)}>{n}명 이상</option>)}
+          </select>
+        )}
       </section>
 
       {/* 인원 요약 */}

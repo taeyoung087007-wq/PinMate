@@ -4,7 +4,7 @@ import styles from './CelebrationModal.module.css'
 
 /**
  * '모두 인정' 달성 축하 팝업 컴포넌트
- * 팀원 전원이 추천했을 때 뜨는 화려한 축하 연출
+ * 모임의 인정 기준(전원 또는 N명 이상)만큼 추천을 받았을 때 뜨는 화려한 축하 연출
  */
 export default function CelebrationModal({ pin, onClose }) {
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function CelebrationModal({ pin, onClose }) {
         <h3 className={styles.placeName}>"{pin.name}"</h3>
 
         <p className={styles.description}>
-          우리 팀원 전원이 추천하여 <strong>모두가 인정한 공식 명소</strong>로 등극했습니다! 🌟
+          우리 팀 인정 기준만큼 추천을 받아 <strong>모두가 인정한 공식 명소</strong>로 등극했습니다! 🌟
         </p>
 
         <div className={styles.infoBox}>
@@ -60,7 +60,7 @@ export default function CelebrationModal({ pin, onClose }) {
           <div className={styles.infoDivider} />
           <div className={styles.infoItem}>
             <Check size={16} color="#06D6A0" />
-            <span>팀 전원 추천 완료</span>
+            <span>인정 기준 달성</span>
           </div>
         </div>
 

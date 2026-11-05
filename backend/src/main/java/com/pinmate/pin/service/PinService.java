@@ -16,7 +16,7 @@ public interface PinService {
 	// 추천 토글 (추천 ↔ 추천 취소). 결과: pin, reachedAllApproved
 	Map<String, Object> toggleRecommendation(Long placeId, Long userId) throws Exception;
 
-	// 팀원 수가 바뀐 뒤 그 팀 핀들의 '모두 인정'을 다시 판정한다. 풀린 핀은 'N명일 때 달성' 기록을 남긴다
+	// 팀원 수나 인정 기준이 바뀐 뒤 그 팀 핀들의 '모두 인정'을 다시 판정한다. 풀린 핀은 'N명일 때 달성' 기록을 남긴다
 	void updateTeamConsensus(Long teamId) throws Exception;
 
 	// 수정·삭제 가능 여부: SUCCESS(등록자 또는 팀 owner·admin) / NO_PERMISSION / NOT_FOUND(없거나 팀 멤버가 아님)

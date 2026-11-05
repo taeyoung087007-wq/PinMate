@@ -141,6 +141,15 @@
 		ON CONFLICT (code) DO NOTHING
 	</insert>
 
+	<!-- 모두 인정 기준 변경. rule: all(전원) / min_count(minCount 명 이상, all 이면 minCount 는 NULL). param: teamId, rule, minCount -->
+	<update id="updateConsensusRule" parameterType="map">
+		UPDATE teams
+		   SET consensus_rule = #{rule},
+		       consensus_min_count = #{minCount},
+		       updated_at = now()
+		 WHERE team_id = #{teamId}
+	</update>
+
 	<!-- 팀의 아직 회수되지 않은 초대 코드를 모두 회수 (만료된 것 포함. 활성 코드는 팀당 1개라 새로 만들기 전에 비워야 한다) -->
 	<update id="revokeTeamInvites" parameterType="long">
 		UPDATE team_invites

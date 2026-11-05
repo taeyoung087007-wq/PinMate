@@ -254,9 +254,10 @@ public class PinServiceImpl implements PinService {
 	}
 
 	/*
-	 * '모두 인정' 달성 여부를 다시 계산해 저장한다. 규칙이 all 이면 팀원 전원, 아니면 consensus_min_count 명.
+	 * '모두 인정' 달성 여부를 다시 계산해 저장한다. 규칙이 all 이면 팀원 전원, 아니면 consensus_min_count 명
+	 * (팀원이 기준보다 적으면 전원 — 사람이 줄어 영영 달성하지 못하는 일이 없게).
 	 * 팀원이 2명 미만이면 판정하지 않는다 (혼자 등록하자마자 달성되지 않게).
-	 * keepRecord: 팀원이 늘어 풀리는 경우 true — 'N명일 때 달성' 기록(consensus_member_count)을 남긴다
+	 * keepRecord: 팀원 변동·기준 변경으로 다시 판정할 때 true — 풀려도 'N명일 때 달성' 기록(consensus_member_count)을 남긴다
 	 */
 	private boolean updateConsensus(Long placeId, Long teamId, boolean keepRecord) {
 		Map<String, Object> team = teamDAO.selectTeamById(teamId);
@@ -268,7 +269,7 @@ public class PinServiceImpl implements PinService {
 		Object minCount = team.get("consensus_min_count");
 		int target = "all".equalsIgnoreCase((String) team.get("consensus_rule"))
 				? memberCount
-				: (minCount == null ? 2 : ((Number) minCount).intValue());
+				: Math.min(minCount == null ? 2 : ((Number) minCount).intValue(), memberCount);
 
 		boolean achieved = memberCount >= 2 && recCount >= target;
 		pinDAO.updateConsensus(ParamUtil.map("placeId", placeId, "achieved", achieved, "memberCount", recCount, "keepRecord", keepRecord));

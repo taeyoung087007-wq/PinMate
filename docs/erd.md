@@ -34,7 +34,7 @@ erDiagram
     teams {
         bigint team_id PK
         varchar name
-        varchar consensus_rule "all / majority / min_count"
+        varchar consensus_rule "all / min_count (majority 는 화면 계산 배지라 저장 안 함)"
         int consensus_min_count ">= 2"
         timestamptz created_at
         timestamptz updated_at
