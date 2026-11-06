@@ -1,16 +1,25 @@
 .panel {
   position: absolute;
-  top: 176px;
+  top: calc(var(--app-header-h, 72px) + 12px);
   /* 우측 레이어 버튼 열을 비켜 왼쪽에 둔다 */
   right: 74px;
   width: 360px;
   max-width: calc(100% - 32px);
-  max-height: calc(100% - 192px - var(--bottom-nav-h));
+  max-height: calc(100% - var(--app-header-h, 72px) - 24px - var(--bottom-nav-h, 0px));
   display: flex;
   flex-direction: column;
   z-index: 26;
   overflow: hidden;
-  border-radius: var(--radius-xl) !important;
+}
+
+.panel:global(.glass-card) {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .header {
@@ -32,8 +41,8 @@
 }
 
 .count {
-  background: var(--primary-glow);
-  color: var(--primary-light);
+  background: var(--bg-elevated);
+  color: var(--primary);
   padding: 2px 8px;
   border-radius: var(--radius-full);
   font-size: 11px;
@@ -44,6 +53,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 6px 0 12px;
 }
 
@@ -73,7 +83,6 @@
   font-size: 11px;
   font-weight: 700;
   color: var(--text-secondary);
-  letter-spacing: 0.04em;
 }
 
 .groupCount {
@@ -84,8 +93,8 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-full);
-  background: rgba(108, 99, 255, 0.22);
-  color: var(--primary-light);
+  background: var(--bg-elevated);
+  color: var(--primary);
   font-size: 10px;
   font-weight: 700;
 }
@@ -99,14 +108,15 @@
   padding: 2px 0;
   background: none;
   border: none;
-  color: var(--primary-light);
+  color: var(--primary);
   font-family: var(--font-base);
   font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
 }
 
-.textBtn:hover {
+.textBtn:is(:hover, :focus-visible) {
+  background: var(--bg-hover);
   text-decoration: underline;
 }
 
@@ -132,12 +142,12 @@
 }
 
 .iconAdded {
-  background: rgba(46, 204, 113, 0.18);
+  background: var(--bg-elevated);
   color: var(--success);
 }
 
 .iconDeleted {
-  background: rgba(255, 71, 87, 0.18);
+  background: var(--bg-elevated);
   color: var(--danger);
 }
 
@@ -174,7 +184,7 @@
 .dangerBtn,
 .ghostBtn {
   padding: 5px 10px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-family: var(--font-base);
   font-size: 11.5px;
   font-weight: 700;
@@ -182,23 +192,23 @@
 }
 
 .primaryBtn {
-  border: 1px solid rgba(108, 99, 255, 0.5);
-  background: rgba(108, 99, 255, 0.2);
-  color: var(--primary-light);
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: var(--primary-contrast);
 }
 
-.primaryBtn:hover {
-  background: rgba(108, 99, 255, 0.32);
+.primaryBtn:is(:hover, :focus-visible) {
+  background: var(--primary-dark);
 }
 
 .dangerBtn {
-  border: 1px solid rgba(255, 71, 87, 0.5);
-  background: rgba(255, 71, 87, 0.16);
+  border: 1px solid var(--border-strong);
+  background: transparent;
   color: var(--danger);
 }
 
-.dangerBtn:hover {
-  background: rgba(255, 71, 87, 0.28);
+.dangerBtn:is(:hover, :focus-visible) {
+  background: var(--bg-hover);
 }
 
 .ghostBtn {
@@ -207,7 +217,7 @@
   color: var(--text-secondary);
 }
 
-.ghostBtn:hover {
+.ghostBtn:is(:hover, :focus-visible) {
   background: var(--bg-hover);
 }
 
@@ -234,7 +244,6 @@
     left: 16px;
     right: 16px;
     width: auto;
-    max-height: calc(100% - 150px - var(--bottom-nav-h));
   }
 }
 
@@ -252,6 +261,10 @@
 .batchDetails summary {
   cursor: pointer;
   width: fit-content;
+}
+
+.batchDetails summary:is(:hover, :focus-visible) {
+  background: var(--bg-hover);
 }
 
 .batchList {

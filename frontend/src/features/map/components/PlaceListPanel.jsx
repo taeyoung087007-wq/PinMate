@@ -16,8 +16,8 @@ import styles from './PlaceListPanel.module.css'
 export default function PlaceListPanel({ pins, members, onSelectPin, onClose, emptyMessage, sort = 'recommend', onSortChange }) {
   const [query, setQuery] = useState('')
 
-  // 우측 사이드 시트: 그랩 핸들을 오른쪽으로 쓸면 닫는다
-  const { panelRef, handleRef } = usePanelDrag(onClose, { axis: 'x', sign: 1 })
+  // 왼쪽 시트는 바깥 방향으로 쓸면 닫는다.
+  const { panelRef, handleRef } = usePanelDrag(onClose, { axis: 'x', sign: -1 })
 
   const { approved, rest, total } = useMemo(
     () => filterAndSortPins(pins, { query, sort }),
@@ -26,7 +26,7 @@ export default function PlaceListPanel({ pins, members, onSelectPin, onClose, em
 
   return (
     <div ref={panelRef} className={`${styles.panel} glass-card animate-fade-in`} role="region" aria-label="장소 목록">
-      {/* 드래그 핸들: 오른쪽으로 쓸어 닫는다 */}
+      {/* 드래그 핸들: 왼쪽으로 쓸어 닫는다 */}
       <div className={styles.dragStrip} ref={handleRef} aria-hidden="true">
         <span className={styles.grabber} />
       </div>

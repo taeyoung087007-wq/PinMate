@@ -43,7 +43,7 @@
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--bg-elevated);
+  background: transparent;
   color: var(--text-primary);
   font: inherit;
   text-align: left;
@@ -51,7 +51,7 @@
   transition: border-color var(--transition), background var(--transition);
 }
 
-.card:hover {
+.card:is(:hover, :focus-visible) {
   border-color: var(--border-strong);
   background: var(--bg-hover);
 }
@@ -63,7 +63,7 @@
 
 .cardSelected {
   border-color: var(--primary-light);
-  background: rgba(108, 99, 255, 0.12);
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg-card));
 }
 
 .summary {

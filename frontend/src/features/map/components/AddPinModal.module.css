@@ -74,7 +74,7 @@
 .customAddBanner {
   margin: 0 20px 12px;
   padding: 12px 16px;
-  background: rgba(108, 99, 255, 0.1);
+  background: transparent;
   border: 1px dashed var(--primary);
   border-radius: var(--radius-md);
   display: flex;
@@ -86,8 +86,7 @@
   text-align: left;
 }
 .customAddBanner:hover {
-  background: rgba(108, 99, 255, 0.2);
-  transform: translateY(-1px);
+  background: var(--bg-hover);
 }
 .customAddText {
   font-size: 13px;
@@ -154,10 +153,9 @@
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 14px;
-  background: var(--bg-elevated);
-  border: 1px solid rgba(108,99,255,0.25);
-  border-radius: var(--radius-md);
+  padding: 0 0 14px;
+  background: transparent;
+  border-bottom: 1px solid var(--border);
 }
 .selectedName {
   font-size: 15px;
@@ -193,7 +191,7 @@
 }
 .catOption {
   padding: 8px 4px;
-  background: var(--bg-elevated);
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-size: 12px;
@@ -212,8 +210,8 @@
   color: var(--text-primary);
 }
 .catOptionActive {
-  background: var(--primary-glow);
-  border-color: rgba(108,99,255,0.4);
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg-card));
+  border-color: var(--primary);
   color: var(--primary-light);
 }
 
@@ -244,7 +242,7 @@
   padding: 9px 10px;
   border-radius: var(--radius-full);
   border: 1px solid var(--border);
-  background: var(--bg-elevated);
+  background: transparent;
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
@@ -254,11 +252,12 @@
 
 .tabBtn:hover {
   color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .tabBtnActive {
   border-color: var(--primary);
-  background: rgba(108, 99, 255, 0.16);
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg-card));
   color: var(--primary-light);
 }
 
@@ -272,7 +271,7 @@
   border: none;
   border-radius: var(--radius-full);
   background: var(--primary);
-  color: #ffffff;
+  color: var(--primary-contrast);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;

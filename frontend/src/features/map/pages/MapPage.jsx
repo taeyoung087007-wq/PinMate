@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   MapPin, Star, Users, Home, Layers,
-  X
+  Plus, X
 } from 'lucide-react'
 import { CATEGORY_META } from '../categories'
 import { getCurrentUser, setCurrentUserStorage } from '../../../lib/currentUser'
@@ -32,6 +32,8 @@ import ImportPersonalPinsModal from '../components/ImportPersonalPinsModal'
 import PlaceListPanel from '../components/PlaceListPanel'
 import CelebrationModal from '../components/CelebrationModal'
 import BottomNav from '../../../components/BottomNav/BottomNav'
+import Brand from '../../../components/Brand/Brand'
+import AppearanceSwitcher from '../../../components/AppearanceSwitcher/AppearanceSwitcher'
 import TeamDrawer from '../../teams/components/TeamDrawer'
 import TeamCreateModal from '../../teams/components/TeamCreateModal'
 import SettingsPage from '../../auth/pages/SettingsPage'
@@ -48,7 +50,7 @@ import styles from './MapPage.module.css'
 const CATEGORIES = ['all', 'food', 'cafe', 'drink', 'stay', 'sight', 'play', 'etc']
 
 /**
- * 네이버지도/카카오맵 스타일 메인 지도 앱 페이지
+ * 지도 중심 화면. 장소 목록은 요청했을 때만 연다.
  * - 전체 화면 캔버스 지도 메인
  * - 상단 플로팅 바 (모임 전환 드롭다운 + 검색창 + 카테고리/팀원 칩)
  * - 가로 스크롤 모임·카테고리·팀원 칩과 장소 목록 정렬
@@ -530,12 +532,26 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
     setShowListPanel(tabId === 'places')
     setShowFriendPanel(tabId === 'friends')
     setShowNotificationPanel(tabId === 'notifications')
-    if (tabId !== 'map') setSelectedPin(null)
+    setSelectedPin(null)
+    setShowLayerPanel(false)
     if (tabId === 'notifications') sync.load()
   }
 
   return (
-    <div className={styles.appRoot}>
+    <div className={styles.appRoot} data-place-panel={Boolean(showListPanel || selectedPin)}>
+      <header className={styles.appHeader}>
+        <button type="button" className={styles.brandHome} onClick={() => handleTabChange('map')} aria-label="PinMate 지도 홈">
+          <Brand />
+        </button>
+        <BottomNav
+          variant="desktop"
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          friendCount={friendLayers.pendingCount}
+          notificationCount={sync.pendingCount}
+        />
+        <AppearanceSwitcher className={styles.appearance} />
+      </header>
       <div inert={activeTab === 'settings'} aria-hidden={activeTab === 'settings'} style={{ visibility: activeTab === 'settings' ? 'hidden' : undefined }}>
       {/* 1. 전체 화면 메인 지도 */}
       <div className={styles.mapCanvasWrap}>
@@ -561,7 +577,7 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         </ErrorBoundary>
       </div>
 
-      {/* 2. 상단 플로팅 헤더 (팀 선택 + 검색 + 카테고리 바) */}
+      {/* 검색과 지도 필터는 목록을 열지 않아도 사용할 수 있다 */}
       <div className={styles.floatingTop}>
         <div className={styles.topCard}>
           {/* 검색: 지금 보는 지도(모임 또는 내 지도)의 장소 + 상호명·주소 */}
@@ -702,12 +718,22 @@ export default function MapPage({ initialTeamId, onLogout, onWithdrawn }) {
         )}
       </div>
 
+      <button
+        type="button"
+        className={styles.addPlaceBtn}
+        onClick={() => { setPickedPlace(null); setShowAddPinModal(true) }}
+      >
+        <Plus size={17} aria-hidden="true" />
+        장소 저장하기
+      </button>
+
       {/* 지도 레이어 (내 공개 핀·모임원 공유 핀·친구 지도 선택). 내 지도·모임 지도 모두에서 */}
       {(mapScope === 'team' || friendLayers.friends.length > 0 || publicPersonalPins.length > 0) && (
         <button
           className={`${styles.layerBtn} ${(showLayerPanel || visibleFriendOverlays.length > 0 || memberLayer.overlays.length > 0 || showOverlay) ? styles.layerBtnActive : ''} ${(showFriendPanel || showListPanel || showNotificationPanel) ? styles.hideOnNarrow : ''}`}
           onClick={() => setShowLayerPanel(v => !v)}
           aria-pressed={showLayerPanel}
+          aria-label="지도 레이어"
           title="지도 레이어"
         >
           <Layers size={18} />

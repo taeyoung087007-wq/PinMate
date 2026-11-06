@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
-  MapPin, Users, Lock, Eye, EyeOff, ArrowRight,
+  Users, Lock, Eye, EyeOff, ArrowRight,
   CheckCircle2, AlertCircle, Link2
 } from 'lucide-react'
 import { signupApi, loginApi, checkInviteCodeApi } from '../api'
 import { setCurrentUserStorage } from '../../../lib/currentUser'
+import Brand from '../../../components/Brand/Brand'
+import AppearanceSwitcher from '../../../components/AppearanceSwitcher/AppearanceSwitcher'
 import styles from './AuthPage.module.css'
 
 /**
@@ -130,25 +132,18 @@ export default function AuthPage({ onLogin }) {
 
   return (
     <div className={styles.container}>
-      <div className={styles.blob1} />
-      <div className={styles.blob2} />
-      <div className={styles.blob3} />
-      <div className={styles.grid} />
-
       <div className={styles.content}>
         {/* 서비스 로고 */}
         <div className={styles.logo}>
-          <div className={styles.logoIcon}>
-            <MapPin size={28} strokeWidth={2.5} color="white" />
+          <div className={styles.authHeader}>
+            <Brand className={styles.brand} />
+            <AppearanceSwitcher className={styles.appearance} />
           </div>
-          <div>
-            <h1 className={styles.logoTitle}>PinMate</h1>
-            <p className={styles.logoSub}>친구들과 함께 만드는 장소 공유 지도</p>
-          </div>
+          <p className={styles.logoSub}>친구들과 함께 만드는 장소 공유 지도</p>
         </div>
 
         {/* 인증 카드 */}
-        <div className={`${styles.card} glass-card animate-slide-up`}>
+        <div className={`${styles.card} animate-slide-up`}>
           {/* 로그인 / 회원가입 탭 */}
           <div className={styles.tabs}>
             <button

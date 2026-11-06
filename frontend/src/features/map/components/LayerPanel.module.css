@@ -1,20 +1,19 @@
 .panel {
   position: absolute;
   right: 14px;
-  top: 174px;
+  top: calc(var(--app-header-h, 72px) + 132px);
   width: 240px;
   max-width: calc(100% - 28px);
-  max-height: calc(100% - 240px - var(--bottom-nav-h));
+  max-height: calc(100% - var(--app-header-h, 72px) - 148px - var(--bottom-nav-h, 0px));
   display: flex;
   flex-direction: column;
   z-index: 31;
   padding: 10px;
-  border-radius: var(--radius-lg);
-  background: rgba(18, 19, 31, 0.96);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
   border: 1px solid var(--border-strong);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-sm);
   overflow-y: auto;
 }
 
@@ -23,6 +22,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 2px 4px 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
 }
 
 .title {
@@ -43,11 +44,10 @@
 }
 
 .label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
 }
 
 .actions {
@@ -68,13 +68,14 @@
   white-space: nowrap;
 }
 
-.actionBtn:hover:not(:disabled) {
+.actionBtn:hover:not(:disabled),
+.actionBtn:focus-visible:not(:disabled) {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
 
 .actionBtn:disabled {
-  opacity: 0.45;
+  color: var(--text-muted);
   cursor: default;
 }
 
@@ -84,8 +85,9 @@
   gap: 8px;
   width: 100%;
   padding: 7px 8px;
-  border-radius: 8px;
+  border-radius: 6px;
   border: none;
+  border-bottom: 1px solid var(--border);
   background: transparent;
   color: var(--text-primary);
   cursor: pointer;
@@ -93,12 +95,14 @@
   transition: background var(--transition);
 }
 
-.row:hover {
+.row:hover,
+.row:focus-visible {
   background: var(--bg-hover);
 }
 
 .rowActive {
-  background: rgba(108, 99, 255, 0.18);
+  background: var(--bg-elevated);
+  border-bottom-color: var(--primary);
 }
 
 .avatar {
@@ -110,6 +114,10 @@
   border-radius: 50%;
   font-size: 12px;
   font-weight: 700;
+}
+
+.avatar[style*="var(--primary)"] {
+  color: var(--primary-contrast, #fff) !important;
 }
 
 .name {
@@ -124,9 +132,19 @@
 
 .check {
   width: 18px;
+  height: 18px;
   display: flex;
+  align-items: center;
   justify-content: center;
-  color: var(--primary-light);
+  flex-shrink: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--primary);
+}
+
+.rowActive .check {
+  border-color: var(--primary);
+  background: var(--bg-surface);
 }
 
 .notice {
@@ -135,5 +153,14 @@
   font-size: 11px;
   color: var(--text-secondary);
   line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .panel {
+    top: calc(var(--app-header-h, 64px) + 132px);
+    right: 12px;
+    max-width: calc(100% - 24px);
+    max-height: calc(100% - var(--app-header-h, 64px) - 148px - var(--bottom-nav-h, 66px));
+  }
 }
 
