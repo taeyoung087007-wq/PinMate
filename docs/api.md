@@ -28,7 +28,7 @@
 | 환경 | 주소 |
 |---|---|
 | 로컬 개발 | 프론트 `http://localhost:5173` → Vite 프록시 `/api` → 백엔드 `http://localhost:8080` |
-| 배포 | 프론트 환경변수 `VITE_API_URL` (예: `https://api.example.com/api`) |
+| 배포 | `https://pinmate.kro.kr/api` → Vercel rewrite → `https://pinmate-backend-szl1.onrender.com/api` (`VITE_API_URL=/api`) |
 
 모든 경로는 `/api/` 로 시작합니다.
 

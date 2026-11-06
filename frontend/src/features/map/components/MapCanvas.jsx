@@ -693,12 +693,12 @@ export default function MapCanvas({
               <ol className={styles.noticeList}>
                 <li>카카오 콘솔 → 내 애플리케이션 → 앱 선택 → 플랫폼 키</li>
                 <li>
-                  <code>frontend/.env</code>에 <code>VITE_KAKAO_MAP_KEY=JavaScript키</code> 추가
+                  환경변수 <code>VITE_KAKAO_MAP_KEY</code>에 JavaScript 키 설정
                 </li>
                 <li>
-                  JavaScript SDK 도메인에 <code>http://localhost:5173</code> 등록
+                  JavaScript SDK 도메인에 <code>{window.location.origin}</code> 등록
                 </li>
-                <li>개발 서버 재시작</li>
+                <li>환경변수 적용 후 다시 배포하거나 개발 서버 재시작</li>
               </ol>
             )}
           </div>

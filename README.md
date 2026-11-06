@@ -52,7 +52,7 @@ PinMate/
 | **프론트엔드** | React 19, Vite | 고성능 SPA, HMR 지원 |
 | **스타일링** | Vanilla CSS (CSS Modules) | 프리미엄 다크 글래스모피즘 디자인 시스템 |
 | **아이콘** | Lucide React | 모던 벡터 아이콘 셋 |
-| **지도** | NAVER Maps JavaScript API v3 | `MapCanvas`가 SDK를 감싸고 핀(마커)만 직접 그린다 |
+| **지도** | Kakao Maps JavaScript API | `MapCanvas`가 SDK를 감싸고 핀(마커)만 직접 그린다 |
 | **백엔드** | Spring Boot 4.1 (Spring MVC), Java 17 | Maven Wrapper(`mvnw`)로 빌드·실행 |
 | **DB 접근** | MyBatis | SQL은 `resources/sqlmap/mappers/pinmate/<기능>/*.xml` |
 | **데이터베이스** | PostgreSQL 16 | 로컬은 Docker, 스키마는 Flyway 마이그레이션으로 관리 |
@@ -61,15 +61,15 @@ PinMate/
 
 ## 4. 빠른 실행 방법
 
-사전 준비: JDK 17+, Node.js, Docker, NAVER 지도 Client ID
+사전 준비: JDK 17+, Node.js, Docker, 카카오 JavaScript 키
 
 ### 0) 지도 키 설정 (최초 1회, 프론트)
 ```bash
 cd frontend
 cp .env.example .env      # Windows: copy .env.example .env
-# .env 파일에 VITE_NAVER_MAP_KEY=<NCP Maps Client ID> 입력
+# .env 파일에 VITE_KAKAO_MAP_KEY=<카카오 JavaScript 키> 입력
 ```
-> Client ID는 브라우저에 노출되는 값이라 프론트 환경변수로 두는 것이 정상입니다. 방어선은 NCP 콘솔에 등록한 도메인 제한입니다. **Client Secret은 프론트에 넣지 마세요** (서버에서 호출하는 Geocoding/Directions용).
+> JavaScript 키는 브라우저에 노출되는 값이며 카카오 콘솔의 JavaScript SDK 도메인으로 사용 출처를 제한합니다. 개발용 `http://localhost:5173`과 운영용 `https://pinmate.kro.kr`을 등록합니다. **REST API 키는 백엔드 환경변수에서만 사용합니다.**
 > 키가 없으면 지도 자리에 발급 안내가 표시되고, 나머지 화면은 그대로 동작합니다.
 
 ### 1) 데이터베이스 실행 (프로젝트 루트)
@@ -92,7 +92,7 @@ npm run dev   # http://localhost:5173 (/api 요청은 8080으로 프록시)
 ```
 
 > **안내**: 데이터는 각자의 로컬 DB에 저장되고, 스키마는 Git의 마이그레이션 파일로 공유합니다.
-> 현재 백엔드는 헬스체크만 있는 골격이라서, 팀·핀 API를 구현하기 전까지 프로토타입 화면에는 "API 요청 실패 (404)"가 표시됩니다.
+> 운영 API는 `https://pinmate.kro.kr/api`에서 같은 출처로 호출합니다. 실제 배포 주소와 제공사별 설정은 [배포 가이드](docs/deployment.md)를 참고하세요.
 
 ---
 
@@ -102,7 +102,7 @@ npm run dev   # http://localhost:5173 (/api 요청은 8080으로 프록시)
 
 ### 👤 개발자 A (프론트엔드 UI & 인터랙션 리드)
 - 화면 UI 컴포넌트 개선 및 애니메이션 고도화
-- 네이버 지도 JavaScript API 연동 (`MapCanvas.jsx` -> 실제 Naver Map View 연동)
+- 카카오 지도 JavaScript API 연동 (`MapCanvas.jsx`)
 - 모바일 반응형 뷰포트 및 터치 인터랙션 최적화
 
 ### 👤 개발자 B (백엔드 API & 데이터베이스 리드)

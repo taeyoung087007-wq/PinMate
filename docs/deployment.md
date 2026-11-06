@@ -1,8 +1,8 @@
 # PinMate 배포
 
-준비 기준: 2026-11-06. Vercel Hobby + Render Free + 기존 Supabase PostgreSQL을 사용한다. 운영 주소는 **https://pinmate.kro.kr**이다.
+확인 기준: 2026-11-07. Vercel Hobby + Render Free + 기존 Supabase PostgreSQL을 사용한다. 운영 주소는 **https://pinmate.kro.kr**이다.
 
-이 가이드는 설정 파일과 배포 절차를 설명한다. 클라우드 프로젝트 생성·DNS 연결·운영 DB 검증은 아직 수행하지 않았다.
+Vercel·Render 배포, DNS·HTTPS 연결, 운영 도메인의 로그인·지도·길찾기를 확인했다. DB 마이그레이션은 실행하지 않았다. 현재 Vercel Git 연결과 Render 자동 배포는 꺼져 있어 main 머지만으로 배포가 갱신되지 않는다.
 
 ## 구성
 
@@ -60,7 +60,7 @@ ORDER BY installed_rank;
 
 | 이름 | Production 값 |
 | --- | --- |
-| `BACKEND_ORIGIN` | `https://<생성된-서비스>.onrender.com` — `/api`·쿼리·인증정보 없이 |
+| `BACKEND_ORIGIN` | `https://pinmate-backend-szl1.onrender.com` — `/api`·쿼리·인증정보 없이 |
 | `VITE_API_URL` | `/api` |
 | `VITE_KAKAO_MAP_KEY` | 카카오 **JavaScript** 키 |
 | `VITE_ODSAY_API_KEY` | 선택: ODsay URI 키 |
@@ -70,6 +70,20 @@ Vercel Root Directory는 `frontend`, Framework는 Vite, Node.js는 CI와 같은 
 
 초기에는 **Production 배포만 사용하고 Vercel의 Preview 자동 배포는 꺼 둔다.** Preview에는 운영 DB로 이어지는 `BACKEND_ORIGIN`을 등록하지 않는다. 별도 테스트 백엔드 없이 Preview를 실행하면 설정 검사에서 실패한다. 나중에 격리된 테스트 백엔드의 주소를 Preview 환경에 등록한 뒤 Preview를 활성화한다. 환경변수를 바꾸면 새로 배포해야 반영된다.
 
+## API 주소와 제공사 설정
+
+| 연동 | 호출 주소 | 운영 설정 |
+| --- | --- | --- |
+| 내부 API·접속 상태 polling | `https://pinmate.kro.kr/api/*` | `VITE_API_URL=/api`, Vercel `BACKEND_ORIGIN`에 위 Render 주소 |
+| 카카오 지도·장소 검색 | `https://dapi.kakao.com/v2/maps/sdk.js` | 기존 JavaScript 키의 SDK 도메인에 `https://pinmate.kro.kr` 등록 완료 |
+| ODsay 대중교통·시간표 | `https://api.odsay.com/v1/api/*` | 기존 앱의 URI에 프로토콜 없는 `pinmate.kro.kr` 등록 완료 |
+| Kakao Mobility 자동차 | `https://apis-navi.kakaomobility.com/v1/directions` | Render의 `KAKAO_REST_API_KEY`. 별도 허용 IP 제한을 설정한 경우 Render outbound IP 확인 |
+| TMAP 도보 | `https://apis.openapi.sk.com/tmap/routes/pedestrian` | Render의 `TMAP_APP_KEY` |
+| TAGO 버스·특일정보 | `https://apis.data.go.kr/*` | Render의 `TAGO_SERVICE_KEY` |
+| 서울 지하철 실시간 도착 | `http://swopenapi.seoul.go.kr/api/subway/*` | Render의 `SEOUL_SUBWAY_KEY`. 제공사 명세의 HTTP 주소를 백엔드에서 호출 |
+
+제공사 API 주소는 해당 제공사의 서버 주소다. 이를 PinMate 도메인으로 치환하지 않는다. 개발용 Vite 프록시·로컬 DB·CI의 localhost 설정도 유지한다. 초대 링크는 현재 접속 origin을 사용하며 별도의 OAuth callback이나 WebSocket URL 구현은 없다.
+
 ## 최초 배포 순서
 
 1. 이 설정을 PR로 검토하고 main에 반영한다. DB 담당자 확인을 마친다.
@@ -77,10 +91,10 @@ Vercel Root Directory는 `frontend`, Framework는 Vite, Node.js는 CI와 같은 
 3. 발급된 Render 주소의 `/api/health`에서 HTTP 200과 JSON `data.status=UP`을 확인한다. 운영 스키마·인증 검증 완료를 뜻하지는 않는다.
 4. Vercel에 저장소를 Import하고 Root Directory `frontend`와 Production 환경변수를 설정해 배포한다. Preview 자동 배포는 비활성화한다. 기본 주소에서도 지도를 확인하려면 그 주소를 카카오 콘솔에 추가한다.
 5. Vercel Domains에 `pinmate.kro.kr`을 추가한다. 기존 DNS 사용 여부를 먼저 확인한 뒤 **Vercel 화면이 제시한 레코드**를 도메인 관리 화면에 등록한다. 고정 IP를 임의로 가정하지 않는다. 도메인 검증과 HTTPS 발급 완료를 확인한다.
-6. 카카오 JavaScript 허용 도메인과 ODsay 허용 URI에 `https://pinmate.kro.kr`을 등록한다. 서버 API의 허용 IP 제한이 있다면 Render의 outbound IP 범위를 확인한다.
+6. 카카오 JavaScript SDK 도메인에 `https://pinmate.kro.kr`, ODsay URI에 `pinmate.kro.kr`을 등록한다. 서버 API의 허용 IP 제한이 있다면 Render의 outbound IP 범위를 확인한다.
 7. 아래 브라우저 점검을 마친 뒤 공개한다.
 
-초기 Vercel Git 연동은 main push로 Production 빌드를 시작할 수 있다. Render는 `autoDeployTrigger: 'off'`이므로 수동 배포한다. 둘을 함께 자동화하려면 최초 운영 점검 후 Render를 `checksPass`로 변경하고 GitHub CI 통과 후 배포하도록 한다. 프론트·백엔드는 따로 배포되므로 호환되는 변경을 먼저 배포한다.
+현재 Vercel은 원본 저장소의 Git 연동 권한이 없어 검증한 main의 추적 파일만 내보내 CLI로 배포했다. Git 연결이 완료된 뒤 main push로 Production 빌드를 시작할 수 있다. Render도 `autoDeployTrigger: 'off'`이므로 수동 배포한다. 둘을 함께 자동화하려면 저장소 소유자의 Vercel Git 접근 설정과 Render의 `checksPass` 설정이 필요하다. 프론트·백엔드는 따로 배포되므로 호환되는 변경을 먼저 배포한다.
 
 ## 배포 후 브라우저 확인
 
@@ -108,13 +122,21 @@ Vercel Root Directory는 `frontend`, Framework는 Vite, Node.js는 CI와 같은 
 
 이 설정은 DB 마이그레이션을 실행하지 않으므로 DB 되돌리기를 포함하지 않는다. 담당자가 별도로 스키마를 변경했다면 그 변경의 복구 절차도 별도로 관리한다.
 
+## 운영 검증 결과 (2026-11-07)
+
+- 권한 DNS·Cloudflare·Google에서 운영 CNAME·소유권 TXT 반영 확인. Vercel 도메인 `verified=true`, `misconfigured=false`, HTTPS 200 확인.
+- 같은 출처 API health 200/UP, 로그인·인증된 DB 조회·로그아웃 후 401 확인. 세션 쿠키 Secure·HttpOnly·SameSite=Lax·host-only 및 API `private, no-store` 확인.
+- 실제 Aside 브라우저에서 로그인, 새로고침 후 세션 유지, 저장된 장소 목록, 라이트·다크 전환, 카카오 지도·장소 검색 확인.
+- 강남역 → 서울역 자동차·도보·자전거·대중교통 경로 응답 확인. 대중교통 소요 시간·요금·환승 상세 표시 확인.
+- 서울 지하철·TAGO 프록시 요청은 HTTP 200/code 00이나 빈 결과였다. 실제 도착 데이터와 상위 API 인증 성공 여부는 별도 확인이 필요하다. 장소·모임 데이터 쓰기는 수행하지 않았다.
+
 ## 로컬 검증 결과 (2026-11-06)
 
 - 프론트 lint 오류 0개(기존 경고 12개), 테스트 66개, production build 통과. API 프록시 원본 검사와 캐시 비활성화 테스트 포함.
 - 백엔드 테스트 116개 통과, 실제 DB가 필요한 컨텍스트 테스트 1개는 제외. Docker 이미지 빌드 통과.
 - Docker의 0.1 CPU·512MB 제한, 외부 네트워크 차단, 가짜 DB 주소로 `prod` 기동 확인. 프로세스 시작부터 약 55초, 유휴 메모리 약 154MiB. `/api/health` 200, 미인증 `/api/teams` 401, Ajax 헤더 없는 로그인 요청 403 확인.
 - YAML 파싱과 무료 플랜·자동 배포 off·DB 자동 변경 차단·쿠키 설정 검사 통과. 테스트 컨테이너 제거 완료.
-- 위 수치는 로컬 무부하 측정이다. 실제 Render의 콜드 스타트·DB 연결·부하 메모리·Vercel 세션 쿠키 왕복·운영 지도 도메인은 미검증이다.
+- 위 수치는 로컬 무부하 측정이다. 운영 인증·지도 결과는 위 항목을 참고한다. Render 절전 후 자동 기동 시간과 실제 부하 메모리는 별도 측정하지 않았다.
 
 ## 공식 문서
 
