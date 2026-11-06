@@ -593,7 +593,7 @@
 /* ── 경로 유지 칩 (패널을 닫아도 남는 요약) ───────────────── */
 .routeChip {
   position: absolute;
-  left: 50%;
+  left: calc(50% + var(--route-panel-shift, 0px));
   top: 132px;
   transform: translateX(-50%);
   z-index: 12;
