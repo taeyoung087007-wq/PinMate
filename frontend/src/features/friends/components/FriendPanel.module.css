@@ -1,17 +1,26 @@
 .panel {
   position: absolute;
-  top: 176px;
+  top: calc(var(--app-header-h, 72px) + 12px);
   /* 우측 원형 버튼(레이어) 열을 비켜 왼쪽에 둔다 */
   right: 74px;
   width: 360px;
   max-width: calc(100% - 32px);
-  max-height: calc(100% - 192px - var(--bottom-nav-h));
+  max-height: calc(100% - var(--app-header-h, 72px) - 24px - var(--bottom-nav-h, 0px));
   display: flex;
   flex-direction: column;
   /* 상단 검색·필터·배너(z-index 25)보다 위에 있어 가리지 않는다 */
   z-index: 26;
   overflow: hidden;
-  border-radius: var(--radius-xl) !important;
+}
+
+.panel:global(.glass-card) {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .dragStrip {
@@ -54,8 +63,8 @@
 }
 
 .count {
-  background: var(--primary-glow);
-  color: var(--primary-light);
+  background: var(--bg-elevated);
+  color: var(--primary);
   padding: 2px 8px;
   border-radius: var(--radius-full);
   font-size: 11px;
@@ -68,8 +77,9 @@
   margin: 8px 12px 0;
   padding: 8px 4px 6px;
   border-radius: var(--radius-md);
-  background: rgba(108, 99, 255, 0.14);
-  border: 1px solid rgba(108, 99, 255, 0.4);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom-color: var(--border);
 }
 
 .requestsLabel {
@@ -79,8 +89,7 @@
   padding: 2px 12px 6px;
   font-size: 11px;
   font-weight: 700;
-  color: var(--primary-light);
-  letter-spacing: 0.04em;
+  color: var(--primary);
 }
 
 .requestsCount {
@@ -92,7 +101,7 @@
   justify-content: center;
   border-radius: 999px;
   background: var(--primary);
-  color: #fff;
+  color: var(--primary-contrast);
   font-size: 10px;
   font-weight: 700;
 }
@@ -110,7 +119,7 @@
 }
 
 .searchBar:focus-within {
-  border-color: rgba(108, 99, 255, 0.55);
+  border-color: var(--primary);
 }
 
 .searchInput {
@@ -136,9 +145,13 @@
   cursor: pointer;
 }
 
+.clearBtn:is(:hover, :focus-visible) {
+  background: var(--bg-hover);
+}
+
 .error {
   margin: 0 16px 6px;
-  color: #ff8a95;
+  color: var(--danger);
   font-size: 12px;
 }
 
@@ -146,6 +159,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding-bottom: 12px;
 }
 
@@ -154,8 +168,6 @@
   font-size: 11px;
   font-weight: 700;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .row {
@@ -163,6 +175,10 @@
   align-items: center;
   gap: 10px;
   padding: 9px 16px;
+}
+
+.row + .row {
+  border-top: 1px solid var(--border);
 }
 
 .avatar {
@@ -215,7 +231,7 @@
   align-items: center;
   gap: 4px;
   padding: 6px 10px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
   font-size: 12px;
   font-weight: 700;
@@ -225,7 +241,7 @@
 
 .addBtn {
   background: var(--primary);
-  color: #fff;
+  color: var(--primary-contrast);
 }
 
 .addBtn:disabled,
@@ -236,14 +252,14 @@
 }
 
 .acceptBtn {
-  background: rgba(34, 197, 94, 0.16);
-  border-color: rgba(34, 197, 94, 0.35);
-  color: #6ee7a8;
+  background: var(--bg-elevated);
+  border-color: var(--border-strong);
+  color: var(--success);
 }
 
 .ghostBtn {
   padding: 6px 10px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-secondary);
@@ -252,7 +268,7 @@
   cursor: pointer;
 }
 
-.ghostBtn:hover {
+.ghostBtn:is(:hover, :focus-visible) {
   background: var(--bg-hover);
 }
 

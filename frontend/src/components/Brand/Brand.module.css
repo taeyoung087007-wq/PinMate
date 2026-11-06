@@ -1,0 +1,28 @@
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+  vertical-align: middle;
+  background: transparent;
+}
+
+.symbol {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  filter: var(--brand-symbol-filter);
+}
+
+.wordmark {
+  width: 120px;
+  height: auto;
+  object-fit: contain;
+  filter: var(--brand-wordmark-filter, brightness(0));
+}
+
+@media (max-width: 900px) {
+  .brand { gap: 7px; }
+  .symbol { width: 32px; height: 32px; }
+  .wordmark { width: 96px; }
+}

@@ -14,11 +14,11 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  border: 2px solid var(--bg-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
   font-size: 16px;
   line-height: 1;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease;
 }
 
 .pinWrap:hover .pinBody {
@@ -27,19 +27,17 @@
 
 .pinWrapSelected .pinBody {
   transform: scale(1.14);
-  border-color: #ffffff;
-  box-shadow: 0 0 0 4px rgba(108, 99, 255, 0.35), 0 4px 14px rgba(0, 0, 0, 0.4);
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
 }
 
-/* '모두 인정' 골드 마커 */
+/* 과반·모두 인정 마커는 기존 은색·금색 바탕과 테두리로 구분한다. */
 .pinWrapSilver .pinBody {
-  border-color: #e3e8f0;
-  box-shadow: 0 0 0 3px rgba(154, 168, 188, 0.3), 0 3px 12px rgba(154, 168, 188, 0.35);
+  border-color: #627182;
 }
 
 .pinWrapGold .pinBody {
-  border-color: #fff0b3;
-  box-shadow: 0 0 0 3px rgba(255, 186, 8, 0.25), 0 3px 12px rgba(255, 186, 8, 0.35);
+  border-color: #9b6a20;
 }
 
 /* 추천 수 뱃지 */
@@ -50,9 +48,11 @@
   min-width: 17px;
   height: 17px;
   padding: 0 4px;
-  border-radius: var(--radius-full);
-  border: 1.5px solid #ffffff;
-  color: #ffffff;
+  border-radius: 6px;
+  border: 1.5px solid var(--border-strong);
+  /* 추천 수는 동적 멤버 색 위에서도 두 테마의 글자 대비를 유지한다. */
+  background: var(--bg-surface) !important;
+  color: var(--text-primary);
   font-size: 10px;
   font-weight: 700;
   line-height: 14px;
@@ -67,8 +67,10 @@
   transform: translateX(-50%);
   padding: 3px 8px;
   border-radius: 6px;
-  background: rgba(16, 17, 30, 0.92);
-  color: #ffffff;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
@@ -95,12 +97,13 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  color: #fff;
+  border: 2px solid var(--bg-surface);
+  /* 카테고리 바탕은 SDK에 넘기는 고정 밝은 색이다. */
+  color: #29251f;
   font-size: 15px;
   font-weight: 700;
   font-family: var(--font-base);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
   transition: transform var(--transition);
 }
 
@@ -116,8 +119,7 @@
 /* 내 지도 공개 핀 오버레이: 기본 핀과 구분되게 점선 테두리 */
 .pinWrapPersonal .pinBody {
   border-style: dashed;
-  border-color: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.3), 0 3px 12px rgba(0, 0, 0, 0.4);
+  border-color: var(--primary);
 }
 
 /* 친구 지도 오버레이 핀: 파란 테두리로 내 핀과 구분 */
@@ -128,10 +130,9 @@
 .pinWrapFriend .pinBody {
   border-style: solid;
   border-color: #7fd4ff;
-  box-shadow: 0 0 0 3px rgba(64, 196, 255, 0.3), 0 3px 12px rgba(0, 0, 0, 0.4);
 }
 
-/* 모임원이 내 지도에서 공유한 핀: 친구 핀(파랑)·내 공개 핀(보라)과 구분되는 초록 테두리 */
+/* 모임원이 내 지도에서 공유한 핀: 친구 핀·내 공개 핀과 구분되는 초록 테두리 */
 .pinWrapMember {
   transform: translate(10px, -12px);
 }
@@ -139,7 +140,6 @@
 .pinWrapMember .pinBody {
   border-style: solid;
   border-color: #6ee7c0;
-  box-shadow: 0 0 0 3px rgba(12, 166, 120, 0.3), 0 3px 12px rgba(0, 0, 0, 0.4);
 }
 
 /* 친구 지도 핀 위 태그 */
@@ -149,9 +149,10 @@
   left: 50%;
   transform: translateX(-50%);
   padding: 1px 6px;
-  border-radius: 999px;
-  background: #2b7fff;
-  color: #fff;
+  border-radius: 6px;
+  border: 1px solid #2b7fff;
+  background: var(--bg-surface);
+  color: var(--text-primary);
   font-size: 9px;
   font-weight: 700;
   white-space: nowrap;
@@ -165,9 +166,10 @@
   left: 50%;
   transform: translateX(-50%);
   padding: 1px 6px;
-  border-radius: 999px;
-  background: #0ca678;
-  color: #fff;
+  border-radius: 6px;
+  border: 1px solid #0ca678;
+  background: var(--bg-surface);
+  color: var(--text-primary);
   font-size: 9px;
   font-weight: 700;
   white-space: nowrap;
@@ -181,9 +183,10 @@
   left: 50%;
   transform: translateX(-50%);
   padding: 1px 6px;
-  border-radius: 999px;
-  background: rgba(108, 99, 255, 0.95);
-  color: #fff;
+  border-radius: 6px;
+  border: 1px solid var(--primary);
+  background: var(--bg-surface);
+  color: var(--primary);
   font-size: 9px;
   font-weight: 700;
   white-space: nowrap;

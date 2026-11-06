@@ -1,120 +1,87 @@
 .container {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  overflow: hidden;
   background: var(--bg-base);
-  padding: 24px;
-}
-
-.blob1, .blob2, .blob3 {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  pointer-events: none;
-  animation: float 6s ease-in-out infinite;
-}
-.blob1 {
-  width: 500px; height: 500px;
-  background: radial-gradient(circle, rgba(108,99,255,0.25) 0%, transparent 70%);
-  top: -150px; left: -100px;
-  animation-delay: 0s;
-}
-.blob2 {
-  width: 400px; height: 400px;
-  background: radial-gradient(circle, rgba(255,107,157,0.2) 0%, transparent 70%);
-  bottom: -100px; right: -80px;
-  animation-delay: 2s;
-}
-.blob3 {
-  width: 300px; height: 300px;
-  background: radial-gradient(circle, rgba(16,217,164,0.15) 0%, transparent 70%);
-  top: 50%; left: 60%;
-  animation-delay: 4s;
-}
-
-.grid {
-  position: absolute;
-  inset: 0;
-  background-image: 
-    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-  background-size: 48px 48px;
-  pointer-events: none;
+  color: var(--text-primary);
+  padding: 40px 24px;
 }
 
 .content {
-  position: relative;
-  z-index: 1;
   width: 100%;
   max-width: 400px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 32px;
+  gap: 24px;
 }
 
 /* Logo */
 .logo {
+  width: 100%;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 14px;
 }
-.logoIcon {
-  width: 56px; height: 56px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 8px 24px var(--primary-glow);
+.authHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
 }
-.logoTitle {
-  font-size: 28px;
-  font-weight: 800;
-  background: linear-gradient(135deg, #fff 0%, var(--primary-light) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  letter-spacing: -0.5px;
+.brand {
+  min-width: 0;
+}
+.appearance {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 .logoSub {
   font-size: 13px;
   color: var(--text-secondary);
-  margin-top: 2px;
+  line-height: 1.6;
 }
 
 /* Card */
 .card {
   width: 100%;
-  padding: 32px;
+  padding: 28px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Tabs */
 .tabs {
   display: flex;
   gap: 4px;
-  background: var(--bg-elevated);
-  border-radius: var(--radius-full);
-  padding: 4px;
-  margin-bottom: 28px;
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+  margin-bottom: 24px;
 }
 .tab {
   flex: 1;
   padding: 8px 16px;
-  border-radius: var(--radius-full);
+  border-radius: 0;
   font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition);
   cursor: pointer;
   background: none;
-  border: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
 }
+.tab:hover, .tab:focus-visible { background: var(--bg-hover); }
 .tabActive {
-  background: var(--primary);
-  color: white;
-  box-shadow: 0 2px 12px var(--primary-glow);
+  background: transparent;
+  border-bottom-color: var(--primary);
+  color: var(--primary);
 }
 
 /* Form */
@@ -135,26 +102,27 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 .pwWrap {
   position: relative;
 }
-.pwWrap .input {
-  padding-right: 44px;
+.pwWrap input {
+  padding-right: 48px;
 }
 .pwToggle {
   position: absolute;
-  right: 12px;
+  right: 4px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-muted);
   cursor: pointer;
   background: none;
   border: none;
-  display: flex;
-  align-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
   transition: color var(--transition);
 }
 .pwToggle:hover {
@@ -165,7 +133,7 @@
   margin-top: 8px;
   width: 100%;
   padding: 14px;
-  font-size: 15px;
+  font-size: 14px;
 }
 /* Features */
 .features {
@@ -173,17 +141,19 @@
   flex-direction: column;
   gap: 10px;
   width: 100%;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
 }
 .featureItem {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.6;
   color: var(--text-secondary);
-  animation: fadeIn 0.5s var(--ease) both;
 }
 .featureItem span:first-child {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 /* Invite & Signup enhancements */
@@ -192,16 +162,20 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: rgba(6, 214, 160, 0.12);
-  border: 1px solid rgba(6, 214, 160, 0.3);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: #06D6A0;
+  color: var(--text-primary);
   font-size: 12px;
   line-height: 1.4;
 }
+.inviteBadge svg {
+  flex-shrink: 0;
+  color: var(--success);
+}
 .inviteErrorText {
   font-size: 12px;
-  color: var(--danger, #FF6B6B);
+  color: var(--danger);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -211,23 +185,28 @@
   align-items: center;
   gap: 8px;
   font-size: 12px;
+  line-height: 1.6;
   color: var(--text-secondary);
   cursor: pointer;
   margin-top: 4px;
 }
 .termsCheck input[type="checkbox"] {
+  flex-shrink: 0;
   cursor: pointer;
   accent-color: var(--primary);
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 
 .errorBanner {
-  background: rgba(255, 107, 107, 0.15);
-  border: 1px solid rgba(255, 107, 107, 0.4);
-  color: #FF6B6B;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  color: var(--danger);
   padding: 10px 14px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
   font-size: 13px;
   display: flex;
   align-items: center;
@@ -235,14 +214,31 @@
 }
 
 .successBanner {
-  background: rgba(6, 214, 160, 0.15);
-  border: 1px solid rgba(6, 214, 160, 0.4);
-  color: #06D6A0;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  color: var(--success);
   padding: 10px 14px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
   font-size: 13px;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.errorBanner svg,
+.successBanner svg {
+  flex-shrink: 0;
+}
+
+@media (max-width: 520px) {
+  .container { padding: 28px 20px; }
+  .card { padding: 24px 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab, .pwToggle { transition: none; }
 }
 

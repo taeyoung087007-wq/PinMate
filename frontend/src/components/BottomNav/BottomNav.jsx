@@ -11,7 +11,7 @@ import styles from './BottomNav.module.css'
  * - 설정
  * 배지는 '처리할 것이 있다'는 표시로만 쓴다 (받은 친구 요청, 처리 안 한 알림). 전체 개수는 각 패널 안에서 보여준다
  */
-export default function BottomNav({ activeTab, onTabChange, friendCount = 0, notificationCount = 0 }) {
+export default function BottomNav({ activeTab, onTabChange, friendCount = 0, notificationCount = 0, variant = 'bottom' }) {
   const tabs = [
     { id: 'map', label: '지도', icon: Map },
     { id: 'teams', label: '모임', icon: Users },
@@ -22,7 +22,7 @@ export default function BottomNav({ activeTab, onTabChange, friendCount = 0, not
   ]
 
   return (
-    <nav className={styles.bottomNav} aria-label="하단 메뉴">
+    <nav className={variant === 'desktop' ? styles.desktopNav : styles.bottomNav} aria-label={variant === 'desktop' ? '주 메뉴' : '하단 메뉴'}>
       <div className={styles.navInner}>
         {tabs.map((tab) => {
           const Icon = tab.icon
@@ -31,6 +31,7 @@ export default function BottomNav({ activeTab, onTabChange, friendCount = 0, not
           return (
             <button
               key={tab.id}
+              type="button"
               className={`${styles.tabBtn} ${isActive ? styles.tabBtnActive : ''}`}
               onClick={() => onTabChange(tab.id)}
               aria-current={isActive ? 'page' : undefined}
