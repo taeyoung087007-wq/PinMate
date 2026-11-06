@@ -13,7 +13,7 @@ const SDK_URL = 'https://dapi.kakao.com/v2/maps/sdk.js'
 let sdkPromise = null
 
 const AUTH_FAILURE_MESSAGE =
-  '카카오 지도 인증에 실패했습니다. 카카오 콘솔의 JavaScript 키와 등록 도메인(http://localhost:5173)을 확인하세요.'
+  '카카오 지도 인증에 실패했습니다. 카카오 콘솔의 JavaScript 키와 현재 접속 도메인을 확인하세요.'
 
 /** 실패 원인을 호출부에서 구분할 수 있도록 code를 붙인 Error를 만든다 */
 function sdkError(message, code) {
