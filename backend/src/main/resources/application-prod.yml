@@ -1,0 +1,25 @@
+server:
+  port: ${PORT:10000}
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      timeout: 8h
+      cookie:
+        secure: true
+        http-only: true
+        same-site: lax
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 0
+  # 공유 DB의 스키마 변경은 DB 담당자가 별도로 수행한다.
+  flyway:
+    enabled: false
+  sql:
+    init:
+      mode: never

@@ -180,3 +180,9 @@ Settings → Branches → Add branch protection rule (또는 Rulesets)
 | **F-53** | 팀원별 색상 및 필터 | ✅ 구현 완료 | `MapPage.jsx` (팀원 필터 칩) |
 | **-** | 장소 직접 등록 / 검색 | ✅ 구현 완료 | `AddPinModal.jsx` |
 | **-** | 카카오맵 바로가기 | ✅ 구현 완료 | `PinDetailPanel.jsx` |
+
+## 7. 배포 준비
+
+Vercel 프론트 + Render Free 백엔드 + 기존 PostgreSQL을 사용합니다. 운영 도메인은 `https://pinmate.kro.kr`이며, 환경변수·DB 확인·최초 배포·롤백 순서는 [배포 가이드](docs/deployment.md)에 정리했습니다.
+
+현재 설정은 Render 자동 배포와 운영 DB 자동 마이그레이션을 끈 상태입니다. 설정 파일을 머지하는 것만으로 클라우드 서비스가 생성되거나 배포되지는 않습니다.
